@@ -1,3 +1,6 @@
+using Microsoft.Extensions.DependencyInjection;
+using Winche.Console.Email;
+
 namespace Winche.Console.Options;
 
 /// <summary>Configuration for the console's built-in authentication.</summary>
@@ -12,4 +15,44 @@ public sealed class ConsoleOptions
 
     /// <summary>Self-service password reset (effective only when an IConsoleEmailSender is registered). Phase 4.</summary>
     public bool AllowSelfServicePasswordReset { get; set; } = true;
+
+    /// <summary>
+    /// Buffered email-sender registration; applied against the host's service collection by
+    /// AddWincheConsole. Null when the consumer never calls UseEmailSender (email features stay off).
+    /// </summary>
+    internal Action<IServiceCollection>? EmailSenderRegistration { get; private set; }
+
+    /// <summary>
+    /// Register an <see cref="IConsoleEmailSender"/> implementation type; resolved from DI so it can take
+    /// constructor dependencies. Enables self-service password reset and admin invites.
+    /// </summary>
+    public ConsoleOptions UseEmailSender<TSender>(ServiceLifetime lifetime = ServiceLifetime.Singleton)
+        where TSender : class, IConsoleEmailSender
+    {
+        EmailSenderRegistration = services =>
+            services.Add(new ServiceDescriptor(typeof(IConsoleEmailSender), typeof(TSender), lifetime));
+        return this;
+    }
+
+    /// <summary>
+    /// Register an <see cref="IConsoleEmailSender"/> via a factory with access to the
+    /// <see cref="IServiceProvider"/> for full control over construction.
+    /// </summary>
+    public ConsoleOptions UseEmailSender(
+        Func<IServiceProvider, IConsoleEmailSender> factory,
+        ServiceLifetime lifetime = ServiceLifetime.Singleton)
+    {
+        ArgumentNullException.ThrowIfNull(factory);
+        EmailSenderRegistration = services =>
+            services.Add(new ServiceDescriptor(typeof(IConsoleEmailSender), factory, lifetime));
+        return this;
+    }
+
+    /// <summary>Register an already-constructed singleton <see cref="IConsoleEmailSender"/> instance.</summary>
+    public ConsoleOptions UseEmailSender(IConsoleEmailSender instance)
+    {
+        ArgumentNullException.ThrowIfNull(instance);
+        EmailSenderRegistration = services => services.AddSingleton(instance);
+        return this;
+    }
 }

@@ -28,6 +28,22 @@ export const valueTypeOptions: { value: ValueType; label: string }[] = [
   { value: "map", label: "map" },
 ];
 
+/** A short, one-line description of a value for the collapsed (preview) state of a field. */
+export function summarizeValue(v: EditValue): string {
+  switch (v.type) {
+    case "array": return `array · ${(v.items ?? []).length} item(s)`;
+    case "map": return `map · ${(v.entries ?? []).length} field(s)`;
+    case "boolean": return `boolean · ${v.bool ? "true" : "false"}`;
+    case "geopoint": return `geopoint · ${v.lat ?? "0"}, ${v.lng ?? "0"}`;
+    case "null": return "null";
+    default: {
+      const t = v.text ?? "";
+      const preview = t.length > 48 ? `${t.slice(0, 48)}…` : t;
+      return preview ? `${v.type} · ${preview}` : v.type;
+    }
+  }
+}
+
 export function defaultValue(type: ValueType): EditValue {
   switch (type) {
     case "boolean": return { type, bool: false };

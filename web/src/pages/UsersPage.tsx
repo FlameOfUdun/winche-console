@@ -1,9 +1,9 @@
 import { useState } from "react";
 import {
-  ActionIcon, Badge, Button, Group, Menu, Modal, PasswordInput, Select, Stack, Switch,
-  Table, Text, TextInput, Title,
+  ActionIcon, Badge, Box, Button, Group, Menu, Modal, PasswordInput, Select, Stack, Switch,
+  Table, Text, TextInput,
 } from "@mantine/core";
-import { IconDots, IconPlus } from "@tabler/icons-react";
+import { IconDots, IconPlus, IconUsers } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ConsoleRole, ConsoleUserItem } from "../api/types";
@@ -22,18 +22,18 @@ export function UsersPage() {
   const unlock = useMutation({ mutationFn: (id: string) => api.unlockUser(id), onSuccess: invalidate });
 
   return (
-    <Stack gap="lg">
+    <Stack gap="sm" h="calc(100vh - 4rem)">
       <Group justify="space-between">
-        <div>
-          <Title order={2} fw={600} c="#202124">Users</Title>
-          <Text c="dimmed" size="sm" mt={2}>Console accounts and their roles.</Text>
-        </div>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setCreateOpen(true)}>New user</Button>
+        <Group gap={6} c="#5f6368">
+          <IconUsers size={18} />
+          <Text size="sm" fw={500} c="#5f6368">Users</Text>
+        </Group>
+        <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>New user</Button>
       </Group>
 
-      <Table.ScrollContainer minWidth={680}>
-        <Table verticalSpacing="sm" highlightOnHover withTableBorder>
-          <Table.Thead>
+      <Box style={{ flex: 1, minHeight: 0, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+        <Table verticalSpacing="sm" highlightOnHover>
+          <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
             <Table.Tr>
               <Table.Th>Email</Table.Th><Table.Th>Name</Table.Th><Table.Th>Role</Table.Th>
               <Table.Th>Status</Table.Th><Table.Th w={48} />
@@ -68,7 +68,7 @@ export function UsersPage() {
             ))}
           </Table.Tbody>
         </Table>
-      </Table.ScrollContainer>
+      </Box>
 
       <CreateUserModal opened={createOpen} onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); invalidate(); }} />
       {edit && <EditUserModal user={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); invalidate(); }} />}

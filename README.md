@@ -5,7 +5,8 @@ An **in-process admin console** (superuser data + storage browser) for a .NET ap
 ASP.NET Core app — there is no separate service to deploy.
 
 It is the Firebase-console-style view over your app's single datastore: browse, query, and edit JSON
-documents; and upload, download, browse, edit metadata on, and delete stored files. It manages **its own
+documents through a Firestore-style collapsible field tree (every map and array collapses, edits are
+inline and persist on confirm); and upload, download, browse, edit metadata on, and delete stored files. It manages **its own
 accounts and roles** (built-in authentication). Rules, indexes, and triggers are **not** managed here —
 those live in your app's C# startup (`UseRules` / `UseIndexes` / `UseHooks`).
 
@@ -48,9 +49,22 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
   delete; last-admin protected). Users manage their own name, password, and two-factor.
 - **Two-factor (TOTP):** users can enroll an authenticator app; Admins can *require* 2FA per user (a
   forced-setup gate blocks everything but enrollment until they comply).
-- **Email (optional):** register an `IConsoleEmailSender` to enable self-service password reset and email
-  invites (create a user with no password → they receive a set-password link). Without an adapter those
-  features are simply off (`AllowSelfServicePasswordReset` further gates self-service reset).
+- **Email (optional):** wire an `IConsoleEmailSender` to enable self-service password reset and email
+  invites (create a user with no password → they receive a set-password link). Register it right in the
+  `AddWincheConsole` callback via `ConsoleOptions.UseEmailSender`:
+
+  ```csharp
+  services.AddWincheConsole(o =>
+  {
+      o.ConnectionString = "...";
+      o.UseEmailSender<SmtpEmailSender>();                       // type (resolved from DI)
+      // o.UseEmailSender(sp => new SmtpEmailSender(sp.GetRequiredService<IConfiguration>())); // factory
+      // o.UseEmailSender(myInstance);                            // instance
+  });
+  ```
+  
+  Without an adapter those features are simply off (`AllowSelfServicePasswordReset` further gates
+  self-service reset).
 
 ## API (under the chosen prefix)
 
@@ -61,7 +75,6 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
 - **Storage** (Viewer reads/downloads, Member writes) — `POST api/storage/list`,
   `GET api/storage/browse?path=`, `GET/DELETE api/storage/files/{base64Path}`,
   `POST api/storage/{upload-url,confirm,metadata}`, `GET api/storage/download-url?path=`
-- **Usage** — `GET api/usage` → `{ documentCount, fileCount }`
 
 Document/file paths are standard-base64 of the UTF-8 path (those that travel in a route segment);
 the storage write endpoints take the path in the body/query instead. Malformed base64 returns `400`.
@@ -70,17 +83,11 @@ the storage write endpoints take the path in the body/query instead. Malformed b
 > URL the browser PUTs the bytes to; `confirm` then finalizes it. `download-url` returns a short-lived GET
 > URL. This needs an object store (S3/MinIO) configured on `Winche.Storage` — with a metadata-only archive
 > the records exist but byte transfer is unavailable.
-
 > **Known limitation:** the console uses ASP.NET Core Identity's standard cookie scheme names. If your
 > *host app* also uses ASP.NET Core Identity, the scheme names would collide. Winche consumers typically
 > use their own auth (or BYO-JWT), so this is fine in practice.
-
 > Collection and storage-folder listing use the library's own listers — `ListCollectionIdsAsync`
-> (Winche.Database 8.3) and `ListDirectoryIdsAsync` (Winche.Storage 6.3). Only the **usage-count**
-> endpoint still runs raw `count(*)` against the `winche_documents` / `winche_files` tables resolved
-> through the connection's `search_path` (the Winche default); if those tables live in a non-default
-> schema, set `search_path` on the connection string you pass to `AddWincheDatabase` /
-> `AddWincheStorage`.
+> (Winche.Database 8.3) and `ListDirectoryIdsAsync` (Winche.Storage 6.3).
 
 ## What it is not
 
@@ -103,6 +110,6 @@ The SPA lives in `web/` (React + Vite + TypeScript + Mantine) and builds into
 
 `dotnet test` boots `tests/SampleHost` (a minimal app that calls `AddWincheConsole`) via
 `WebApplicationFactory` and exercises auth (setup/login/roles), user management, two-factor (real TOTP),
-the optional email flows, and the data/storage/usage/SPA behavior. It spins an ephemeral **PostgreSQL**
+the optional email flows, and the data/storage/SPA behavior. It spins an ephemeral **PostgreSQL**
 container with **Testcontainers** (a separate database for the console's auth tables), so a running
 Docker daemon is required; no local services or fixed ports are needed.

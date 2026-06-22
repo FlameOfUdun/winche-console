@@ -28,6 +28,7 @@ public static class WincheConsoleExtensions
                 "AddWincheConsole requires ConsoleOptions.ConnectionString (the console's own auth database).");
 
         services.AddSingleton(options);
+        options.EmailSenderRegistration?.Invoke(services);
         services.AddSingleton<ConsolePrefix>();
         services.AddConsoleIdentity(options);
         services.AddHostedService<ConsoleStartupService>();
@@ -60,7 +61,6 @@ public static class WincheConsoleExtensions
         group.MapUserEndpoints();
         group.MapConsoleDataEndpoints();
         group.MapConsoleStorageEndpoints();
-        group.MapConsoleUsageEndpoints();
         ConsoleSpa.Map(group, prefix);
         return group;
     }

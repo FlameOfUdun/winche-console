@@ -111,14 +111,22 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
   useEffect(() => { if (doc.data) setEntries(parseFields(doc.data.fields)); }, [doc.data]);
 
   const save = useMutation({
-    mutationFn: () => api.putDocument(docPath, serializeFields(entries)),
+    mutationFn: (fields: Record<string, unknown>) => api.putDocument(docPath, fields),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["doc", docPath] });
       qc.invalidateQueries({ queryKey: ["data", docPath.split("/").slice(0, -1).join("/")] });
     },
   });
 
-  const dirty = !!doc.data && JSON.stringify(serializeFields(entries)) !== JSON.stringify(doc.data.fields);
+  // Edits persist immediately. Every field-tree change (a ✓ commit, add, or delete) PUTs the whole
+  // document when its serialized form differs from what the server currently has. Adding an empty field
+  // is a no-op here (serializeFields drops blank-named fields) until you confirm it with a name.
+  const handleChange = (next: FieldEntry[]) => {
+    setEntries(next);
+    if (canWrite && doc.data && JSON.stringify(serializeFields(next)) !== JSON.stringify(doc.data.fields)) {
+      save.mutate(serializeFields(next));
+    }
+  };
 
   return (
     <Column width={DOC_W}>
@@ -143,17 +151,12 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
 
         <Group justify="space-between" px="sm" pt="xs" mih={26}>
           <Text size="xs" fw={600} c="#5f6368">FIELDS</Text>
-          {dirty && canWrite && (
-            <Group gap={6}>
-              <Button size="compact-xs" variant="default"
-                onClick={() => doc.data && setEntries(parseFields(doc.data.fields))}>Revert</Button>
-              <Button size="compact-xs" onClick={() => save.mutate()} loading={save.isPending}>Save</Button>
-            </Group>
-          )}
+          {save.isPending && <Text size="xs" c="dimmed">Saving…</Text>}
+          {save.isError && <Text size="xs" c="red">Save failed</Text>}
         </Group>
         <Box p="sm">
           {doc.isLoading ? <Text size="sm">Loading…</Text>
-            : <FieldsEditor entries={entries} onChange={setEntries} readOnly={!canWrite} />}
+            : <FieldsEditor entries={entries} onChange={handleChange} readOnly={!canWrite} />}
         </Box>
       </Box>
     </Column>
