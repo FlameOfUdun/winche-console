@@ -1,0 +1,51 @@
+# Postgres + MinIO for the Winche.Console sample. Start with: docker compose up -d
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: winche-sample-db
+    environment:
+      POSTGRES_DB: winche_sample
+      POSTGRES_USER: winche
+      POSTGRES_PASSWORD: winche
+    ports:
+      # Host port 5433 (not 5432) to avoid clashing with a local PostgreSQL you may already run.
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U winche -d winche_sample"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # S3-compatible object store for file upload/download. Served over TLS so the https presigned URLs
+  # (the S3 archive always presigns https) work from the browser. The cert in ./minio-certs is the
+  # .NET dev cert (CN=localhost), already trusted by the browser — generate it with:
+  #   dotnet dev-certs https --export-path minio-certs/cert.pfx --password winche --format Pfx
+  #   openssl pkcs12 -in minio-certs/cert.pfx -clcerts -nokeys -out minio-certs/public.crt -passin pass:winche
+  #   openssl pkcs12 -in minio-certs/cert.pfx -nocerts -nodes  -out minio-certs/private.key -passin pass:winche
+  minio:
+    image: minio/minio
+    container_name: winche-sample-minio
+    command: server /data --console-address ":9001" --certs-dir /certs
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      # Allow the browser (served from the console on :5080) to PUT/GET presigned objects.
+      MINIO_API_CORS_ALLOW_ORIGIN: "http://localhost:5080"
+    volumes:
+      - ./minio-certs:/certs:ro
+    ports:
+      # Host ports 9100/9101 (not 9000/9001) to avoid clashing with other local services.
+      - "9100:9000"   # S3 API (https presigned URLs)
+      - "9101:9001"   # MinIO web console
+
+  # Creates the sample bucket on startup, then exits. Uses --insecure because the cert is for
+  # "localhost", not the internal "minio" hostname.
+  createbucket:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local https://minio:9000 minioadmin minioadmin --insecure; do sleep 2; done;
+      /usr/bin/mc mb --insecure --ignore-existing local/winche-sample;
+      exit 0;
+      "

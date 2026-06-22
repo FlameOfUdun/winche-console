@@ -1,0 +1,29 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+*.user
+
+# Node / SPA
+node_modules/
+web/dist/
+*.tsbuildinfo
+# Compiled output of vite.config.ts (tsc -b emits these next to the source)
+web/vite.config.js
+web/vite.config.d.ts
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+
+# Note: src/Winche.Console/wwwroot/ is intentionally tracked — it holds the built SPA
+# that is embedded into the NuGet package. It is NOT a build-output directory to ignore.
+
+# Local MinIO TLS certs (generated from the .NET dev cert)
+samples/minio-certs/
+
+# Working docs (plans, designs) — not part of the published source
+docs/
