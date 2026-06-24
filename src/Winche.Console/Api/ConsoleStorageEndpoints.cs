@@ -55,6 +55,15 @@ public static class ConsoleStorageEndpoints
             return Results.NoContent();
         }).RequireAuthorization(ConsoleRoles.MemberPolicy);
 
+        // Cascading directory delete: FileStorage.DeleteAsync removes the path plus everything under
+        // "<path>/", so passing a directory id wipes the whole subtree in one transaction.
+        group.MapDelete("/directories/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
+        {
+            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            await files.DeleteAsync(decoded, ct);
+            return Results.NoContent();
+        }).RequireAuthorization(ConsoleRoles.MemberPolicy);
+
         // Create the file record + return a presigned upload URL. The SPA then PUTs the bytes to that URL
         // and calls /confirm. (Paths carry slashes, so these endpoints take the path in the body/query.)
         group.MapPost("/upload-url", async (UploadUrlRequest body, [FromServices] FileStorage files, CancellationToken ct) =>

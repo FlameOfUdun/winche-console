@@ -72,6 +72,7 @@ export const api = {
   browseStorage: (path: string) =>
     http<BrowseResult>("GET", `api/storage/browse?path=${encodeURIComponent(path)}`),
   deleteFile: (path: string) => http<void>("DELETE", `api/storage/files/${b64Path(path)}`),
+  deleteDirectory: (path: string) => http<void>("DELETE", `api/storage/directories/${b64Path(path)}`),
   uploadUrl: (path: string, mimeType: string, sizeBytes: number, metadata: Record<string, unknown>) =>
     http<{ uploadUrl: string; expiresAt: string }>("POST", "api/storage/upload-url", { path, mimeType, sizeBytes, metadata }),
   confirmUpload: (path: string) => http<FileRecord>("POST", "api/storage/confirm", { path }),

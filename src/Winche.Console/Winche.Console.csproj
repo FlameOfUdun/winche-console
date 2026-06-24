@@ -15,7 +15,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Npgsql" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="10.0.0" />
-    <PackageReference Include="Winche.Database" Version="8.3.0" />
+    <PackageReference Include="Winche.Database" Version="8.4.0" />
     <PackageReference Include="Winche.Storage" Version="6.3.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />

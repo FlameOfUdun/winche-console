@@ -50,6 +50,31 @@ public class ConsoleStorageApiTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Delete_directory_cascades_to_all_files_underneath()
+    {
+        await fx.ResetAuthAsync();
+        using var app = new ConsoleAppFactory(fx);
+        using (var scope = app.Services.CreateScope())
+        {
+            var files = scope.ServiceProvider.GetRequiredService<FileStorage>();
+            await files.SetAsync("docs/a.txt", "text/plain", 1, new System.Text.Json.Nodes.JsonObject(), default);
+            await files.SetAsync("docs/sub/b.txt", "text/plain", 1, new System.Text.Json.Nodes.JsonObject(), default);
+            await files.SetAsync("other/c.txt", "text/plain", 1, new System.Text.Json.Nodes.JsonObject(), default);
+        }
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        var del = await client.DeleteAsync($"/_console/api/storage/directories/{B64("docs")}");
+        Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
+
+        // Everything under docs/ is gone; the sibling directory is untouched.
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/_console/api/storage/files/{B64("docs/a.txt")}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/_console/api/storage/files/{B64("docs/sub/b.txt")}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/_console/api/storage/files/{B64("other/c.txt")}")).StatusCode);
+    }
+
+    [Fact]
     public async Task Upload_confirm_download_and_metadata()
     {
         await fx.ResetAuthAsync();

@@ -6,7 +6,10 @@ ASP.NET Core app — there is no separate service to deploy.
 
 It is the Firebase-console-style view over your app's single datastore: browse, query, and edit JSON
 documents through a Firestore-style collapsible field tree (every map and array collapses, edits are
-inline and persist on confirm); and upload, download, browse, edit metadata on, and delete stored files. It manages **its own
+inline and persist on confirm); and upload, download, browse, edit metadata on, and delete stored files — create folders
+(kept in memory until you upload the first file) or delete a whole folder and everything under it
+(cascading) — with each file's upload status (pending / complete / failed) shown inline. Destructive
+deletes (documents, collections, files, folders) always ask for confirmation first. It manages **its own
 accounts and roles** (built-in authentication). Rules, indexes, and triggers are **not** managed here —
 those live in your app's C# startup (`UseRules` / `UseIndexes` / `UseHooks`).
 
@@ -74,6 +77,7 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
   `GET/PUT/PATCH/DELETE api/data/documents/{base64Path}`, `DELETE api/data/collections/{base64Path}`
 - **Storage** (Viewer reads/downloads, Member writes) — `POST api/storage/list`,
   `GET api/storage/browse?path=`, `GET/DELETE api/storage/files/{base64Path}`,
+  `DELETE api/storage/directories/{base64Path}` (cascading folder delete),
   `POST api/storage/{upload-url,confirm,metadata}`, `GET api/storage/download-url?path=`
 
 Document/file paths are standard-base64 of the UTF-8 path (those that travel in a route segment);

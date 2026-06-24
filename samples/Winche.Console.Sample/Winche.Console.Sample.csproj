@@ -7,7 +7,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Winche.Database" Version="8.3.0" />
+    <PackageReference Include="Winche.Database" Version="8.4.0" />
     <PackageReference Include="Winche.Storage" Version="6.3.0" />
     <PackageReference Include="Winche.Storage.S3" Version="6.3.0" />
   </ItemGroup>

@@ -6,6 +6,7 @@ import { IconChevronRight, IconDatabase, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
+import { ConfirmModal } from "../components/ConfirmModal";
 import { FieldsEditor } from "../data/FieldsEditor";
 import { parseFields, serializeFields, type FieldEntry } from "../data/fields";
 
@@ -169,6 +170,7 @@ function DataView() {
   const qc = useQueryClient();
   const [added, setAdded] = useState<string[]>([]);
   const [levels, setLevels] = useState<Level[]>([]);
+  const [confirm, setConfirm] = useState<{ kind: "document" | "collection"; path: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -213,6 +215,7 @@ function DataView() {
   const remove = useMutation({
     mutationFn: (path: string) => api.deleteDocument(path),
     onSuccess: (_r, path) => {
+      setConfirm(null);
       setLevels((ls) => ls.map((l) => (`${l.collection}/${l.doc}` === path ? { ...l, doc: null } : l)));
       qc.invalidateQueries({ queryKey: ["data", path.split("/").slice(0, -1).join("/")] });
       qc.invalidateQueries({ queryKey: ["collections"] });
@@ -222,6 +225,7 @@ function DataView() {
   const deleteCollection = useMutation({
     mutationFn: (collection: string) => api.deleteCollection(collection),
     onSuccess: (_r, collection) => {
+      setConfirm(null);
       setAdded((a) => a.filter((c) => c !== collection && !c.startsWith(collection + "/")));
       setLevels((ls) => ls.filter((l) => l.collection !== collection && !l.collection.startsWith(collection + "/")));
       qc.invalidateQueries({ queryKey: ["collections"] });
@@ -229,6 +233,14 @@ function DataView() {
       qc.invalidateQueries({ queryKey: ["data", collection] });
     },
   });
+
+  // Destructive deletes go through a confirmation dialog; the trash buttons just stage the target here.
+  const confirmDelete = () => {
+    if (!confirm) return;
+    if (confirm.kind === "document") remove.mutate(confirm.path);
+    else deleteCollection.mutate(confirm.path);
+  };
+  const confirmName = confirm?.path.split("/").pop();
 
   const crumbs: { label: string; nav: () => void }[] = [];
   levels.forEach((l, i) => {
@@ -258,7 +270,7 @@ function DataView() {
             {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">No collections yet. Add one above.</Text>}
             {roots.map((c) => (
               <Row key={c} active={levels[0]?.collection === c} onClick={() => openRoot(c)} label={c}
-                onDelete={() => deleteCollection.mutate(c)} deleteLabel="Delete collection" />
+                onDelete={() => setConfirm({ kind: "collection", path: c })} deleteLabel="Delete collection" />
             ))}
           </Box>
         </Column>
@@ -272,8 +284,8 @@ function DataView() {
                 docPath={`${lvl.collection}/${lvl.doc}`}
                 added={added} activeSub={levels[i + 1]?.collection ?? null}
                 onOpenSub={(sub) => openSub(i, sub)} onAddSub={(cid) => addSub(i, cid)}
-                onDeleteSub={(collection) => deleteCollection.mutate(collection)}
-                onDelete={(path) => remove.mutate(path)}
+                onDeleteSub={(collection) => setConfirm({ kind: "collection", path: collection })}
+                onDelete={(path) => setConfirm({ kind: "document", path })}
               />
             )}
           </Fragment>
@@ -281,6 +293,17 @@ function DataView() {
 
         {levels.length === 0 && <Box p="lg"><Text size="sm" c="dimmed">Select a collection to browse documents.</Text></Box>}
       </Box>
+
+      <ConfirmModal
+        opened={!!confirm}
+        title={confirm?.kind === "collection" ? "Delete collection" : "Delete document"}
+        confirmLabel={confirm?.kind === "collection" ? "Delete collection" : "Delete document"}
+        loading={confirm?.kind === "collection" ? deleteCollection.isPending : remove.isPending}
+        error={(confirm?.kind === "collection" ? deleteCollection.isError : remove.isError) ? "Delete failed. Please try again." : null}
+        message={confirm?.kind === "collection"
+          ? <>Delete collection <b>{confirmName}</b> and <b>all documents in it</b>? This can't be undone.</>
+          : <>Delete document <b>{confirmName}</b> and its fields? This can't be undone.</>}
+        onConfirm={confirmDelete} onCancel={() => setConfirm(null)} />
     </Stack>
   );
 }
