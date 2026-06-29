@@ -252,7 +252,7 @@ function DataView() {
     <Stack gap="sm" h="calc(100vh - 4rem)">
       <Group gap={6} c="#5f6368">
         <IconDatabase size={18} />
-        <Anchor size="sm" fw={500} c="#5f6368" onClick={() => setLevels([])}>Data</Anchor>
+        <Anchor size="sm" fw={500} c="#5f6368" onClick={() => setLevels([])}>Database</Anchor>
         {crumbs.map((cr, i) => (
           <Fragment key={i}>
             <IconChevronRight size={14} />

@@ -69,7 +69,7 @@ public sealed class PostgresFixture : IAsyncLifetime
                 BEGIN
                     SELECT array_agg(c) INTO present
                     FROM (VALUES ('"AspNetUsers"'), ('"AspNetUserRoles"'), ('"AspNetUserLogins"'),
-                                 ('"AspNetUserClaims"'), ('"AspNetUserTokens"')) AS t(c)
+                                 ('"AspNetUserClaims"'), ('"AspNetUserTokens"'), ('"Invites"')) AS t(c)
                     WHERE to_regclass(c) IS NOT NULL;
                     IF present IS NOT NULL THEN
                         EXECUTE 'TRUNCATE ' || array_to_string(present, ', ') || ' RESTART IDENTITY CASCADE';

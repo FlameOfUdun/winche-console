@@ -17,6 +17,8 @@ internal static class ConsoleAuth
     public static IServiceCollection AddConsoleIdentity(this IServiceCollection services, ConsoleOptions options)
     {
         services.AddDbContext<ConsoleIdentityDbContext>(o => o.UseNpgsql(options.ConnectionString));
+        services.AddDataProtection();
+        services.AddSingleton<ConsoleInviteTokens>();
 
         services.AddIdentityCore<ConsoleUser>(o =>
             {

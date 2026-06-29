@@ -66,7 +66,7 @@ public class EmailFlowTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Invite_creates_user_who_sets_password_via_link()
+    public async Task Direct_create_requires_a_password()
     {
         await fx.ResetAuthAsync();
         using var app = new ConsoleAppFactory(fx);
@@ -76,17 +76,15 @@ public class EmailFlowTests(PostgresFixture fx) : IAsyncLifetime
         await admin.SetupAdminAsync();
         await admin.LoginAsync();
 
-        // Invite (no password).
-        var invite = await admin.PostAsJsonAsync("/_console/api/users",
+        // No password → rejected even when email is configured (invites now go through /api/invites).
+        var noPwd = await admin.PostAsJsonAsync("/_console/api/users",
             new { email = "invitee@example.com", role = "Member" });
-        Assert.Equal(HttpStatusCode.OK, invite.StatusCode);
-        Assert.NotNull(fake.LastInviteLink);
+        Assert.Equal(HttpStatusCode.BadRequest, noPwd.StatusCode);
 
-        var token = QueryParam(fake.LastInviteLink!, "token");
-        var email = QueryParam(fake.LastInviteLink!, "email");
-        var set = await admin.PostAsJsonAsync("/_console/api/auth/reset-password",
-            new { email, token, newPassword = "Inv1ted!" });
-        Assert.Equal(HttpStatusCode.OK, set.StatusCode);
+        // With a password → created.
+        var withPwd = await admin.PostAsJsonAsync("/_console/api/users",
+            new { email = "invitee@example.com", role = "Member", password = "Inv1ted!" });
+        Assert.Equal(HttpStatusCode.OK, withPwd.StatusCode);
 
         using var invitee = emailApp.CreateClient();
         await invitee.LoginAsync("invitee@example.com", "Inv1ted!");
@@ -111,6 +109,7 @@ public class EmailFlowTests(PostgresFixture fx) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, reset.StatusCode);
 
         await admin.LoginAsync();
+        // Direct create without a password is always rejected (invites go through /api/invites).
         var invite = await admin.PostAsJsonAsync("/_console/api/users", new { email = "x@example.com", role = "Viewer" });
         Assert.Equal(HttpStatusCode.BadRequest, invite.StatusCode);
     }

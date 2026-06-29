@@ -7,6 +7,7 @@ import { StorageBrowserPage } from "./pages/StorageBrowserPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 
 export function App() {
   return (
@@ -14,6 +15,7 @@ export function App() {
       {/* Anonymous, outside the auth gate. */}
       <Route path="forgot-password" element={<ForgotPasswordPage />} />
       <Route path="reset-password" element={<ResetPasswordPage />} />
+      <Route path="invite" element={<AcceptInvitePage />} />
       <Route path="*" element={<GatedApp />} />
     </Routes>
   );

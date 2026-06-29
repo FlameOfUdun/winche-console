@@ -92,6 +92,26 @@ public class UserManagementTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Admin_cannot_delete_their_own_account()
+    {
+        await fx.ResetAuthAsync();
+        using var app = new ConsoleAppFactory(fx);
+        using var admin = await AdminClient(app);
+        // A second admin exists, so the last-admin guard would NOT fire — only the self-delete guard applies.
+        await admin.PostAsJsonAsync("/_console/api/users",
+            new { email = "admin2@example.com", role = "Admin", password = "Passw0rd!" });
+
+        var self = await Find(admin, "admin@example.com");
+        var deleteSelf = await admin.DeleteAsync($"/_console/api/users/{self.Id}");
+        Assert.Equal(HttpStatusCode.BadRequest, deleteSelf.StatusCode);
+
+        // The current admin can still delete the other admin.
+        var other = await Find(admin, "admin2@example.com");
+        var deleteOther = await admin.DeleteAsync($"/_console/api/users/{other.Id}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteOther.StatusCode);
+    }
+
+    [Fact]
     public async Task Non_admin_cannot_manage_users()
     {
         await fx.ResetAuthAsync();

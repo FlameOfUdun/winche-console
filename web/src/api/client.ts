@@ -1,4 +1,4 @@
-import type { AuthState, BrowseResult, ConsoleRole, ConsoleUserItem, FileRecord, QueryResult, UsageStats, WincheDocument } from "./types";
+import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, UsageStats, WincheDocument } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -56,6 +56,15 @@ export const api = {
     http<void>("POST", `api/users/${id}/reset-password`, { newPassword }),
   unlockUser: (id: string) => http<void>("POST", `api/users/${id}/unlock`),
   deleteUser: (id: string) => http<void>("DELETE", `api/users/${id}`),
+  listInvites: () => http<ConsoleInvite[]>("GET", "api/invites"),
+  createInvite: (body: { email: string; role: ConsoleRole; firstName?: string; lastName?: string; requireName: boolean; requireTwoFactor: boolean; expiresInHours: number }) =>
+    http<ConsoleInvite & { link: string }>("POST", "api/invites", body),
+  inviteLink: (id: string) => http<{ link: string }>("GET", `api/invites/${id}/link`),
+  resendInvite: (id: string) => http<{ link: string }>("POST", `api/invites/${id}/resend`, {}),
+  revokeInvite: (id: string) => http<void>("DELETE", `api/invites/${id}`),
+  invitePreview: (token: string) => http<InvitePreview>("GET", `api/invites/accept?token=${encodeURIComponent(token)}`),
+  acceptInvite: (body: { token: string; password: string; firstName?: string; lastName?: string }) =>
+    http<void>("POST", "api/invites/accept", body),
 
   usage: () => http<UsageStats>("GET", "api/usage"),
 

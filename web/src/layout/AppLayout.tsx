@@ -1,19 +1,22 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
-  AppShell, Box, Button, Group, Menu, Modal, NavLink, PasswordInput, Stack, Text, TextInput, UnstyledButton,
+  ActionIcon, AppShell, Box, Button, Group, Menu, Modal, NavLink, PasswordInput, Stack, Text, TextInput,
+  Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
-  IconChevronRight, IconDatabase, IconFolder, IconLogout, IconUser, IconUsers,
+  IconChevronRight, IconDatabase, IconFolder, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
+  IconLogout, IconShield, IconUser,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
 import { TwoFactorSetup } from "../auth/TwoFactorSetup";
+import logoUrl from "../assets/winche-logo.png";
 
 const NAV = [
-  { to: "/data", label: "Data", icon: IconDatabase, adminOnly: false },
+  { to: "/data", label: "Database", icon: IconDatabase, adminOnly: false },
   { to: "/storage", label: "Storage", icon: IconFolder, adminOnly: false },
-  { to: "/users", label: "Users", icon: IconUsers, adminOnly: true },
+  { to: "/users", label: "Access", icon: IconShield, adminOnly: true },
 ];
 
 export function AppLayout() {
@@ -22,38 +25,65 @@ export function AppLayout() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const nav = NAV.filter((n) => !n.adminOnly || user?.role === "Admin");
 
   return (
     <AppShell
-      navbar={{ width: 248, breakpoint: "xs", collapsed: { mobile: false } }}
+      navbar={{ width: collapsed ? 72 : 248, breakpoint: "xs", collapsed: { mobile: false } }}
       padding="xl"
       styles={{ main: { background: "#f6f8fb", minHeight: "100vh" } }}
     >
       <AppShell.Navbar p="sm" style={{ background: "#fff", borderRight: "1px solid #e8eaed" }}>
         {/* Brand */}
-        <Group gap={11} px="xs" py="sm" mb="xs">
-          <Box w={34} h={34} style={{
-            background: "linear-gradient(135deg, #4285f4, #1a73e8)", borderRadius: 9,
-            display: "grid", placeItems: "center", boxShadow: "0 2px 6px rgba(26,115,232,0.35)",
-          }}>
-            <Text fw={700} c="white">W</Text>
-          </Box>
-          <div>
-            <Text fw={600} size="sm" lh={1.15} c="#202124">Winche</Text>
-            <Text size="xs" c="dimmed" lh={1.15}>Console</Text>
-          </div>
+        <Group justify={collapsed ? "center" : "space-between"} gap={collapsed ? 0 : 11}
+          px={collapsed ? 0 : "xs"} py="sm" mb={4} wrap="nowrap">
+          <Group gap={11} wrap="nowrap">
+            <img src={logoUrl} alt="Winche" width={34} height={34} style={{ borderRadius: 8, display: "block" }} />
+            {!collapsed && (
+              <div>
+                <Text fw={600} size="sm" lh={1.15} c="#202124">Winche</Text>
+                <Text size="xs" c="dimmed" lh={1.15}>Console</Text>
+              </div>
+            )}
+          </Group>
+          {!collapsed && (
+            <Tooltip label="Collapse" position="right" withArrow>
+              <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(true)} aria-label="Collapse sidebar">
+                <IconLayoutSidebarLeftCollapse size={19} stroke={1.7} />
+              </ActionIcon>
+            </Tooltip>
+          )}
         </Group>
+
+        {collapsed && (
+          <Group justify="center" mb={4}>
+            <Tooltip label="Expand" position="right" withArrow>
+              <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(false)} aria-label="Expand sidebar">
+                <IconLayoutSidebarLeftExpand size={19} stroke={1.7} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        )}
 
         {/* Nav */}
         <Stack gap={4} mt="xs">
           {nav.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || pathname.startsWith(to + "/");
-            return (
-              <NavLink key={to} component={Link} to={to} label={label} active={active}
+            const link = (
+              <NavLink component={Link} to={to} active={active}
+                label={collapsed ? undefined : label}
                 leftSection={<Icon size={19} stroke={1.7} />}
-                styles={{ root: { borderRadius: 8 }, label: { fontSize: 14, fontWeight: 500 } }} />
+                styles={{
+                  root: { borderRadius: 8, justifyContent: collapsed ? "center" : undefined, paddingInline: collapsed ? 0 : undefined },
+                  label: { fontSize: 14, fontWeight: 500 },
+                  body: collapsed ? { display: "none" } : undefined,
+                  section: collapsed ? { marginInlineEnd: 0 } : undefined,
+                }} />
             );
+            return collapsed
+              ? <Tooltip key={to} label={label} position="right" withArrow>{link}</Tooltip>
+              : <Fragment key={to}>{link}</Fragment>;
           })}
         </Stack>
 
@@ -62,15 +92,19 @@ export function AppLayout() {
           <Menu position="top-start" withinPortal width={210}>
             <Menu.Target>
               <UnstyledButton style={{ width: "100%", borderRadius: 8, padding: 8 }}>
-                <Group gap={8} wrap="nowrap">
+                <Group gap={8} wrap="nowrap" justify={collapsed ? "center" : undefined}>
                   <Box w={30} h={30} style={{ background: "#e8f0fe", borderRadius: 999, display: "grid", placeItems: "center", flexShrink: 0 }}>
                     <IconUser size={16} color="#1a73e8" />
                   </Box>
-                  <div style={{ flex: 1, overflow: "hidden" }}>
-                    <Text size="xs" fw={500} c="#3c4043" truncate>{user?.email}</Text>
-                    <Text size="xs" c="dimmed">{user?.role}</Text>
-                  </div>
-                  <IconChevronRight size={14} color="#9aa0a6" />
+                  {!collapsed && (
+                    <>
+                      <div style={{ flex: 1, overflow: "hidden" }}>
+                        <Text size="xs" fw={500} c="#3c4043" truncate>{user?.email}</Text>
+                        <Text size="xs" c="dimmed">{user?.role}</Text>
+                      </div>
+                      <IconChevronRight size={14} color="#9aa0a6" />
+                    </>
+                  )}
                 </Group>
               </UnstyledButton>
             </Menu.Target>

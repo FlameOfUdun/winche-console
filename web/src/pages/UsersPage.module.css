@@ -1,0 +1,19 @@
+.list {
+  border-bottom: 1px solid #e8eaed;
+}
+
+.tab {
+  color: #5f6368;
+  font-size: 14px;
+  font-weight: 500;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.tab:hover {
+  background-color: #f8f9fa;
+}
+
+.tab[data-active] {
+  color: #1a73e8;
+}

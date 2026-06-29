@@ -59,6 +59,7 @@ public static class WincheConsoleExtensions
         group.MapAuthEndpoints();
         group.MapTwoFactorEndpoints();
         group.MapUserEndpoints();
+        group.MapInviteEndpoints();
         group.MapConsoleDataEndpoints();
         group.MapConsoleStorageEndpoints();
         ConsoleSpa.Map(group, prefix);

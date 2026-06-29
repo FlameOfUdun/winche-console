@@ -34,6 +34,12 @@ builder.Services.AddWincheConsole(o =>
     // screen (POST /api/auth/setup). To skip that and seed an admin instead, set:
     //   o.SeedAdminEmail = builder.Configuration["Console:SeedAdminEmail"];
     //   o.SeedAdminPassword = builder.Configuration["Console:SeedAdminPassword"];
+
+    // Wire an email transport to enable self-service password reset and invites. Admins can then invite
+    // users (Users -> Invites) with per-invite requirements (complete name, enroll in two-factor) and a
+    // link expiry; the invitee sets their password and profile via the emailed link. This demo logs the
+    // link to the app console — replace LoggingConsoleEmailSender with a real SMTP adapter in production.
+    o.UseEmailSender<LoggingConsoleEmailSender>();
 });
 
 var app = builder.Build();

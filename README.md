@@ -52,9 +52,12 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
   delete; last-admin protected). Users manage their own name, password, and two-factor.
 - **Two-factor (TOTP):** users can enroll an authenticator app; Admins can *require* 2FA per user (a
   forced-setup gate blocks everything but enrollment until they comply).
-- **Email (optional):** wire an `IConsoleEmailSender` to enable self-service password reset and email
-  invites (create a user with no password → they receive a set-password link). Register it right in the
-  `AddWincheConsole` callback via `ConsoleOptions.UseEmailSender`:
+- **Email (optional):** wire an `IConsoleEmailSender` to enable self-service password reset and invites.
+  Admins send an **invite** (email + role, optional name) with per-invite requirements — require the
+  invitee to complete their name, require two-factor enrollment — and a chosen link expiry. The invitee
+  clicks the emailed link, sets a password, completes their profile, and (if required) enrolls in 2FA on
+  first sign-in. Pending invites are listed, copyable, resendable, and revocable under Users → Invites.
+  Register the sender in the `AddWincheConsole` callback via `ConsoleOptions.UseEmailSender`:
 
   ```csharp
   services.AddWincheConsole(o =>
@@ -73,6 +76,7 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
 
 - **Auth** — `GET api/auth/state`, `POST api/auth/{setup,login,login/2fa,login/recovery,logout,password,profile,forgot-password,reset-password}`, `POST api/auth/2fa/{setup,enable,disable,recovery-codes}`
 - **Users** (Admin) — `GET/POST api/users`, `PUT/DELETE api/users/{id}`, `POST api/users/{id}/{reset-password,unlock}`
+- **Invites** (Admin) — `GET/POST api/invites`, `GET api/invites/{id}/link`, `POST api/invites/{id}/resend`, `DELETE api/invites/{id}`; **acceptance** (anonymous) — `GET/POST api/invites/accept`
 - **Data** (Viewer reads, Member writes) — `GET api/data/collections`, `POST api/data/query`,
   `GET/PUT/PATCH/DELETE api/data/documents/{base64Path}`, `DELETE api/data/collections/{base64Path}`
 - **Storage** (Viewer reads/downloads, Member writes) — `POST api/storage/list`,

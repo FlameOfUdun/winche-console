@@ -67,3 +67,26 @@ export interface FileRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+export type InviteStatus = "pending" | "expired" | "revoked";
+
+export interface ConsoleInvite {
+  id: string;
+  email: string;
+  role: ConsoleRole;
+  firstName: string | null;
+  lastName: string | null;
+  requireName: boolean;
+  requireTwoFactor: boolean;
+  createdAt: string;
+  expiresAt: string;
+  status: InviteStatus;
+}
+
+export interface InvitePreview {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  requireName: boolean;
+  requireTwoFactor: boolean;
+}

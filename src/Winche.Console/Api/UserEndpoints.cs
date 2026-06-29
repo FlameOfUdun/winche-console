@@ -35,33 +35,22 @@ public static class UserEndpoints
             return Results.Json(list);
         });
 
-        group.MapPost("/", async (CreateUserRequest body, UserManager<ConsoleUser> users,
-            IServiceProvider sp, ConsolePrefix prefix, HttpContext http) =>
+        group.MapPost("/", async (CreateUserRequest body, UserManager<ConsoleUser> users) =>
         {
             if (string.IsNullOrWhiteSpace(body.Email)) return Results.BadRequest(new { error = "Email is required." });
             if (!ConsoleRoles.All.Contains(body.Role)) return Results.BadRequest(new { error = "Invalid role." });
-
-            var sender = sp.GetService<IConsoleEmailSender>();
-            var hasPassword = !string.IsNullOrWhiteSpace(body.Password);
-            if (!hasPassword && sender is null)
-                return Results.BadRequest(new { error = "A password is required (email invites are not configured)." });
+            if (string.IsNullOrWhiteSpace(body.Password))
+                return Results.BadRequest(new { error = "A password is required (use an invite to onboard without one)." });
 
             var user = new ConsoleUser
             {
                 UserName = body.Email, Email = body.Email, EmailConfirmed = true, Active = true,
                 FirstName = body.FirstName, LastName = body.LastName,
             };
-            var created = hasPassword ? await users.CreateAsync(user, body.Password!) : await users.CreateAsync(user);
+            var created = await users.CreateAsync(user, body.Password);
             if (!created.Succeeded) return Errors(created);
             await users.AddToRoleAsync(user, body.Role);
-
-            if (!hasPassword)   // invite: email a set-password link
-            {
-                var token = await users.GeneratePasswordResetTokenAsync(user);
-                var link = ConsoleLinks.ResetPasswordLink(http, prefix.Value, user.Email!, token);
-                await sender!.SendInviteAsync(new ConsoleEmailRecipient(user.Email!, user.FirstName, user.LastName), link, http.RequestAborted);
-            }
-            return Results.Json(new { id = user.Id, email = user.Email, invited = !hasPassword });
+            return Results.Json(new { id = user.Id, email = user.Email });
         });
 
         group.MapPut("/{id}", async (string id, UpdateUserRequest body, UserManager<ConsoleUser> users) =>
@@ -129,10 +118,12 @@ public static class UserEndpoints
             return Results.Ok();
         });
 
-        group.MapDelete("/{id}", async (string id, UserManager<ConsoleUser> users) =>
+        group.MapDelete("/{id}", async (string id, UserManager<ConsoleUser> users, HttpContext http) =>
         {
             var user = await users.FindByIdAsync(id);
             if (user is null) return Results.NotFound();
+            if (string.Equals(users.GetUserId(http.User), id, StringComparison.OrdinalIgnoreCase))
+                return Results.BadRequest(new { error = "You cannot delete your own account." });
             var role = (await users.GetRolesAsync(user)).FirstOrDefault();
             if (role == ConsoleRoles.Admin && await IsLastAdmin(users, user))
                 return Results.BadRequest(new { error = "Cannot delete the last admin." });
