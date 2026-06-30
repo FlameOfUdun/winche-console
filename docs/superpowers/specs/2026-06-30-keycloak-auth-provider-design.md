@@ -46,40 +46,74 @@ A new `ConsoleAuthProvider` enum (`Identity` | `Keycloak`) on `ConsoleOptions`, 
 to `Identity`. The provider is chosen by calling `o.UseKeycloak(...)`; if it is never called,
 the console behaves exactly as today.
 
+#### One dedicated console client
+
+The console uses **one Keycloak client of its own**, separate from the consumer (host) app's
+client. That single console client serves both roles:
+
+- the **SPA's** OIDC public client (Authorization Code + PKCE login), and
+- the **API's** expected audience for bearer validation.
+
+So there is no separate "SPA client id" vs "API resource id" — `ClientId` is both. The host
+adds an **Audience** protocol mapper on this client so issued access tokens carry it in `aud`
+(required because the package's `ValidateAudience` defaults to `true`). The consumer app keeps
+its own, unrelated client.
+
+#### Configuration: manual or IConfiguration (both supported)
+
+`KeycloakOptions` (set via `UseKeycloak`) carries the full settings so a host can configure
+**entirely in code**:
+
 ```csharp
 services.AddWincheConsole(o =>
 {
     o.UseKeycloak(k =>
     {
-        k.ClientId   = "winche-console-spa"; // public PKCE client the SPA uses
-        k.AdminRole  = "Admin";              // Keycloak role name → console Admin
+        k.Server     = "https://id.example.com"; // optional if provided via IConfiguration
+        k.Realm      = "myrealm";
+        k.ClientId   = "winche-console";          // the dedicated console client (SPA + audience)
+        k.ClientSecret = "...";                   // optional; only if the console client is confidential
+        k.AdminRole  = "Admin";                   // Keycloak role name → console Admin (default "Admin")
         k.MemberRole = "Member";
         k.ViewerRole = "Viewer";
     });
 });
 ```
 
-Server / Realm / Resource (the API client id used for bearer audience validation) and the
-optional client secret come from the **standard `Keycloak` configuration section** that
-`Winche.KeycloakClient` binds itself (`appsettings.json` → `Keycloak:Server`, `Keycloak:Realm`,
-`Keycloak:Resource`, `Keycloak:Authentication:*`). We do not duplicate that config on
-`ConsoleOptions`; `UseKeycloak` only carries what is specific to the console: the SPA's
-public `ClientId` and the three role-name mappings.
+Or a host can rely on the **standard `Keycloak` `IConfiguration` section** that
+`Winche.KeycloakClient` already binds (`Keycloak:Server`, `Keycloak:Realm`, `Keycloak:Resource`,
+`Keycloak:Authentication:*`, …) and pass it in:
 
-`AddWincheConsole` branches on the selected provider:
+```csharp
+services.AddWincheConsole(builder.Configuration, o => o.UseKeycloak(k => { /* overrides only */ }));
+```
+
+**Resolution rule (merge):** the package extensions consume an `IConfiguration`. We build the
+effective config as the host's `IConfiguration` (if supplied) as the **base**, with any values
+set manually on `KeycloakOptions` overlaid **on top** (manual wins). Mapping of our option
+names → the package's keys: `ClientId` → `Keycloak:Resource` *(and advertised to the SPA as its
+client id)*, `Server`/`Realm`/`ClientSecret` → `Keycloak:Server`/`Keycloak:Realm`/
+`Keycloak:Credentials:Secret`. The overlay is produced with
+`ConfigurationBuilder().AddConfiguration(hostConfig?).AddInMemoryCollection(manualPairs).Build()`.
+If neither source supplies a required value (`Server`, `Realm`, `ClientId`), throw a clear
+`InvalidOperationException` at registration.
+
+#### Provider branch in `AddWincheConsole`
+
+Two overloads, both delegating to a shared core that takes an optional `IConfiguration?`:
+
+- `AddWincheConsole(this IServiceCollection, Action<ConsoleOptions>)` — manual-only path
+  (`IConfiguration` is null; Keycloak settings must come from `UseKeycloak`).
+- `AddWincheConsole(this IServiceCollection, IConfiguration, Action<ConsoleOptions>)` — config
+  base path (host section + manual overrides).
+
+The core branches on the selected provider:
 
 - **Identity provider** (default): current behavior — require `ConnectionString`, call
   `AddConsoleIdentity(options)`, register `ConsoleStartupService`.
-- **Keycloak provider**: do **not** require `ConnectionString`; call a new
-  `AddConsoleKeycloak(options, configuration)` instead; do **not** register the
-  DB-migrating startup service.
-
-`AddWincheConsole` therefore needs access to `IConfiguration`. The package extensions
-(`AddKeycloakAuthentication`, `AddKeycloakAuthorization`) take `IConfiguration`, so we pass
-it through. (`AddWincheConsole` already runs against `IServiceCollection`; we resolve
-configuration via the standard pattern — either an added `AddWincheConsole(services,
-configuration, configure)` overload or reading it from a pre-registered instance. The
-overload is preferred for explicitness.)
+- **Keycloak provider**: do **not** require `ConnectionString`; build the effective Keycloak
+  `IConfiguration` (merge above) and call a new `AddConsoleKeycloak(options, effectiveConfig)`;
+  do **not** register the DB-migrating startup service.
 
 ### Backend wiring — new `Identity/ConsoleKeycloak.cs`
 
@@ -223,18 +257,19 @@ capability flag so it works identically under both providers.
 
 For the README / docs, the host must, in their realm:
 
-1. Create a **public** client for the SPA (PKCE/Authorization Code, no secret) with the
-   console's callback URL in **Valid Redirect URIs** and **Web Origins**. Its client id is
-   the `ClientId` passed to `UseKeycloak`.
-2. Ensure the SPA's access tokens carry the API audience: either add an **audience mapper**
-   so `aud` includes the API client (`Keycloak:Resource`), or use a **single client** for
-   both SPA and API. Required because `Authentication.ValidateAudience` defaults to `true`.
+1. Create **one dedicated console client** (separate from the consumer app's client), with
+   the console's callback URL in **Valid Redirect URIs** and **Web Origins**. It is used as
+   both the SPA's PKCE login client and the API's audience. Its id is the `ClientId` passed to
+   `UseKeycloak` (= `Keycloak:Resource`). A public client (no secret) is sufficient for the
+   PKCE SPA flow; a confidential client is also supported via `ClientSecret`.
+2. Add an **Audience** protocol mapper on that client so issued access tokens include it in
+   `aud`. Required because `Authentication.ValidateAudience` defaults to `true`.
 3. Define realm (or resource) roles named per the `AdminRole`/`MemberRole`/`ViewerRole`
    mapping and assign them to users.
 
-A bearer/API client (`Keycloak:Resource`) is used for audience validation. Pure token
-validation needs only the realm's JWKS; a client secret is required only if the
-service-account/admin-API flow is used — which this design does not use.
+Pure bearer-token validation needs only the realm's JWKS; a client secret is required only
+if the host makes the console client confidential. The package's service-account / Admin-API
+flow is **not** used by this design.
 
 ## Out of scope (YAGNI)
 
@@ -269,9 +304,12 @@ service-account/admin-API flow is used — which this design does not use.
 **Backend**
 - `Options/ConsoleOptions.cs` — add `ConsoleAuthProvider Provider`, nested
   `KeycloakOptions Keycloak`, and `UseKeycloak(Action<KeycloakOptions>)`.
-- `Options/KeycloakOptions.cs` *(new)* — `ClientId`, `AdminRole`, `MemberRole`, `ViewerRole`.
-- `WincheConsoleExtensions.cs` — provider branch in `AddWincheConsole` (+ `IConfiguration`
-  access) and `MapWincheConsole`; map `/api/auth/config`.
+- `Options/KeycloakOptions.cs` *(new)* — `Server`, `Realm`, `ClientId`, `ClientSecret`,
+  `AdminRole`, `MemberRole`, `ViewerRole` (role names default to `Admin`/`Member`/`Viewer`).
+- `Options/ConsoleAuthProvider.cs` *(new)* — `Identity` | `Keycloak` enum.
+- `WincheConsoleExtensions.cs` — two `AddWincheConsole` overloads (manual + `IConfiguration`)
+  over a shared core; provider branch + effective-config merge; provider branch in
+  `MapWincheConsole`; map `/api/auth/config`.
 - `Identity/ConsoleKeycloak.cs` *(new)* — `AddConsoleKeycloak`, bearer-scheme policies.
 - `Api/AuthEndpoints.cs` (or a new `Api/AuthConfigEndpoints.cs`) — `/api/auth/config`;
   mode-aware `/api/auth/state`.
