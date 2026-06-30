@@ -44,6 +44,16 @@ internal static class ConsoleSpa
         var html = await reader.ReadToEndAsync(ctx.RequestAborted);
         var baseTag = $"<base href=\"{System.Net.WebUtility.HtmlEncode(baseHref)}\">";
         html = Regex.Replace(html, "<head[^>]*>", m => m.Value + baseTag, RegexOptions.IgnoreCase);
+        // Cloudflare Rocket Loader rewrites <script type="module"> tags into a deferral placeholder and
+        // then fails to load them as ES modules, which takes the whole SPA down ("Expected a JavaScript
+        // module but the server responded with text/html"). data-cfasync="false" opts the bootstrap out
+        // of Rocket Loader, so the console keeps working when the host app sits behind Cloudflare with
+        // Rocket Loader enabled. https://developers.cloudflare.com/speed/optimization/content/rocket-loader/
+        html = Regex.Replace(
+            html,
+            "<script(?![^>]*\\bdata-cfasync\\b)(?=[^>]*\\btype=\"module\")",
+            "<script data-cfasync=\"false\"",
+            RegexOptions.IgnoreCase);
         ctx.Response.ContentType = "text/html";
         await ctx.Response.WriteAsync(html, ctx.RequestAborted);
     }
