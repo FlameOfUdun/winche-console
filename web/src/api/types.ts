@@ -13,11 +13,6 @@ export interface QueryResult {
   hasMore: boolean;
 }
 
-export interface UsageStats {
-  documentCount: number;
-  fileCount: number;
-}
-
 export type ConsoleRole = "Admin" | "Member" | "Viewer";
 
 export interface SessionUser {
@@ -31,9 +26,25 @@ export interface SessionUser {
   mustSetupTwoFactor: boolean;
 }
 
+export type AuthProvider = "identity" | "keycloak";
+
+export interface Capabilities {
+  manageUsers: boolean;
+  invites: boolean;
+  twoFactor: boolean;
+  changePassword: boolean;
+  editProfile: boolean;
+}
+
+export type AuthConfig =
+  | { provider: "identity" }
+  | { provider: "keycloak"; authority: string; clientId: string; scopes: string };
+
 export interface AuthState {
+  provider: AuthProvider;
   initialized: boolean;
   selfServiceResetEnabled: boolean;
+  capabilities: Capabilities;
   user: SessionUser | null;
 }
 

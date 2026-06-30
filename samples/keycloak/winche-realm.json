@@ -1,0 +1,66 @@
+{
+  "realm": "winche",
+  "enabled": true,
+  "loginWithEmailAllowed": true,
+  "roles": {
+    "realm": [
+      { "name": "Admin", "description": "Full console access: data, files, and Keycloak-managed users." },
+      { "name": "Member", "description": "Read and write data and files." },
+      { "name": "Viewer", "description": "Read-only access to data and files." }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "winche-console",
+      "name": "Winche Console",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5080/_console/*"],
+      "webOrigins": ["http://localhost:5080"],
+      "attributes": {
+        "post.logout.redirect.uris": "http://localhost:5080/_console/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "winche-console-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "winche-console",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "admin",
+      "enabled": true,
+      "email": "admin@example.com",
+      "firstName": "Root",
+      "lastName": "Admin",
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "admin", "temporary": false }
+      ],
+      "realmRoles": ["default-roles-winche", "Admin"]
+    },
+    {
+      "username": "viewer",
+      "enabled": true,
+      "email": "viewer@example.com",
+      "firstName": "Vera",
+      "lastName": "Viewer",
+      "emailVerified": true,
+      "credentials": [
+        { "type": "password", "value": "viewer", "temporary": false }
+      ],
+      "realmRoles": ["default-roles-winche", "Viewer"]
+    }
+  ]
+}

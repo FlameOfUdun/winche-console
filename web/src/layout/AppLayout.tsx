@@ -5,11 +5,12 @@ import {
 } from "@mantine/core";
 import {
   IconChevronRight, IconDatabase, IconFolder, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
-  IconLogout, IconShield, IconUser,
+  IconLogout, IconShield, IconUser, IconUserCog,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
+import { keycloakAccountUrl, keycloakLogout } from "../auth/keycloak";
 import { TwoFactorSetup } from "../auth/TwoFactorSetup";
 import logoUrl from "../assets/winche-logo.png";
 
@@ -21,12 +22,20 @@ const NAV = [
 
 export function AppLayout() {
   const { pathname } = useLocation();
-  const { user, refresh } = useSession();
+  const { state, user } = useSession();
+  const caps = state?.capabilities;
+  const isKeycloak = state?.provider === "keycloak";
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const nav = NAV.filter((n) => !n.adminOnly || user?.role === "Admin");
+  const nav = NAV.filter((n) => !n.adminOnly || (caps?.manageUsers && user?.role === "Admin"));
+
+  const onLogout = async () => {
+    if (isKeycloak) { await keycloakLogout(); return; }
+    await api.logout();
+    window.location.assign(document.baseURI);
+  };
 
   return (
     <AppShell
@@ -109,14 +118,24 @@ export function AppLayout() {
               </UnstyledButton>
             </Menu.Target>
             <Menu.Dropdown>
-              <Menu.Item onClick={() => setProfileOpen(true)}>Edit profile</Menu.Item>
-              <Menu.Item onClick={() => setPasswordOpen(true)}>Change password</Menu.Item>
-              <Menu.Item onClick={() => setTwoFactorOpen(true)}>
-                {user?.twoFactorEnabled ? "Two-factor: on" : "Set up two-factor"}
-              </Menu.Item>
+              {caps?.editProfile && <Menu.Item onClick={() => setProfileOpen(true)}>Edit profile</Menu.Item>}
+              {caps?.changePassword && <Menu.Item onClick={() => setPasswordOpen(true)}>Change password</Menu.Item>}
+              {caps?.twoFactor && (
+                <Menu.Item onClick={() => setTwoFactorOpen(true)}>
+                  {user?.twoFactorEnabled ? "Two-factor: on" : "Set up two-factor"}
+                </Menu.Item>
+              )}
+              {isKeycloak && (
+                <Menu.Item
+                  leftSection={<IconUserCog size={15} />}
+                  onClick={() => window.open(keycloakAccountUrl(), "_blank", "noopener,noreferrer")}
+                >
+                  Manage account
+                </Menu.Item>
+              )}
               <Menu.Divider />
               <Menu.Item color="red" leftSection={<IconLogout size={15} />}
-                onClick={async () => { await api.logout(); await refresh(); }}>Sign out</Menu.Item>
+                onClick={onLogout}>Sign out</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </Box>

@@ -37,7 +37,7 @@ public class RoleGatingTests(PostgresFixture fx) : IAsyncLifetime
         using var viewer = app.CreateClient();
         await viewer.LoginAsync("viewer@example.com", "Passw0rd!");
 
-        var read = await viewer.GetAsync("/_console/api/usage");
+        var read = await viewer.GetAsync("/_console/api/data/collections");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
 
         var write = await viewer.PutAsJsonAsync($"/_console/api/data/documents/{B64("users/alice")}",
@@ -68,7 +68,7 @@ public class RoleGatingTests(PostgresFixture fx) : IAsyncLifetime
         await fx.ResetAuthAsync();
         using var app = new ConsoleAppFactory(fx);
         using var anon = app.CreateClient();
-        var resp = await anon.GetAsync("/_console/api/usage");
+        var resp = await anon.GetAsync("/_console/api/data/collections");
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 }

@@ -9,6 +9,21 @@ public sealed class ConsoleOptions
     /// <summary>Connection string for the console's own auth database (Identity tables). Required.</summary>
     public string ConnectionString { get; set; } = "";
 
+    /// <summary>Which auth backend to use. Defaults to Identity; set to Keycloak by calling <see cref="UseKeycloak"/>.</summary>
+    public ConsoleAuthProvider Provider { get; private set; } = ConsoleAuthProvider.Identity;
+
+    /// <summary>Keycloak settings; only meaningful when <see cref="Provider"/> is Keycloak.</summary>
+    public KeycloakOptions Keycloak { get; } = new();
+
+    /// <summary>Switch the console to the Keycloak provider and configure it. ConnectionString/SeedAdmin* are ignored in this mode.</summary>
+    public ConsoleOptions UseKeycloak(Action<KeycloakOptions> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        Provider = ConsoleAuthProvider.Keycloak;
+        configure(Keycloak);
+        return this;
+    }
+
     /// <summary>Optional first-admin seed; applied on startup only when no users exist.</summary>
     public string? SeedAdminEmail { get; set; }
     public string? SeedAdminPassword { get; set; }

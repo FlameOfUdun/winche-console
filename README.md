@@ -72,6 +72,58 @@ own endpoints, so it does **not** touch your host app's auth. You do not call `R
   Without an adapter those features are simply off (`AllowSelfServicePasswordReset` further gates
   self-service reset).
 
+## Using Keycloak instead of built-in Identity
+
+Instead of the built-in Identity database, the console can delegate all authentication to an
+existing Keycloak realm. In this mode it holds no user database — Keycloak owns login, MFA,
+password reset, and user/role management.
+
+Configure it explicitly in code via `UseKeycloak` — `Server`, `Realm`, and `ClientId` are
+required (the console reads no `IConfiguration` section of its own):
+
+```csharp
+builder.Services.AddWincheConsole(o => o.UseKeycloak(k =>
+{
+    k.Server   = "https://id.example.com"; // required
+    k.Realm    = "myrealm";                 // required
+    k.ClientId = "winche-console";          // required — the console's dedicated Keycloak client
+    k.AdminRole  = "Admin";                 // Keycloak role names → console roles (defaults shown)
+    k.MemberRole = "Member";
+    k.ViewerRole = "Viewer";
+    // k.ClientSecret = "...";              // only if the console client is confidential
+    // k.RequireHttpsMetadata = false;      // only for a local/dev Keycloak served over http
+}));
+```
+
+If your app keeps these in configuration, read them yourself and pass them in (see the sample's
+`Program.cs`). The console uses its **own** dedicated Keycloak client and an isolated bearer
+scheme — it never touches or depends on a `Winche.KeycloakClient` registration your app may
+already have.
+
+In your realm:
+
+1. Create **one dedicated client** for the console (separate from your app's own client) with the
+   console callback URL (e.g. `https://yourapp/_console/auth/callback`) in **Valid Redirect URIs**
+   and the origin in **Web Origins**. A public client (PKCE) is sufficient; set `ClientSecret` only
+   if you make it confidential.
+2. Add an **Audience** protocol mapper on that client so access tokens include it in `aud` — the
+   console validates that incoming JWTs are audienced for its own `ClientId` (see below) and rejects
+   tokens that aren't.
+3. Define realm roles `Admin` / `Member` / `Viewer` (or your mapped names) and assign them to users.
+   Keep each user's realm **default roles** (e.g. `default-roles-<realm>`) so they retain the
+   `account` permissions needed for the in-console "Manage account" link.
+
+**Token validation.** Each request is validated by the console's own isolated bearer scheme:
+`aud` must contain `ClientId`, the issuer must match `{Server}/realms/{Realm}`, and the signature is
+checked against the realm JWKS. This is independent of any `Winche.KeycloakClient` registration your
+app already has — a token minted for your app's client will not pass the console's scheme, and
+vice-versa.
+
+**Account management.** In Keycloak mode the profile menu (bottom of the nav) shows **Manage account**,
+which opens Keycloak's account console for the signed-in user. Login, password, MFA, and profile are
+all owned by Keycloak. `ConnectionString`, `SeedAdmin*`, invites, 2FA, and the in-console
+user-management screens do not apply in Keycloak mode.
+
 ## API (under the chosen prefix)
 
 - **Auth** — `GET api/auth/state`, `POST api/auth/{setup,login,login/2fa,login/recovery,logout,password,profile,forgot-password,reset-password}`, `POST api/auth/2fa/{setup,enable,disable,recovery-codes}`
