@@ -25,9 +25,10 @@ const keycloakSignedOut: AuthState = {
 } as AuthState;
 
 describe("AuthGate (Keycloak)", () => {
-  it("shows the Keycloak sign-in button when signed out", () => {
+  it("shows the Keycloak sign-in button and Winche logo when signed out", () => {
     renderWithState(keycloakSignedOut);
     expect(screen.getByText("Sign in with Keycloak")).toBeInTheDocument();
+    expect(screen.getByAltText("Winche")).toBeInTheDocument();
     expect(screen.queryByText("PROTECTED")).not.toBeInTheDocument();
   });
 
