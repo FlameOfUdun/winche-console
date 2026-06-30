@@ -11,16 +11,28 @@ plus built-in 2FA, invites, password reset, and user CRUD). This spec adds a sec
 mutually-exclusive **Keycloak** provider so a host can delegate all identity to an
 existing Keycloak realm.
 
-The integration uses the **`Winche.KeycloakClient`** NuGet package (v1.2.x), which is a
-**JWT bearer-token** integration (it depends on `Microsoft.AspNetCore.Authentication.JwtBearer`).
-This dictates the architecture:
+The integration is **JWT bearer-token** based, and the console registers its **own,
+isolated** authentication scheme dedicated to its own Keycloak client:
 
 - The **SPA** becomes the OIDC client. It runs the Authorization Code + PKCE redirect
   to Keycloak, obtains an **access token**, and sends it as `Authorization: Bearer <token>`
   on every API call.
-- The **backend** only validates that token (`AddKeycloakAuthentication`) and flattens
-  Keycloak realm/resource roles into `ClaimTypes.Role` (`AddKeycloakAuthorization`).
+- The **backend** registers a dedicated, named JWT-bearer scheme (`"WincheConsoleKeycloak"`)
+  bound to the console's own client, validates the token against it, and flattens Keycloak
+  realm/resource roles into `ClaimTypes.Role`.
 - No server cookie and **no database** in Keycloak mode — the provider is fully stateless.
+
+**Why the console owns its scheme (and does *not* use `Winche.KeycloakClient`).** The
+consumer (host) app most likely already uses `Winche.KeycloakClient` for its *own* auth.
+That package has no scheme-name overload: `AddKeycloakAuthentication` always registers the
+standard `Bearer` scheme and binds a single global `KeycloakClientOptions`. Calling it again
+from the console would **collide on the scheme and overwrite the host's options**. To stay
+fully independent of the consumer's Keycloak DI — a dedicated console client, separate scheme,
+separate options — the console **hand-rolls** a JWT-bearer scheme via
+`AddAuthentication().AddJwtBearer("WincheConsoleKeycloak", …)` plus a ~25-line role-flatten,
+and does **not** reference `Winche.KeycloakClient`. Consumer tokens (audience = consumer
+client, validated by `Bearer`) and console tokens (audience = console client, validated by
+`WincheConsoleKeycloak`) never cross.
 
 The two providers are selected per deployment and never run simultaneously. **Identity
 mode is unchanged**; existing hosts need zero changes.
@@ -31,12 +43,15 @@ mode is unchanged**; existing hosts need zero changes.
    driven from the SPA as a public client.
 2. **User & role management:** Fully delegated to Keycloak. In Keycloak mode the console
    does **not** expose its own user-management, invites, 2FA, or password endpoints/UI.
-   The package's Admin-API client (`AddKeycloakClient`) is **not** used.
 3. **Role mapping:** Configurable. Host maps Keycloak role names → the console's
    `Admin`/`Member`/`Viewer`. Defaults to roles literally named `Admin`/`Member`/`Viewer`.
 4. **Database:** None in Keycloak mode. Identity mode keeps using Postgres exactly as today.
 5. **OIDC client library (SPA):** `oidc-client-ts`.
 6. **SPA bootstrap:** a new anonymous `GET /api/auth/config` discovery endpoint.
+7. **Isolation:** The console owns a dedicated Keycloak client and a dedicated, named
+   JWT-bearer scheme, fully independent of the consumer app's Keycloak DI. The console does
+   **not** use `Winche.KeycloakClient` (it can't register a second isolated scheme); it
+   hand-rolls its JWT-bearer scheme and role flattening.
 
 ## Architecture
 
@@ -56,88 +71,92 @@ client. That single console client serves both roles:
 
 So there is no separate "SPA client id" vs "API resource id" — `ClientId` is both. The host
 adds an **Audience** protocol mapper on this client so issued access tokens carry it in `aud`
-(required because the package's `ValidateAudience` defaults to `true`). The consumer app keeps
-its own, unrelated client.
+(the console's JWT-bearer scheme validates `Audience == ClientId`). The consumer app keeps
+its own, unrelated client and its own `Bearer` scheme; the two never interact.
 
-#### Configuration: manual or IConfiguration (both supported)
+#### Configuration: explicit in code only (no IConfiguration)
 
-`KeycloakOptions` (set via `UseKeycloak`) carries the full settings so a host can configure
-**entirely in code**:
+`KeycloakOptions` (set via `UseKeycloak`) carries the full settings; the host **must configure
+them explicitly in code**. The console does **not** read any `IConfiguration` section — there is
+a single `AddWincheConsole(IServiceCollection, Action<ConsoleOptions>)` entry point. (If the host
+keeps its values in config, *it* reads them and passes them in — see the sample.)
 
 ```csharp
-services.AddWincheConsole(o =>
+services.AddWincheConsole(o => o.UseKeycloak(k =>
 {
-    o.UseKeycloak(k =>
-    {
-        k.Server     = "https://id.example.com"; // optional if provided via IConfiguration
-        k.Realm      = "myrealm";
-        k.ClientId   = "winche-console";          // the dedicated console client (SPA + audience)
-        k.ClientSecret = "...";                   // optional; only if the console client is confidential
-        k.AdminRole  = "Admin";                   // Keycloak role name → console Admin (default "Admin")
-        k.MemberRole = "Member";
-        k.ViewerRole = "Viewer";
-    });
-});
+    k.Server     = "https://id.example.com"; // required
+    k.Realm      = "myrealm";                 // required
+    k.ClientId   = "winche-console";          // required — the dedicated console client (SPA + audience)
+    k.ClientSecret = "...";                   // optional; only if the console client is confidential
+    k.AdminRole  = "Admin";                   // Keycloak role name → console Admin (default "Admin")
+    k.MemberRole = "Member";
+    k.ViewerRole = "Viewer";
+    k.RequireHttpsMetadata = true;            // default true; set false only for http dev (e.g. local Keycloak)
+}));
 ```
 
-Or a host can rely on the **standard `Keycloak` `IConfiguration` section** that
-`Winche.KeycloakClient` already binds (`Keycloak:Server`, `Keycloak:Realm`, `Keycloak:Resource`,
-`Keycloak:Authentication:*`, …) and pass it in:
-
-```csharp
-services.AddWincheConsole(builder.Configuration, o => o.UseKeycloak(k => { /* overrides only */ }));
-```
-
-**Resolution rule (merge):** the package extensions consume an `IConfiguration`. We build the
-effective config as the host's `IConfiguration` (if supplied) as the **base**, with any values
-set manually on `KeycloakOptions` overlaid **on top** (manual wins). Mapping of our option
-names → the package's keys: `ClientId` → `Keycloak:Resource` *(and advertised to the SPA as its
-client id)*, `Server`/`Realm`/`ClientSecret` → `Keycloak:Server`/`Keycloak:Realm`/
-`Keycloak:Credentials:Secret`. The overlay is produced with
-`ConfigurationBuilder().AddConfiguration(hostConfig?).AddInMemoryCollection(manualPairs).Build()`.
-If neither source supplies a required value (`Server`, `Realm`, `ClientId`), throw a clear
-`InvalidOperationException` at registration.
+These are the **console's own** settings (its dedicated client), held in the console's own
+options instance — they do not touch, share, or depend on any `KeycloakClientOptions` the
+consumer app may have registered. `AddConsoleKeycloak` validates that `Server`, `Realm`, and
+`ClientId` are non-empty and throws a clear `InvalidOperationException` otherwise.
 
 #### Provider branch in `AddWincheConsole`
 
-Two overloads, both delegating to a shared core that takes an optional `IConfiguration?`:
-
-- `AddWincheConsole(this IServiceCollection, Action<ConsoleOptions>)` — manual-only path
-  (`IConfiguration` is null; Keycloak settings must come from `UseKeycloak`).
-- `AddWincheConsole(this IServiceCollection, IConfiguration, Action<ConsoleOptions>)` — config
-  base path (host section + manual overrides).
-
-The core branches on the selected provider:
+A single `AddWincheConsole(this IServiceCollection, Action<ConsoleOptions>)` branches on the
+selected provider:
 
 - **Identity provider** (default): current behavior — require `ConnectionString`, call
   `AddConsoleIdentity(options)`, register `ConsoleStartupService`.
-- **Keycloak provider**: do **not** require `ConnectionString`; build the effective Keycloak
-  `IConfiguration` (merge above) and call a new `AddConsoleKeycloak(options, effectiveConfig)`;
-  do **not** register the DB-migrating startup service.
+- **Keycloak provider**: do **not** require `ConnectionString`; call
+  `AddConsoleKeycloak(options)`; do **not** register the DB-migrating startup service.
 
 ### Backend wiring — new `Identity/ConsoleKeycloak.cs`
 
-Mirrors the shape of `Identity/ConsoleAuth.cs` but for the bearer model:
+Registers the console's **own, isolated** JWT-bearer scheme — `"WincheConsoleKeycloak"` (a
+constant, distinct from the default `Bearer` the consumer's `Winche.KeycloakClient` owns) —
+plus the three role policies bound to that scheme. It does **not** call any
+`Winche.KeycloakClient` extension.
 
 ```csharp
-internal static IServiceCollection AddConsoleKeycloak(
-    this IServiceCollection services, ConsoleOptions options, IConfiguration config)
-{
-    services.AddKeycloakAuthentication(config);   // JWT bearer; validates realm tokens
-    services.AddKeycloakAuthorization(config);    // flattens realm/resource roles → ClaimTypes.Role
+public const string Scheme = "WincheConsoleKeycloak";
 
-    // Re-declare the SAME three policy names, now over the JwtBearer scheme and the
-    // host-mapped Keycloak role names. Endpoints that use ConsoleRoles.*Policy are untouched.
+internal static IServiceCollection AddConsoleKeycloak(this IServiceCollection services, ConsoleOptions options)
+{
+    var k = options.Keycloak;                              // validated: Server/Realm/ClientId required
+    var server = k.Server!.TrimEnd('/');
+    var realm  = k.Realm!;
+    var clientId = k.ClientId!;                            // the console's dedicated client
+    var authority = $"{server}/realms/{realm}";
+
+    services.AddSingleton(new KeycloakRuntime { Authority = authority, ClientId = clientId, Scopes = k.Scopes });
+
+    // Our own scheme + options instance — no default scheme, host's Bearer untouched.
+    services.AddAuthentication().AddJwtBearer(Scheme, o =>
+    {
+        o.Authority = authority;
+        o.Audience = clientId;
+        o.RequireHttpsMetadata = k.RequireHttpsMetadata;
+        o.MapInboundClaims = false;                        // keep sub/email/preferred_username as-is
+        o.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+        o.Events = new JwtBearerEvents
+        {
+            // Flatten Keycloak realm + resource roles into ClaimTypes.Role so RequireRole(...) works.
+            OnTokenValidated = ctx => { KeycloakClaims.AddRoleClaims(ctx.Principal!, clientId); return Task.CompletedTask; },
+            // API semantics: 401/403 status codes, not redirects (no default behavior to inherit here).
+        };
+    });
+
+    // The SAME three policy names as Identity mode, now bound to the console scheme + mapped role names.
+    // Endpoints that reference ConsoleRoles.*Policy are untouched.
     services.AddAuthorizationBuilder()
-        .AddPolicy(ConsoleRoles.ViewerPolicy, p => p
-            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-            .RequireRole(options.Keycloak.ViewerRole, options.Keycloak.MemberRole, options.Keycloak.AdminRole))
-        .AddPolicy(ConsoleRoles.MemberPolicy, p => p
-            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-            .RequireRole(options.Keycloak.MemberRole, options.Keycloak.AdminRole))
-        .AddPolicy(ConsoleRoles.AdminPolicy, p => p
-            .AddAuthenticationSchemes(JwtBearerDefaults.AuthenticationScheme)
-            .RequireRole(options.Keycloak.AdminRole));
+        .AddPolicy(ConsoleRoles.ViewerPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .RequireRole(k.ViewerRole, k.MemberRole, k.AdminRole))
+        .AddPolicy(ConsoleRoles.MemberPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .RequireRole(k.MemberRole, k.AdminRole))
+        .AddPolicy(ConsoleRoles.AdminPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .RequireRole(k.AdminRole))
+        .AddPolicy(AuthenticatedPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .RequireAuthenticatedUser());
 
     return services;
 }
@@ -147,11 +166,11 @@ Key property: **the policy names (`ConsoleViewer`/`ConsoleMember`/`ConsoleAdmin`
 identical across providers**, so every Data and Storage endpoint — which only references
 those policy names — works unchanged. Only the scheme and role-claim sources differ.
 
-The package flattens both realm and resource roles into `ClaimTypes.Role` (per its
-`RolesSource` config, default `RealmAndResource`), so `RequireRole(...)` over the mapped
-names is sufficient. Mapping is name-based: the host configures their Keycloak realm to
-emit roles named per `AdminRole`/`MemberRole`/`ViewerRole` (defaulting to
-`Admin`/`Member`/`Viewer`).
+**Role flattening — new `Identity/KeycloakClaims.cs`.** `AddRoleClaims(principal, clientId)`
+reads the access token's `realm_access.roles` (JSON) and `resource_access.{clientId}.roles`
+and adds each as a `Claim(ClaimTypes.Role, name)` on the identity (skipping duplicates). This
+replaces the package's `KeycloakClaimsTransformer`. Mapping stays name-based: the realm emits
+roles named per `AdminRole`/`MemberRole`/`ViewerRole` (defaulting to `Admin`/`Member`/`Viewer`).
 
 ### Endpoint mapping — `MapWincheConsole`
 
@@ -196,8 +215,9 @@ The SPA's first call. Tells the SPA how to authenticate before it has any sessio
   }
   ```
   `id` ← `sub`, `email` ← `email`, names ← `given_name`/`family_name`, `role` ← the highest
-  of the mapped roles present in `ClaimTypes.Role`. The package preserves original OIDC claim
-  names (`sub`, `email`, `preferred_username`) on the principal, so these reads are direct.
+  of the mapped roles present in `ClaimTypes.Role`. Because the scheme sets
+  `MapInboundClaims = false`, the original OIDC claim names (`sub`, `email`, `given_name`,
+  `family_name`) are preserved on the principal, so these reads are direct.
 
   Identity-mode `state` also gains a `"provider": "identity"` field and a `capabilities`
   object (all true) so the SPA has one uniform shape to branch on.
@@ -263,21 +283,23 @@ For the README / docs, the host must, in their realm:
    `UseKeycloak` (= `Keycloak:Resource`). A public client (no secret) is sufficient for the
    PKCE SPA flow; a confidential client is also supported via `ClientSecret`.
 2. Add an **Audience** protocol mapper on that client so issued access tokens include it in
-   `aud`. Required because `Authentication.ValidateAudience` defaults to `true`.
+   `aud`. Required because the console scheme validates `Audience == ClientId`.
 3. Define realm (or resource) roles named per the `AdminRole`/`MemberRole`/`ViewerRole`
    mapping and assign them to users.
 
 Pure bearer-token validation needs only the realm's JWKS; a client secret is required only
-if the host makes the console client confidential. The package's service-account / Admin-API
-flow is **not** used by this design.
+if the host makes the console client confidential. For local/dev Keycloak served over plain
+HTTP, set `RequireHttpsMetadata = false` on `UseKeycloak`.
 
 ## Out of scope (YAGNI)
 
 - Proxying Keycloak's Admin API from the console (rejected: full delegation).
 - Mirroring users / console-local user data keyed by Keycloak `sub` (rejected: stateless).
 - Mixing both providers in one deployment.
-- Cookie-bridging the OIDC login server-side (the package is bearer-based; the SPA holds
+- Cookie-bridging the OIDC login server-side (the model is bearer-based; the SPA holds
   the token).
+- Using `Winche.KeycloakClient` for the console's auth (it can't register an isolated second
+  scheme; the console hand-rolls JWT-bearer instead).
 
 ## Testing strategy
 
@@ -305,15 +327,20 @@ flow is **not** used by this design.
 - `Options/ConsoleOptions.cs` — add `ConsoleAuthProvider Provider`, nested
   `KeycloakOptions Keycloak`, and `UseKeycloak(Action<KeycloakOptions>)`.
 - `Options/KeycloakOptions.cs` *(new)* — `Server`, `Realm`, `ClientId`, `ClientSecret`,
-  `AdminRole`, `MemberRole`, `ViewerRole` (role names default to `Admin`/`Member`/`Viewer`).
+  `AdminRole`, `MemberRole`, `ViewerRole` (role names default to `Admin`/`Member`/`Viewer`),
+  `Scopes`, `RequireHttpsMetadata` (default `true`).
 - `Options/ConsoleAuthProvider.cs` *(new)* — `Identity` | `Keycloak` enum.
-- `WincheConsoleExtensions.cs` — two `AddWincheConsole` overloads (manual + `IConfiguration`)
-  over a shared core; provider branch + effective-config merge; provider branch in
-  `MapWincheConsole`; map `/api/auth/config`.
-- `Identity/ConsoleKeycloak.cs` *(new)* — `AddConsoleKeycloak`, bearer-scheme policies.
-- `Api/AuthEndpoints.cs` (or a new `Api/AuthConfigEndpoints.cs`) — `/api/auth/config`;
-  mode-aware `/api/auth/state`.
-- `Winche.Console.csproj` — add `Winche.KeycloakClient` package reference.
+- `WincheConsoleExtensions.cs` — a single `AddWincheConsole(IServiceCollection, Action<ConsoleOptions>)`
+  (no `IConfiguration` overload); provider branch; provider branch in `MapWincheConsole`;
+  map `/api/auth/config`.
+- `Identity/ConsoleKeycloak.cs` *(new)* — `AddConsoleKeycloak(options)`: validates required
+  options, then registers the dedicated `"WincheConsoleKeycloak"` JWT-bearer scheme + the
+  scheme-bound role policies.
+- `Identity/KeycloakClaims.cs` *(new)* — `AddRoleClaims(principal, clientId)` realm/resource
+  role flattening (replaces the package's claims transformer).
+- `Api/AuthConfigEndpoints.cs` *(new)* — `/api/auth/config`; Keycloak `/api/auth/state`.
+- `Winche.Console.csproj` — **no** `Winche.KeycloakClient` reference (the console hand-rolls
+  JWT-bearer; the package would collide with the consumer's registration).
 
 **SPA**
 - `web/package.json` — add `oidc-client-ts`.

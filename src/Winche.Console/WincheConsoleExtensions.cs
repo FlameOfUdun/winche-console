@@ -23,15 +23,24 @@ public static class WincheConsoleExtensions
     {
         var options = new ConsoleOptions();
         configure(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-            throw new InvalidOperationException(
-                "AddWincheConsole requires ConsoleOptions.ConnectionString (the console's own auth database).");
 
         services.AddSingleton(options);
         options.EmailSenderRegistration?.Invoke(services);
         services.AddSingleton<ConsolePrefix>();
-        services.AddConsoleIdentity(options);
-        services.AddHostedService<ConsoleStartupService>();
+
+        if (options.Provider == ConsoleAuthProvider.Keycloak)
+        {
+            services.AddConsoleKeycloak(options);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(options.ConnectionString))
+                throw new InvalidOperationException(
+                    "AddWincheConsole requires ConsoleOptions.ConnectionString (the console's own auth database).");
+            services.AddConsoleIdentity(options);
+            services.AddHostedService<ConsoleStartupService>();
+        }
+
         return services;
     }
 
@@ -39,27 +48,38 @@ public static class WincheConsoleExtensions
         this IEndpointRouteBuilder endpoints, string prefix = "/_console")
     {
         endpoints.ServiceProvider.GetRequiredService<ConsolePrefix>().Value = prefix;
+        var options = endpoints.ServiceProvider.GetRequiredService<ConsoleOptions>();
         var group = endpoints.MapGroup(prefix);
 
-        // Forced two-factor setup gate: a user the admin marked TwoFactorRequired who has not yet enrolled
-        // is allowed only to log out, view state, edit profile, and finish enrolling — everything else 403s.
-        group.AddEndpointFilter(async (ctx, next) =>
-        {
-            var http = ctx.HttpContext;
-            if (http.User.Identity?.IsAuthenticated == true)
-            {
-                var users = http.RequestServices.GetRequiredService<UserManager<ConsoleUser>>();
-                var user = await users.GetUserAsync(http.User);
-                if (user is { TwoFactorRequired: true, TwoFactorEnabled: false } && !IsTwoFactorSetupExempt(http.Request.Path))
-                    return Results.Json(new { error = "two_factor_setup_required" }, statusCode: StatusCodes.Status403Forbidden);
-            }
-            return await next(ctx);
-        });
+        group.MapAuthConfigEndpoint(options);
 
-        group.MapAuthEndpoints();
-        group.MapTwoFactorEndpoints();
-        group.MapUserEndpoints();
-        group.MapInviteEndpoints();
+        if (options.Provider == ConsoleAuthProvider.Keycloak)
+        {
+            group.MapKeycloakStateEndpoint(options);
+        }
+        else
+        {
+            // Forced two-factor setup gate: a user the admin marked TwoFactorRequired who has not yet enrolled
+            // is allowed only to log out, view state, edit profile, and finish enrolling — everything else 403s.
+            group.AddEndpointFilter(async (ctx, next) =>
+            {
+                var http = ctx.HttpContext;
+                if (http.User.Identity?.IsAuthenticated == true)
+                {
+                    var users = http.RequestServices.GetRequiredService<UserManager<ConsoleUser>>();
+                    var user = await users.GetUserAsync(http.User);
+                    if (user is { TwoFactorRequired: true, TwoFactorEnabled: false } && !IsTwoFactorSetupExempt(http.Request.Path))
+                        return Results.Json(new { error = "two_factor_setup_required" }, statusCode: StatusCodes.Status403Forbidden);
+                }
+                return await next(ctx);
+            });
+
+            group.MapAuthEndpoints();
+            group.MapTwoFactorEndpoints();
+            group.MapUserEndpoints();
+            group.MapInviteEndpoints();
+        }
+
         group.MapConsoleDataEndpoints();
         group.MapConsoleStorageEndpoints();
         ConsoleSpa.Map(group, prefix);

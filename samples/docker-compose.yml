@@ -38,6 +38,25 @@ services:
       - "9100:9000"   # S3 API (https presigned URLs)
       - "9101:9001"   # MinIO web console
 
+  # Keycloak — the identity provider the sample delegates auth to. Imports ./keycloak/winche-realm.json
+  # on startup: realm "winche" with Admin/Member/Viewer roles, a public PKCE client "winche-console"
+  # (redirect to the console + an audience mapper), and demo users admin/admin (Admin) and viewer/viewer.
+  # Admin console: http://localhost:8080  (master admin: admin/admin).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: winche-sample-keycloak
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Issuer/redirects use the browser-facing host:port; the .NET app (on the host) and the browser
+      # both reach Keycloak at localhost:8080, so the token issuer matches what the app validates.
+      KC_HTTP_ENABLED: "true"
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - "8080:8080"
+
   # Creates the sample bucket on startup, then exits. Uses --insecure because the cert is for
   # "localhost", not the internal "minio" hostname.
   createbucket:

@@ -25,22 +25,28 @@ builder.Services.AddWincheStorage(opts =>
         s3.ForcePathStyle = true;   // required for MinIO
     });
 });
-builder.Services.AddWincheConsole(o =>
+// This sample delegates authentication to Keycloak (see samples/docker-compose.yml + samples/keycloak).
+// Keycloak owns login, MFA, and all user/role management; the console keeps no auth database. Server,
+// realm, and client id come from the "Keycloak" section in appsettings.json; the Admin/Member/Viewer
+// role names default to the realm roles imported by docker-compose.
+//
+// To use the built-in ASP.NET Core Identity provider instead, replace this call with:
+//   builder.Services.AddWincheConsole(o =>
+//   {
+//       o.ConnectionString = builder.Configuration["Console:ConnectionString"]!;
+//       o.UseEmailSender<LoggingConsoleEmailSender>();
+//   });
+builder.Services.AddWincheConsole(o => o.UseKeycloak(k =>
 {
-    // The console manages its own accounts/roles in this separate auth database.
-    o.ConnectionString = builder.Configuration["Console:ConnectionString"]!;
+    // The console takes explicit settings — read them from this app's own config and pass them in.
+    k.Server = builder.Configuration["Keycloak:Server"];
+    k.Realm = builder.Configuration["Keycloak:Realm"];
+    k.ClientId = builder.Configuration["Keycloak:Resource"];
 
-    // First run: with no admin seeded, opening /_console shows the "Create the first admin" setup
-    // screen (POST /api/auth/setup). To skip that and seed an admin instead, set:
-    //   o.SeedAdminEmail = builder.Configuration["Console:SeedAdminEmail"];
-    //   o.SeedAdminPassword = builder.Configuration["Console:SeedAdminPassword"];
-
-    // Wire an email transport to enable self-service password reset and invites. Admins can then invite
-    // users (Users -> Invites) with per-invite requirements (complete name, enroll in two-factor) and a
-    // link expiry; the invitee sets their password and profile via the emailed link. This demo logs the
-    // link to the app console — replace LoggingConsoleEmailSender with a real SMTP adapter in production.
-    o.UseEmailSender<LoggingConsoleEmailSender>();
-});
+    // Dev sample only: Keycloak runs over plain HTTP on localhost. In production serve Keycloak over
+    // HTTPS and drop this line (it defaults to true).
+    k.RequireHttpsMetadata = false;
+}));
 
 var app = builder.Build();
 
@@ -51,8 +57,8 @@ await SampleData.SeedAsync(app.Services);
 
 app.MapGet("/", () => Results.Redirect("/_console"));
 
-// Mount the console. It protects its own endpoints with the Admin/Member/Viewer roles it manages —
-// open /_console; on first run it asks you to create the first admin.
+// Mount the console. It protects its own endpoints with the Admin/Member/Viewer roles — open /_console
+// and sign in with Keycloak (the imported realm seeds an "admin"/"admin" user with the Admin role).
 app.MapWincheConsole("/_console");
 
 app.Run();

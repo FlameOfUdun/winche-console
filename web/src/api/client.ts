@@ -1,4 +1,4 @@
-import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, UsageStats, WincheDocument } from "./types";
+import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -14,10 +14,22 @@ export function b64Path(path: string): string {
 // All API URLs resolve relative to <base href> (the console prefix injected by the host).
 const apiUrl = (rel: string) => new URL(rel, document.baseURI).toString();
 
+// Set by the session bootstrap when the provider is Keycloak; returns the current access token (or null).
+let bearerTokenProvider: (() => Promise<string | null>) | null = null;
+export function setBearerTokenProvider(fn: (() => Promise<string | null>) | null) {
+  bearerTokenProvider = fn;
+}
+
 async function http<T>(method: string, rel: string, body?: unknown): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (bearerTokenProvider) {
+    const token = await bearerTokenProvider();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
   const res = await fetch(apiUrl(rel), {
     method,
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+    headers: Object.keys(headers).length ? headers : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "same-origin",
   });
@@ -28,6 +40,7 @@ async function http<T>(method: string, rel: string, body?: unknown): Promise<T> 
 
 export const api = {
   authState: () => http<AuthState>("GET", "api/auth/state"),
+  authConfig: () => http<import("./types").AuthConfig>("GET", "api/auth/config"),
   setup: (body: { email: string; firstName?: string; lastName?: string; password: string }) =>
     http<{ email: string }>("POST", "api/auth/setup", body),
   login: (email: string, password: string) =>
@@ -65,8 +78,6 @@ export const api = {
   invitePreview: (token: string) => http<InvitePreview>("GET", `api/invites/accept?token=${encodeURIComponent(token)}`),
   acceptInvite: (body: { token: string; password: string; firstName?: string; lastName?: string }) =>
     http<void>("POST", "api/invites/accept", body),
-
-  usage: () => http<UsageStats>("GET", "api/usage"),
 
   listCollections: (parent?: string) =>
     http<string[]>("GET", `api/data/collections${parent ? `?parent=${encodeURIComponent(parent)}` : ""}`),
