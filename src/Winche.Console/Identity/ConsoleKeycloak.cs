@@ -15,7 +15,10 @@ namespace Winche.Console.Identity;
 /// </summary>
 internal static class ConsoleKeycloak
 {
-    /// <summary>The console's dedicated bearer scheme name (distinct from the default "Bearer").</summary>
+    /// <summary>
+    /// Default name for the console's dedicated bearer scheme (distinct from the default "Bearer");
+    /// overridable per-app via <see cref="Winche.Console.Options.KeycloakOptions.AuthPolicyScheme"/>.
+    /// </summary>
     public const string Scheme = "WincheConsoleKeycloak";
 
     /// <summary>Authenticated-bearer policy used by /api/auth/state (identity without a console role).</summary>
@@ -32,12 +35,13 @@ internal static class ConsoleKeycloak
         var realm = k.Realm!;
         var clientId = k.ClientId!;   // the console's dedicated client
         var authority = $"{server}/realms/{realm}";
+        var scheme = string.IsNullOrWhiteSpace(k.AuthPolicyScheme) ? Scheme : k.AuthPolicyScheme;
 
         services.AddSingleton(new KeycloakRuntime { Authority = authority, ClientId = clientId, Scopes = k.Scopes });
 
         // The console's OWN scheme + options instance. AddAuthentication() with no default scheme leaves the
         // host's default (and its "Bearer" scheme, if any) untouched.
-        services.AddAuthentication().AddJwtBearer(Scheme, o =>
+        services.AddAuthentication().AddJwtBearer(scheme, o =>
         {
             o.Authority = authority;
             o.Audience = clientId;
@@ -58,13 +62,13 @@ internal static class ConsoleKeycloak
         // The SAME three policy names as Identity mode, now bound to the console scheme and the host-mapped
         // Keycloak role names. Endpoints that reference ConsoleRoles.*Policy are untouched.
         services.AddAuthorizationBuilder()
-            .AddPolicy(ConsoleRoles.ViewerPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .AddPolicy(ConsoleRoles.ViewerPolicy, p => p.AddAuthenticationSchemes(scheme)
                 .RequireRole(k.ViewerRole, k.MemberRole, k.AdminRole))
-            .AddPolicy(ConsoleRoles.MemberPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .AddPolicy(ConsoleRoles.MemberPolicy, p => p.AddAuthenticationSchemes(scheme)
                 .RequireRole(k.MemberRole, k.AdminRole))
-            .AddPolicy(ConsoleRoles.AdminPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .AddPolicy(ConsoleRoles.AdminPolicy, p => p.AddAuthenticationSchemes(scheme)
                 .RequireRole(k.AdminRole))
-            .AddPolicy(AuthenticatedPolicy, p => p.AddAuthenticationSchemes(Scheme)
+            .AddPolicy(AuthenticatedPolicy, p => p.AddAuthenticationSchemes(scheme)
                 .RequireAuthenticatedUser());
 
         return services;

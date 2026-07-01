@@ -35,4 +35,12 @@ public sealed class KeycloakOptions
     /// Keycloak served over plain HTTP.
     /// </summary>
     public bool RequireHttpsMetadata { get; set; } = true;
+
+    /// <summary>
+    /// Name of the dedicated JWT-bearer authentication scheme the console registers for its own endpoints
+    /// (distinct from the host's default "Bearer"). Defaults to "WincheConsoleKeycloak". Override it to
+    /// avoid a clash with a scheme the host already registers, or to give the host a stable name to target
+    /// — e.g. a path-based <c>ForwardDefaultSelector</c> that routes console requests to this scheme.
+    /// </summary>
+    public string AuthPolicyScheme { get; set; } = "WincheConsoleKeycloak";
 }

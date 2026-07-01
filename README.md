@@ -92,6 +92,7 @@ builder.Services.AddWincheConsole(o => o.UseKeycloak(k =>
     k.ViewerRole = "Viewer";
     // k.ClientSecret = "...";              // only if the console client is confidential
     // k.RequireHttpsMetadata = false;      // only for a local/dev Keycloak served over http
+    // k.AuthPolicyScheme = "WincheConsoleKeycloak"; // name of the console's bearer scheme (default shown)
 }));
 ```
 
@@ -118,6 +119,22 @@ In your realm:
 checked against the realm JWKS. This is independent of any `Winche.KeycloakClient` registration your
 app already has — a token minted for your app's client will not pass the console's scheme, and
 vice-versa.
+
+**Scheme name (`AuthPolicyScheme`).** The console registers its bearer scheme under the name
+`WincheConsoleKeycloak` by default; set `AuthPolicyScheme` to change it. Because your host's own
+`UseAuthentication` runs its *default* scheme on every request, a console-audience token reaching the
+host's `Bearer` handler fails audience validation and logs noise (`IDX10214`). The clean fix is a
+path-based forwarder on the host so console requests authenticate with the console's scheme — and
+`AuthPolicyScheme` gives you a stable name to target:
+
+```csharp
+builder.Services.AddAuthentication()
+    .AddPolicyScheme("Smart", "Smart", o => o.ForwardDefaultSelector = ctx =>
+        ctx.Request.Path.StartsWithSegments("/_console")
+            ? "WincheConsoleKeycloak"                   // == AuthPolicyScheme
+            : JwtBearerDefaults.AuthenticationScheme);  // your host's "Bearer"
+builder.Services.PostConfigure<AuthenticationOptions>(o => o.DefaultScheme = "Smart");
+```
 
 **Account management.** In Keycloak mode the profile menu (bottom of the nav) shows **Manage account**,
 which opens Keycloak's account console for the signed-in user. Login, password, MFA, and profile are
