@@ -31,7 +31,9 @@ function GatedApp() {
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to="data" replace />} />
           <Route path="data" element={<DataBrowserPage />} />
+          <Route path="data/rules" element={<DataBrowserPage />} />
           <Route path="storage" element={<StorageBrowserPage />} />
+          <Route path="storage/rules" element={<StorageBrowserPage />} />
           <Route path="users" element={canManageUsers ? <UsersPage /> : <Navigate to="/data" replace />} />
         </Route>
       </Routes>

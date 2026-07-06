@@ -10,8 +10,10 @@ inline and persist on confirm); and upload, download, browse, edit metadata on, 
 (kept in memory until you upload the first file) or delete a whole folder and everything under it
 (cascading) — with each file's upload status (pending / complete / failed) shown inline. Destructive
 deletes (documents, collections, files, folders) always ask for confirmation first. It manages **its own
-accounts and roles** (built-in authentication). Rules, indexes, and triggers are **not** managed here —
-those live in your app's C# startup (`UseRules` / `UseIndexes` / `UseHooks`).
+accounts and roles** (built-in authentication), and — when you opt in — provides a **GUI editor for your
+Firestore-style security rules** with live hot-swap and versioned history (see *Rule editor* below).
+Indexes and triggers are **not** managed here — those live in your app's C# startup
+(`UseIndexes` / `UseHooks`).
 
 ## Use it
 
@@ -141,6 +143,38 @@ which opens Keycloak's account console for the signed-in user. Login, password, 
 all owned by Keycloak. `ConnectionString`, `SeedAdmin*`, invites, 2FA, and the in-console
 user-management screens do not apply in Keycloak mode.
 
+## Rule editor (optional)
+
+Opt in and the console adds a **Rules** sub-tab to the Database and Storage screens for editing the
+Firestore-style security rules that guard `Winche.Database` and `Winche.Storage` (the `Winche.Rules`
+engine). Edits **hot-swap** into the live engine immediately — no restart — and every save is a durable,
+versioned entry you can review and revert to.
+
+```csharp
+services.AddWincheConsole(o =>
+{
+    o.ConnectionString = consoleConn;           // REQUIRED once any rule editor is enabled
+    o.UseDatabaseRulesEditor();                 // adds Database → Rules
+    o.UseStorageRulesEditor(r => r.ApplyPersistedRulesOnStartup = false); // adds Storage → Rules
+});
+```
+
+- **Per subsystem, independent.** Enable `UseDatabaseRulesEditor()` and/or `UseStorageRulesEditor()`;
+  omit one and its Rules tab never appears. Each is gated to **Admins** and only shows when its rule
+  engine is actually registered in the host.
+- **Storage.** The versioned history lives in a dedicated `console_rule_versions` table on
+  `ConsoleOptions.ConnectionString` — **required whenever any rule editor is enabled** (including
+  Keycloak mode, where it is otherwise unused). It never touches the identity tables.
+- **Startup apply (`ApplyPersistedRulesOnStartup`, default `true`).** On boot the console re-applies the
+  latest saved ruleset to the live engine. Set it `false` to keep your code-seeded rules as the boot
+  baseline — console edits still hot-swap and persist at runtime, they just aren't re-applied on restart
+  (the UI shows a drift banner with an *Apply saved version* action when live ≠ saved).
+- **Editing.** A GUI builder (match-block tree + a full expression builder over the rule AST) with a raw
+  **JSON** toggle and file **import/export**; a **Simulate request** panel to check allow/deny before
+  saving; and a **version history** drawer with one-click **revert** and optimistic-concurrency safety.
+- **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
+  the console's own login — a bad ruleset cannot lock you out of the console.
+
 ## API (under the chosen prefix)
 
 - **Auth** — `GET api/auth/state`, `POST api/auth/{setup,login,login/2fa,login/recovery,logout,password,profile,forgot-password,reset-password}`, `POST api/auth/2fa/{setup,enable,disable,recovery-codes}`
@@ -152,6 +186,9 @@ user-management screens do not apply in Keycloak mode.
   `GET api/storage/browse?path=`, `GET/DELETE api/storage/files/{base64Path}`,
   `DELETE api/storage/directories/{base64Path}` (cascading folder delete),
   `POST api/storage/{upload-url,confirm,metadata}`, `GET api/storage/download-url?path=`
+- **Rules** (Admin; only for enabled subsystems, `{sys}` = `database` | `storage`) —
+  `GET api/rules/subsystems`, `GET api/rules/{sys}/{live,versions}`, `GET api/rules/{sys}/versions/{version}`,
+  `POST api/rules/{sys}` (save + hot-swap), `POST api/rules/{sys}/{revert/{version},apply-head,validate,simulate}`
 
 Document/file paths are standard-base64 of the UTF-8 path (those that travel in a route segment);
 the storage write endpoints take the path in the body/query instead. Malformed base64 returns `400`.
@@ -170,7 +207,8 @@ the storage write endpoints take the path in the body/query instead. Malformed b
 
 - **Not** a multi-tenant control plane. It attaches to exactly one app's datastore; there is no
   project management, provisioning, or per-tenant routing.
-- **Not** a rules/indexes/triggers editor. Those are compile-time configuration owned by your app.
+- **Not** an indexes/triggers editor — those are compile-time configuration owned by your app.
+  (Security *rules* can optionally be edited live; see *Rule editor* above.)
 - **Not** its own deployable. No Dockerfile, no host — it's a library inside your process.
 
 ## Develop

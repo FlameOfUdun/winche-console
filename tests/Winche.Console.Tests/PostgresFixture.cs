@@ -83,6 +83,33 @@ public sealed class PostgresFixture : IAsyncLifetime
             // Auth database does not exist yet — nothing to reset.
         }
     }
+
+    /// <summary>Clears the rules-editor version-history table between tests. The rules store reuses the
+    /// console's connection string, so the table lives in the console auth database. Tolerates a fresh
+    /// container whose schema has not been created yet (the rules editor's startup service creates the
+    /// table via EF migration on first console boot), and the auth database not existing yet.</summary>
+    public async Task ResetRulesAsync()
+    {
+        try
+        {
+            await using var conn = new NpgsqlConnection(ConsoleAuthConnectionString);
+            await conn.OpenAsync();
+            await using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                DO $$
+                BEGIN
+                    IF to_regclass('console_rule_versions') IS NOT NULL THEN
+                        TRUNCATE console_rule_versions;
+                    END IF;
+                END $$;
+                """;
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch (PostgresException ex) when (ex.SqlState == "3D000")
+        {
+            // Auth database does not exist yet — nothing to reset.
+        }
+    }
 }
 
 [CollectionDefinition("postgres")]

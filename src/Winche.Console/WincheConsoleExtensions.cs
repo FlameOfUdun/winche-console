@@ -3,11 +3,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Winche.Console.Api;
 using Winche.Console.Email;
 using Winche.Console.Identity;
 using Winche.Console.Options;
+using Winche.Console.Rules;
 using Winche.Console.Spa;
+using Winche.Database.Constants;
+using Winche.Storage.Constants;
 
 namespace Winche.Console;
 
@@ -27,6 +31,36 @@ public static class WincheConsoleExtensions
         services.AddSingleton(options);
         options.EmailSenderRegistration?.Invoke(services);
         services.AddSingleton<ConsolePrefix>();
+
+        services.TryAddSingleton(TimeProvider.System);
+        if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
+        {
+            // The versioned rules store reuses the console's connection string (a dedicated table, never
+            // the identity tables). Mandatory whenever any rules editor is enabled — including Keycloak
+            // mode, where ConnectionString is otherwise unused.
+            if (string.IsNullOrWhiteSpace(options.ConnectionString))
+                throw new InvalidOperationException(
+                    "Enabling the rules editor (UseDatabaseRulesEditor/UseStorageRulesEditor) requires ConsoleOptions.ConnectionString — the versioned rules store reuses it.");
+
+            services.AddSingleton(new RuleStoreFactory(options.ConnectionString));
+            services.AddHostedService<ConsoleRulesStartupService>();
+
+            if (options.DatabaseRulesEditor is not null)
+            {
+                services.AddSingleton(new RuleSubsystemRegistration(
+                    RuleSubsystems.Database,
+                    WincheDatabaseKeys.RuleEngine,
+                    options.DatabaseRulesEditor.ApplyPersistedRulesOnStartup));
+            }
+
+            if (options.StorageRulesEditor is not null)
+            {
+                services.AddSingleton(new RuleSubsystemRegistration(
+                    RuleSubsystems.Storage,
+                    WincheStorageKeys.RULE_ENGINE_KEY,
+                    options.StorageRulesEditor.ApplyPersistedRulesOnStartup));
+            }
+        }
 
         if (options.Provider == ConsoleAuthProvider.Keycloak)
         {
@@ -82,6 +116,10 @@ public static class WincheConsoleExtensions
 
         group.MapConsoleDataEndpoints();
         group.MapConsoleStorageEndpoints();
+        if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
+        {
+            group.MapConsoleRulesEndpoints();
+        }
         ConsoleSpa.Map(group, prefix);
         return group;
     }

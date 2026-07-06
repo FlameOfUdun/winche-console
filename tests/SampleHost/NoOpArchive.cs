@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Winche.Storage.Interfaces;
 using Winche.Storage.Models;
 
@@ -14,7 +15,17 @@ public sealed class NoOpArchive : IArchive
 
     public Task DeleteAsync(string path, CancellationToken ct = default) => Task.CompletedTask;
     public Task DeleteObjectsAsync(IEnumerable<string> paths, CancellationToken ct = default) => Task.CompletedTask;
-    public Task<bool> ObjectExistsAsync(string path, CancellationToken ct = default) => Task.FromResult(true);
+
+    // Objects are treated as always-present: hand back a canned ETag rather than probing a real store.
+    public Task<string?> GetObjectETagAsync(string path, CancellationToken ct = default) =>
+        Task.FromResult<string?>("\"noop-etag\"");
+
+    // No real object store to enumerate; yield nothing.
+    public async IAsyncEnumerable<ArchivedObject> ListObjectsAsync(string? prefix, [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await Task.CompletedTask;
+        yield break;
+    }
 
     public Task<UploadSession> GenerateUploadUrlAsync(string path, string mimeType, long sizeBytes, CancellationToken ct = default) =>
         Task.FromResult(new UploadSession { Url = $"https://fake-archive.test/upload/{path}", ExpiresAt = DateTime.UtcNow.AddMinutes(15) });
@@ -23,7 +34,7 @@ public sealed class NoOpArchive : IArchive
 
     public Task<string> CreateMultipartUploadAsync(string path, string mimeType, CancellationToken ct = default) => throw NoMultipart();
     public Task<UploadSession> SignPartAsync(string path, string uploadId, int partNumber, CancellationToken ct = default) => throw NoMultipart();
-    public Task CompleteMultipartUploadAsync(string path, string uploadId, CancellationToken ct = default) => throw NoMultipart();
+    public Task<string?> CompleteMultipartUploadAsync(string path, string uploadId, CancellationToken ct = default) => throw NoMultipart();
     public Task<IEnumerable<FilePart>> ListPartsAsync(string path, string uploadId, CancellationToken ct = default) => throw NoMultipart();
     public Task AbortMultipartUploadAsync(string path, string uploadId, CancellationToken ct = default) => throw NoMultipart();
 }

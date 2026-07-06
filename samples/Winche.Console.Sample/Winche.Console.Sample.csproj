@@ -7,9 +7,9 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Winche.Database" Version="8.4.0" />
-    <PackageReference Include="Winche.Storage" Version="6.3.0" />
-    <PackageReference Include="Winche.Storage.S3" Version="6.3.0" />
+    <PackageReference Include="Winche.Database" Version="10.0.0" />
+    <PackageReference Include="Winche.Storage" Version="8.0.0" />
+    <PackageReference Include="Winche.Storage.S3" Version="8.0.0" />
   </ItemGroup>
   <ItemGroup>
     <!-- In your own app this would be a NuGet PackageReference to Winche.Console. -->

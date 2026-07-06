@@ -3,7 +3,7 @@ import {
   ActionIcon, Badge, Box, Button, CopyButton, Group, Menu, Modal, PasswordInput, Select, Stack, Switch,
   Table, Tabs, Text, TextInput, Tooltip,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconDots, IconMail, IconPlus, IconShield, IconUsers } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDots, IconMail, IconPlus, IconUsers } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ConsoleInvite, ConsoleRole, ConsoleUserItem } from "../api/types";
@@ -16,10 +16,6 @@ const ROLES: ConsoleRole[] = ["Admin", "Member", "Viewer"];
 export function UsersPage() {
   return (
     <Stack gap="sm" h="calc(100vh - 4rem)">
-      <Group gap={6} c="#5f6368">
-        <IconShield size={18} />
-        <Text size="sm" fw={500} c="#5f6368">Access</Text>
-      </Group>
       <Tabs
         defaultValue="users"
         keepMounted={false}

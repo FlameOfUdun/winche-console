@@ -11,9 +11,14 @@ import { api } from "../api/client";
 import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
 import type { FileRecord } from "../api/types";
+import { SubsystemTabs } from "./rules/SubsystemTabs";
 
 export function StorageBrowserPage() {
-  return <FilesView />;
+  return (
+    <SubsystemTabs subsystem="storage" primaryLabel="Files" basePath="/storage">
+      <FilesView />
+    </SubsystemTabs>
+  );
 }
 
 // Upload lifecycle from Winche.Storage: "pending" (record created, bytes not yet confirmed),

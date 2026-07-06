@@ -9,9 +9,14 @@ import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { FieldsEditor } from "../data/FieldsEditor";
 import { parseFields, serializeFields, type FieldEntry } from "../data/fields";
+import { SubsystemTabs } from "./rules/SubsystemTabs";
 
 export function DataBrowserPage() {
-  return <DataView />;
+  return (
+    <SubsystemTabs subsystem="database" primaryLabel="Documents" basePath="/data">
+      <DataView />
+    </SubsystemTabs>
+  );
 }
 
 const COL_W = 270;

@@ -70,4 +70,42 @@ public sealed class ConsoleOptions
         EmailSenderRegistration = services => services.AddSingleton(instance);
         return this;
     }
+
+    /// <summary>
+    /// Rules-editor options for the database subsystem; null when <see cref="UseDatabaseRulesEditor"/>
+    /// was never called (the feature stays off for this subsystem).
+    /// </summary>
+    internal RulesEditorOptions? DatabaseRulesEditor { get; private set; }
+
+    /// <summary>
+    /// Rules-editor options for the storage subsystem; null when <see cref="UseStorageRulesEditor"/>
+    /// was never called (the feature stays off for this subsystem).
+    /// </summary>
+    internal RulesEditorOptions? StorageRulesEditor { get; private set; }
+
+    /// <summary>
+    /// Enable the GUI rules editor for the database (Firestore-style) rule engine. Its versioned rules
+    /// store reuses <see cref="ConnectionString"/> (required whenever any rules editor is enabled — see
+    /// <c>AddWincheConsole</c>), in a dedicated table separate from the identity tables.
+    /// </summary>
+    public ConsoleOptions UseDatabaseRulesEditor(Action<RulesEditorOptions>? configure = null)
+    {
+        var opts = new RulesEditorOptions();
+        configure?.Invoke(opts);
+        DatabaseRulesEditor = opts;
+        return this;
+    }
+
+    /// <summary>
+    /// Enable the GUI rules editor for the storage (Firestore-style) rule engine. Its versioned rules
+    /// store reuses <see cref="ConnectionString"/> (required whenever any rules editor is enabled — see
+    /// <c>AddWincheConsole</c>), in a dedicated table separate from the identity tables.
+    /// </summary>
+    public ConsoleOptions UseStorageRulesEditor(Action<RulesEditorOptions>? configure = null)
+    {
+        var opts = new RulesEditorOptions();
+        configure?.Invoke(opts);
+        StorageRulesEditor = opts;
+        return this;
+    }
 }

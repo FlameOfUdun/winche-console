@@ -26,7 +26,13 @@ else
 {
     var authConn = builder.Configuration["Console:ConnectionString"]
         ?? throw new InvalidOperationException("Console:ConnectionString is required.");
-    builder.Services.AddWincheConsole(o => o.ConnectionString = authConn);   // no seed: tests use /setup
+    builder.Services.AddWincheConsole(o =>
+    {
+        o.ConnectionString = authConn;   // no seed: tests use /setup
+
+        o.UseDatabaseRulesEditor();   // rules store reuses o.ConnectionString (the console auth DB)
+        o.UseStorageRulesEditor();
+    });
 }
 
 var app = builder.Build();

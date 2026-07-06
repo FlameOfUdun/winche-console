@@ -1,4 +1,5 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
+import type { RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -100,4 +101,19 @@ export const api = {
     http<{ downloadUrl: string; expiresAt: string }>("GET", `api/storage/download-url?path=${encodeURIComponent(path)}`),
   updateFileMetadata: (path: string, metadata: Record<string, unknown>) =>
     http<FileRecord>("POST", "api/storage/metadata", { path, metadata }),
+
+  rulesSubsystems: () => http<RuleSubsystemStatus[]>("GET", "api/rules/subsystems"),
+  rulesLive: (sys: RuleSubsystem) => http<{ rulesJson: string }>("GET", `api/rules/${sys}/live`),
+  rulesVersions: (sys: RuleSubsystem) => http<RuleVersionSummary[]>("GET", `api/rules/${sys}/versions`),
+  rulesVersion: (sys: RuleSubsystem, version: number) => http<RuleVersionDetail>("GET", `api/rules/${sys}/versions/${version}`),
+  rulesSave: (sys: RuleSubsystem, body: { rulesJson: string; note?: string; expectedHeadVersion?: number }) =>
+    http<RuleVersionDetail>("POST", `api/rules/${sys}`, body),
+  rulesRevert: (sys: RuleSubsystem, version: number) => http<RuleVersionDetail>("POST", `api/rules/${sys}/revert/${version}`),
+  rulesApplyHead: (sys: RuleSubsystem) => http<{ appliedVersion: number | null }>("POST", `api/rules/${sys}/apply-head`),
+  rulesValidate: (sys: RuleSubsystem, rulesJson: string) =>
+    http<RuleValidationResult>("POST", `api/rules/${sys}/validate`, { rulesJson }),
+  rulesSimulate: (
+    sys: RuleSubsystem,
+    body: { rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string> },
+  ) => http<SimulateResult>("POST", `api/rules/${sys}/simulate`, body),
 };
