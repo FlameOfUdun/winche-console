@@ -24,6 +24,16 @@ internal static class LayoutWalk
     public static WidgetNode? FindWidget(Node root, string id) =>
         Widgets(root).FirstOrDefault(w => w.Id == id);
 
+    public static IEnumerable<CommandRef> CommandRefs(Node root)
+    {
+        foreach (var node in All(root))
+        {
+            if (node is Button { Command: { } cmd }) yield return cmd;
+            if (node is IHasRowActions h)
+                foreach (var ra in h.RowActions) yield return ra.Command;
+        }
+    }
+
     private static IEnumerable<Node> ChildrenOf(Node node) => node switch
     {
         Column c => c.Children,

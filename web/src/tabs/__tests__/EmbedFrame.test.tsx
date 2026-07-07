@@ -165,7 +165,7 @@ test("RenderNode routes an embed node to an iframe", () => {
             <Routes>
               <Route
                 path=":tabId"
-                element={<RenderNode node={embed} filters={{ values: {}, setValue: () => {} }} data={{}} />}
+                element={<RenderNode node={embed} filters={{ values: {}, drafts: {}, setValue: () => {}, setDraft: () => {}, commit: () => {} }} data={{}} />}
               />
             </Routes>
           </MemoryRouter>

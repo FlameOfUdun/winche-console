@@ -7,7 +7,7 @@ public sealed class AnalyticsData : ITabData
 {
     public Task<StatRowData> Kpis(WidgetContext ctx, CancellationToken ct)
     {
-        var mult = ctx.Filters.TryGetValue("range", out var r) && r == "30 days" ? 4 : 1;
+        var mult = ctx.Inputs.TryGetValue("range", out var r) && r == "30 days" ? 4 : 1;
         return Task.FromResult(new StatRowData(
             new Stat("Total users", 1284 * mult, "+12%", Trend.Up),
             new Stat("Documents", 342 * mult),
@@ -16,7 +16,7 @@ public sealed class AnalyticsData : ITabData
 
     public Task<ChartData> Signups(WidgetContext ctx, CancellationToken ct)
     {
-        var bucket = ctx.Filters.TryGetValue("view", out var v) ? v : "Users";
+        var bucket = ctx.Inputs.TryGetValue("view", out var v) ? v : "Users";
         return Task.FromResult(new ChartData(
             new Series($"Signups-{bucket}", new Point("Mon", 12), new Point("Tue", 19), new Point("Wed", 9))));
     }
@@ -38,4 +38,19 @@ public sealed class AnalyticsData : ITabData
 
     public Task<StatRowData> Boom(WidgetContext ctx, CancellationToken ct) =>
         throw new InvalidOperationException("boom");
+}
+
+public sealed record EchoInput([property: System.ComponentModel.DataAnnotations.Required] string Name);
+
+public sealed class OpsData
+{
+    public Task<TableData> Items(WidgetContext ctx, CancellationToken ct) =>
+        Task.FromResult((TableData)TableData.From(new[] { new { Id = "a", Name = "Alpha" }, new { Id = "b", Name = "Beta" } })
+            .Key(x => x.Id).Column("Name", x => x.Name));
+
+    public Task<CommandResult> Echo(CommandContext<EchoInput> ctx, CancellationToken ct) =>
+        Task.FromResult(CommandResult.Ok($"echo:{ctx.Input.Name}"));
+
+    public Task<CommandResult> Remove(CommandContext ctx, CancellationToken ct) =>
+        Task.FromResult(CommandResult.Ok($"removed:{ctx.RowKey}"));
 }

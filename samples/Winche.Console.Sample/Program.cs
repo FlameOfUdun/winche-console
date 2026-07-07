@@ -84,6 +84,20 @@ builder.Services.AddWincheConsole(o =>
         ]));
     });
 
+    o.AddTab("users", "Users", tab =>
+    {
+        tab.Icon = "table";
+        tab.MinRole = ConsoleRole.Member;
+        var create = tab.Command((UsersTab d) => d.CreateUser, c => { c.Label = "Create user"; c.MinRole = ConsoleRole.Admin; });
+        var del = tab.Command((UsersTab d) => d.DeleteUser, c => { c.Label = "Delete"; c.MinRole = ConsoleRole.Admin; c.Confirm = "Delete this user?"; });
+        // The manual TextInput renders its own "Search" button inline; the toolbar row just holds Create user.
+        tab.Layout(new Filter(new TextInput("q") { Placeholder = "Search email…", Apply = Apply.Manual },
+        [
+            new Row([ new Button(create) ]) { Justify = RowJustify.Start },
+            new Table<UsersTab>(d => d.Rows) { Paginate = 10, RowActions = [ new RowActionRef(del) ] },
+        ]));
+    });
+
     // A Flutter web app as an island — a sibling KPI (bumped by the island's refetch) next to the embed.
     if (hasFlutter)
     {

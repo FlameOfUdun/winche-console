@@ -31,9 +31,14 @@ public sealed record StatRow<TData> : WidgetNode where TData : class
                async (sp, ctx, ct) => await selector((TData)sp.GetRequiredService(typeof(TData)))(ctx, ct)) { }
 }
 
-public sealed record Table<TData> : WidgetNode where TData : class
+internal interface IHasRowActions { IReadOnlyList<RowActionRef> RowActions { get; } }
+internal interface IPaginatedTable { int? Paginate { get; } }
+
+public sealed record Table<TData> : WidgetNode, IHasRowActions, IPaginatedTable where TData : class
 {
     public override string Kind => "table";
+    public int? Paginate { get; init; }
+    public IReadOnlyList<RowActionRef> RowActions { get; init; } = Array.Empty<RowActionRef>();
     public Table(Func<TData, WidgetHandler<TableData>> selector)
         : base(WidgetId.FromSelector(selector), typeof(TData),
                async (sp, ctx, ct) => await selector((TData)sp.GetRequiredService(typeof(TData)))(ctx, ct)) { }
@@ -49,7 +54,9 @@ public sealed record Chart<TData> : WidgetNode, IChartNode where TData : class
         => ChartKind = kind;
 }
 
-/// <summary>Derives a widget id from the method the selector binds to (e.g. d => d.Kpis  ->  "kpis").</summary>
+/// <summary>Derives a widget id from the member the selector binds to. Works for a pure method-group
+/// (`d => d.Kpis` -> "kpis") and for a property-bodied handler whose lambda name is the compiler-generated
+/// "&lt;get_Kpis&gt;b__…" (also -> "kpis"); see <see cref="HandlerId"/>.</summary>
 internal static class WidgetId
 {
     public static string FromSelector<TData, TResult>(Func<TData, WidgetHandler<TResult>> selector) where TData : class
@@ -58,7 +65,6 @@ internal static class WidgetId
         // without reading instance state, so an uninitialized probe instance suffices to read the bound
         // method name. A selector that dereferences instance fields would NRE against the probe.
         var probe = (TData)RuntimeHelpers.GetUninitializedObject(typeof(TData));
-        var name = selector(probe).Method.Name;
-        return name.ToLowerInvariant();
+        return HandlerId.Normalize(selector(probe).Method.Name);
     }
 }

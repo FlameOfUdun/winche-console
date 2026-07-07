@@ -14,6 +14,8 @@ public static class ConsoleTabsEndpoints
 {
     public sealed record TabDataRequest(IReadOnlyList<string> WidgetIds, IReadOnlyDictionary<string, string?>? Filters);
 
+    public sealed record CommandRequest(string? RowKey, JsonElement? Input, IReadOnlyDictionary<string, string?>? Inputs);
+
     public static IEndpointRouteBuilder MapConsoleTabsEndpoints(
         this IEndpointRouteBuilder app, TabRegistry registry, ConsoleOptions options)
     {
@@ -40,8 +42,8 @@ public static class ConsoleTabsEndpoints
             group.MapPost($"/{captured.Id}/data", async (HttpContext http, TabDataRequest body, CancellationToken ct) =>
             {
                 var user = ConsoleTabUser.From(http.User, options);
-                var filters = body.Filters ?? new Dictionary<string, string?>();
-                var ctx = new WidgetContext(user, filters, http.RequestServices);
+                var inputs = body.Filters ?? new Dictionary<string, string?>();
+                var ctx = new WidgetContext(user, inputs, http.RequestServices);
 
                 var widgets = new Dictionary<string, object?>(StringComparer.Ordinal);
                 foreach (var id in body.WidgetIds.Distinct(StringComparer.Ordinal))
@@ -63,6 +65,44 @@ public static class ConsoleTabsEndpoints
                 }
                 return Results.Json(new { widgets }, TabManifest.JsonOptions);
             }).RequireAuthorization(policy);
+
+            foreach (var command in captured.Commands)
+            {
+                var cmd = command;
+                group.MapPost($"/{captured.Id}/commands/{cmd.Id}",
+                    async (HttpContext http, CommandRequest body, CancellationToken ct) =>
+                {
+                    // CSRF: cookie mode must present the non-simple custom header; bearer mode carries no ambient cookie.
+                    var isBearer = http.Request.Headers.Authorization.Count > 0;
+                    if (!isBearer && http.Request.Headers["X-Winche-Console"].ToString() != "1")
+                        return Results.BadRequest(new { status = "error", message = "Missing X-Winche-Console header." });
+
+                    var user = ConsoleTabUser.From(http.User, options);
+                    var inputs = body.Inputs ?? new Dictionary<string, string?>();
+                    var ctx = new CommandContext(user, inputs, body.RowKey, http.RequestServices);
+                    var json = body.Input?.GetRawText();
+                    try
+                    {
+                        var result = await cmd.Invoke(http.RequestServices, ctx, json, ct);
+                        return Results.Json(new
+                        {
+                            status = result.Status.ToString().ToLowerInvariant(),
+                            message = result.Message,
+                            fieldErrors = result.FieldErrors,
+                            refetch = result.Refetch.ToString().ToLowerInvariant(),
+                        }, TabManifest.JsonOptions);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        http.RequestServices.GetRequiredService<ILoggerFactory>()
+                            .CreateLogger("Winche.Console.Api.ConsoleTabsEndpoints")
+                            .LogError(ex, "Tab '{Tab}' command '{Command}' failed (correlation {Correlation}).",
+                                captured.Id, cmd.Id, http.TraceIdentifier);
+                        return Results.Json(new { status = "error", message = $"The command failed (ref {http.TraceIdentifier})." },
+                            TabManifest.JsonOptions);
+                    }
+                }).RequireAuthorization(ConsoleRolePolicy.For(cmd.MinRole));
+            }
         }
 
         return app;

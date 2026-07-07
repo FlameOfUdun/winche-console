@@ -23,7 +23,7 @@ export function setBearerTokenProvider(fn: (() => Promise<string | null>) | null
 }
 
 async function http<T>(method: string, rel: string, body?: unknown): Promise<T> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { "X-Winche-Console": "1" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (bearerTokenProvider) {
     const token = await bearerTokenProvider();
@@ -122,4 +122,8 @@ export const api = {
   consoleTabLayout: (tabId: string) => http<TabLayout>("GET", `api/tabs/${tabId}`),
   consoleTabData: (tabId: string, widgetIds: string[], filters: Record<string, string>) =>
     http<TabDataResponse>("POST", `api/tabs/${tabId}/data`, { widgetIds, filters }),
+  consoleTabCommand: (
+    tabId: string, commandId: string,
+    body: { rowKey?: string | null; input?: Record<string, unknown> | null; inputs: Record<string, string> },
+  ) => http<import("./tabs").CommandOutcome>("POST", `api/tabs/${tabId}/commands/${commandId}`, body),
 };

@@ -45,7 +45,7 @@ public class TabTreeTests
 
         Assert.Equal(new[] { "User", "Action" }, table.Columns);
         Assert.Equal(2, table.Rows.Count);
-        Assert.Equal(new object?[] { "alice", "Created" }, table.Rows[0]);
+        Assert.Equal(new object?[] { "alice", "Created" }, table.Rows[0].Cells);
     }
 
     [Fact]
@@ -380,5 +380,32 @@ public class TabTreeTests
         Assert.Contains("\"mode\":\"switch\"", json);
         Assert.Contains("\"Users\":", json);
         Assert.Contains("\"Revenue\":", json);
+    }
+
+    [Fact]
+    public void Manifest_projects_row_justify_camelcased_when_set()
+    {
+        var b = new TabBuilder();
+        b.Layout(new Row([ new StatRow<DemoData>(d => d.Kpis) ]) { Justify = RowJustify.SpaceBetween });
+        var json = System.Text.Json.JsonSerializer.Serialize(TabManifest.Layout(b.Build("t", "T")), TabManifest.JsonOptions);
+        Assert.Contains("\"justify\":\"spaceBetween\"", json);
+    }
+
+    [Fact]
+    public void Manifest_row_justify_is_null_by_default()
+    {
+        var b = new TabBuilder();
+        b.Layout(new Row([ new StatRow<DemoData>(d => d.Kpis) ]));
+        var json = System.Text.Json.JsonSerializer.Serialize(TabManifest.Layout(b.Build("t", "T")), TabManifest.JsonOptions);
+        Assert.Contains("\"justify\":null", json);
+    }
+
+    [Fact]
+    public void Manifest_text_input_projects_submit_label_defaulting_to_search()
+    {
+        var b = new TabBuilder();
+        b.Layout(new Filter(new TextInput("q") { Apply = Apply.Manual }, [ new StatRow<DemoData>(d => d.Kpis) ]));
+        var json = System.Text.Json.JsonSerializer.Serialize(TabManifest.Layout(b.Build("t", "T")), TabManifest.JsonOptions);
+        Assert.Contains("\"submitLabel\":\"Search\"", json);
     }
 }

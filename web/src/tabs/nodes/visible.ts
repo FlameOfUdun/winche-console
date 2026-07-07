@@ -5,6 +5,7 @@ export function visibleWidgetIds(node: LayoutNode, values: Record<string, string
   switch (node.type) {
     case "widget": return [node.id];
     case "embed": return [];
+    case "button": return [];
     case "column":
     case "row":
     case "section":

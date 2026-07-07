@@ -2,6 +2,14 @@ using System.Text.RegularExpressions;
 
 namespace Winche.Console.Tabs;
 
+/// <summary>Per-command configuration passed to <see cref="TabBuilder.Command{TProvider}"/>.</summary>
+public sealed class TabCommandConfig
+{
+    public string Label { get; set; } = "";
+    public ConsoleRole MinRole { get; set; } = ConsoleRole.Viewer;
+    public string? Confirm { get; set; }
+}
+
 /// <summary>Fluent configuration for one custom tab; produces a validated <see cref="TabDefinition"/>.</summary>
 public sealed class TabBuilder
 {
@@ -20,11 +28,34 @@ public sealed class TabBuilder
     };
 
     private Node? _root;
+    private readonly List<CommandDefinition> _commands = new();
 
     public string Icon { get; set; } = "layout-dashboard";
     public ConsoleRole MinRole { get; set; } = ConsoleRole.Viewer;
 
     public void Layout(Node root) => _root = root;
+
+    public CommandRef Command<TProvider, TInput>(
+        Func<TProvider, CommandHandler<TInput>> selector, Action<TabCommandConfig> configure) where TProvider : class
+    {
+        var cfg = new TabCommandConfig();
+        configure(cfg);
+        if (string.IsNullOrWhiteSpace(cfg.Label)) throw new InvalidOperationException("A command needs a Label.");
+        var def = CommandDefinition.Create(selector, cfg.Label, cfg.MinRole, cfg.Confirm);
+        _commands.Add(def);
+        return new CommandRef(def.Id, def.Label, def.MinRole, def.RowScoped);
+    }
+
+    public CommandRef Command<TProvider>(
+        Func<TProvider, CommandHandler> selector, Action<TabCommandConfig> configure) where TProvider : class
+    {
+        var cfg = new TabCommandConfig();
+        configure(cfg);
+        if (string.IsNullOrWhiteSpace(cfg.Label)) throw new InvalidOperationException("A command needs a Label.");
+        var def = CommandDefinition.Create(selector, cfg.Label, cfg.MinRole, cfg.Confirm);
+        _commands.Add(def);
+        return new CommandRef(def.Id, def.Label, def.MinRole, def.RowScoped);
+    }
 
     internal TabDefinition Build(string id, string label)
     {
@@ -70,7 +101,25 @@ public sealed class TabBuilder
 
         ValidateControlIds(_root, id);
 
-        return new TabDefinition(id, label, Icon, MinRole, _root, LayoutWalk.ProviderTypes(_root));
+        var dupCmd = _commands.GroupBy(c => c.Id).FirstOrDefault(g => g.Count() > 1);
+        if (dupCmd is not null)
+            throw new InvalidOperationException($"Tab '{id}' has duplicate command id '{dupCmd.Key}'.");
+
+        var registered = _commands.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var reference in LayoutWalk.CommandRefs(_root))
+            if (!registered.Contains(reference.Id))
+                throw new InvalidOperationException($"Tab '{id}' references command '{reference.Id}' that was not registered with Command(...).");
+
+        foreach (var cmd in _commands)
+            if (cmd.MinRole < MinRole)
+                throw new InvalidOperationException(
+                    $"Command '{cmd.Id}' MinRole ({cmd.MinRole}) is below tab '{id}' MinRole ({MinRole}); a command may raise the floor, never lower it.");
+
+        var providerTypes = LayoutWalk.ProviderTypes(_root)
+            .Concat(_commands.Select(c => c.ProviderType))
+            .Distinct().ToList();
+
+        return new TabDefinition(id, label, Icon, MinRole, _root, providerTypes, _commands);
     }
 
     // A same-origin island route is a single-slash root-relative path: starts with '/', but not '//' (which is

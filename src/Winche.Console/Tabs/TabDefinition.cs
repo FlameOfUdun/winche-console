@@ -7,4 +7,5 @@ public sealed record TabDefinition(
     string Icon,
     ConsoleRole MinRole,
     Node Root,
-    IReadOnlyList<Type> ProviderTypes);
+    IReadOnlyList<Type> ProviderTypes,
+    IReadOnlyList<CommandDefinition> Commands);

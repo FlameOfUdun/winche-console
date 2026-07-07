@@ -63,6 +63,19 @@ else
                 ]),
             ]));
         });
+
+        o.AddTab("ops", "Ops", tab =>
+        {
+            tab.Icon = "table";
+            tab.MinRole = ConsoleRole.Member;
+            var echo = tab.Command<OpsData, EchoInput>(d => d.Echo, c => { c.Label = "Echo"; c.MinRole = ConsoleRole.Admin; });
+            var remove = tab.Command((OpsData d) => d.Remove, c => { c.Label = "Remove"; c.MinRole = ConsoleRole.Admin; c.Confirm = "Remove?"; });
+            tab.Layout(new Column(new Node[]
+            {
+                new Row(new Node[] { new Button(echo), Button.Refresh("Refresh") }),
+                new Table<OpsData>(d => d.Items) { Paginate = 20, RowActions = new[] { new RowActionRef(remove) } },
+            }));
+        });
     });
 }
 

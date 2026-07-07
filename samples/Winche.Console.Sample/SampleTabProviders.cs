@@ -11,7 +11,7 @@ public sealed class AnalyticsTabProvider : ITabData
 {
     public Task<StatRowData> Kpis(WidgetContext ctx, CancellationToken ct)
     {
-        var range = ctx.Filters.TryGetValue("range", out var r) ? r : "7 days";
+        var range = ctx.Inputs.TryGetValue("range", out var r) ? r : "7 days";
         var mult = range switch { "30 days" => 4, "90 days" => 12, _ => 1 };
         return Task.FromResult(new StatRowData(
             new Stat("Total users", $"{1284 * mult:N0}", "+12%", Trend.Up),

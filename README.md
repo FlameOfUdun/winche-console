@@ -211,21 +211,74 @@ o.AddTab("analytics", "Analytics", tab =>
 public sealed class AnalyticsData(IAnalytics analytics)   // constructor-injected, resolved per request
 {
     public async Task<StatRowData> Kpis(WidgetContext ctx, CancellationToken ct)
-        => new(new Stat("Users", await analytics.CountAsync(ctx.Filters["range"], ct), "+12%", Trend.Up));
+        => new(new Stat("Users", await analytics.CountAsync(ctx.Inputs["range"], ct), "+12%", Trend.Up));
     public Task<ChartData> Signups(WidgetContext ctx, CancellationToken ct) => /* … */;
 }
 ```
 
-- **Widgets:** `StatRow`, `Table`, `Chart(Line|Bar)`; containers `Column`/`Row`(with `Flex`)/`Section`; controls `Select`/`DateRange`.
-- **Ids** come free from the handler method name; **types** are enforced (a `Chart` only accepts a chart-returning handler).
-- **Filters:** `new Filter(control, [children])` re-fetches; `new Filter(select, v => branches)` switches. Values reach handlers via `ctx.Filters`; roles via `ctx.User`.
-- **Endpoints:** `GET {prefix}/api/tabs` (nav), `GET …/{id}` (layout), `POST …/{id}/data` (typed data).
+- **Widgets:** `StatRow`, `Table`, `Chart(Line|Bar)`; containers `Column`/`Row`/`Section`; controls `Select`/`DateRange`/`TextInput`. A `Row` sizes children by their `Flex` in a 12-col grid; set `Row.Justify` (`Start`/`Center`/`End`/`SpaceBetween`) to instead pack them tightly — e.g. a button toolbar.
+- **Ids** come free from the handler name (a method or a `d => d.Prop` property); **types** are enforced (a `Chart` only accepts a chart-returning handler).
+- **Filters:** `new Filter(control, [children])` re-fetches; `new Filter(select, v => branches)` switches. Values reach handlers via `ctx.Inputs`; roles via `ctx.User`.
+- **Endpoints:** `GET {prefix}/api/tabs` (nav), `GET …/{id}` (layout), `POST …/{id}/data` (typed data), `POST …/{id}/commands/{commandId}` (writes — see below).
+
+### Interactivity: search, refresh, pagination, commands
+
+The tree also carries a **bounded** set of interactive primitives. Each maps to a *named server capability*, so
+tabs feel live without the declarative model turning into a client-side UI framework:
+
+- **Text search** — `new TextInput("q") { Apply = Apply.Manual }` buffers keystrokes and renders an inline
+  submit button beside the field (labelled `SubmitLabel`, default `"Search"`; Enter also submits) that applies
+  the typed value. `Apply.Reactive` instead re-fetches as you type with no button. Values arrive in `ctx.Inputs["q"]`.
+- **Refresh** — `Button.Refresh("Refresh")` re-fetches the tab's widgets.
+- **Pagination** — `new Table<T>(d => d.Rows) { Paginate = 20 }`; the handler reads `ctx.Page("rows", 20)` and
+  returns `TableData.From(rows).Key(r => r.Id).Column(…).Total(totalCount)`.
+- **Commands** — server *write* handlers fired from a toolbar or per-row button. The input **type is the form**:
+  DataAnnotations on a record's parameters drive the fields and validation; the console renders the modal,
+  validates on both sides, runs the handler under a per-command role, and refetches on success.
+
+```csharp
+var create = tab.Command((UsersTab d) => d.CreateUser, c => { c.Label = "Create user"; c.MinRole = ConsoleRole.Admin; });
+var delete = tab.Command((UsersTab d) => d.DeleteUser, c => { c.Label = "Delete"; c.MinRole = ConsoleRole.Admin; c.Confirm = "Delete this user?"; });
+tab.Layout(new Filter(new TextInput("q") { Placeholder = "Search email…", Apply = Apply.Manual },
+[
+    new Row([ new Button(create), Button.Refresh("Refresh") ]),
+    new Table<UsersTab>(d => d.Rows) { Paginate = 20, RowActions = [ new RowActionRef(delete) ] },
+]));
+```
+
+```csharp
+public sealed record CreateUserInput(
+    [property: Display(Name = "Email"), Required, EmailAddress] string Email,
+    [property: Required] UserRole Role,                        // enum → Select
+    [property: Display(Name = "Active")] bool Active = true);  // bool → switch
+
+public sealed class UsersTab
+{
+    public WidgetHandler<TableData> Rows => (ctx, ct) => /* filter by ctx.Inputs["q"], slice via ctx.Page("rows", 20) */;
+    public CommandHandler<CreateUserInput> CreateUser => (ctx, ct) =>           // typed form input
+        Task.FromResult(Exists(ctx.Input.Email)
+            ? CommandResult.Invalid(nameof(CreateUserInput.Email), "Already taken")   // inline field error
+            : CommandResult.Ok($"Created {ctx.Input.Email}"));
+    public CommandHandler DeleteUser => (ctx, ct) =>                            // row key, no form
+        Task.FromResult(CommandResult.Ok($"Deleted {ctx.RowKey}"));
+}
+```
+
+- **Author handlers as properties** (`public CommandHandler<T> X => …`) so `tab.Command(d => d.X)` infers the
+  input type; a method form needs explicit `tab.Command<Provider, TInput>(d => d.X)`.
+- **Authorization is server-side and layered:** a command's `MinRole` must be ≥ the tab's, the endpoint enforces
+  it, and `rowKey` is only an addressing token (the handler must still scope its own write). Buttons the user
+  can't run are hidden client-side — cosmetic only.
+- **CSRF:** command POSTs require an `X-Winche-Console` header (bearer-token islands are exempt).
+- **Result:** `CommandResult.Ok/Fail/Invalid` becomes an `{ ok | error | invalid }` response that raises a toast
+  and, for `Ok`, refetches the tab; `Invalid` shows per-field errors inline without closing the form.
 
 ### Escape hatch: embed a custom island
 
-When a tab needs genuine interactivity (forms, buttons, mutations) beyond the read-mostly widget catalog, add
-an `Embed` node: the console mounts a **consumer-authored document in a same-origin `<iframe>`** at that spot in
-the layout. The declarative tree stays read-only; the island owns its own UI and fetches its own endpoints.
+When a tab needs interactivity beyond these bounded primitives — arbitrary local state, a bespoke editor, or a
+non-C# UI — add an `Embed` node: the console mounts a **consumer-authored document in a same-origin `<iframe>`**
+at that spot in the layout. The declarative tree handles the common cases above; the island owns everything else,
+rendering its own UI and fetching its own endpoints.
 
 ```csharp
 new Column([

@@ -1,12 +1,16 @@
-import { Alert, Grid, Group, Select, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Grid, Group, Select, Stack, Text, TextInput, Title } from "@mantine/core";
 import { Component, type ReactNode } from "react";
 import type { ControlSpec, LayoutNode } from "../../api/tabs";
 import { renderWidget } from "../widgets/registry";
 import { EmbedFrame } from "./EmbedFrame";
+import { useTabRuntime } from "../runtime";
 
 export interface FilterState {
   values: Record<string, string>;
+  drafts: Record<string, string>;
   setValue: (key: string, value: string) => void;
+  setDraft: (key: string, value: string) => void;
+  commit: () => void;
 }
 
 // Allocate 12 grid columns across children proportional to flex, summing to exactly 12 (largest remainder).
@@ -42,6 +46,25 @@ function ControlView({ control, filters }: { control: ControlSpec; filters: Filt
       />
     );
   }
+  if (control.kind === "text") {
+    const manual = control.apply === "manual";
+    const shown = filters.drafts[control.id] ?? filters.values[control.id] ?? "";
+    const onChange = (v: string) =>
+      manual ? filters.setDraft(control.id, v) : filters.setValue(control.id, v);
+    const input = (
+      <TextInput placeholder={control.placeholder ?? control.id} value={shown}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        onKeyDown={(e) => { if (manual && e.key === "Enter") filters.commit(); }} w={220} />
+    );
+    if (!manual) return input;
+    // Buffered input: an inline submit button applies the typed value (commit flushes the draft → refetch).
+    return (
+      <Group gap="xs">
+        {input}
+        <Button onClick={() => filters.commit()}>{control.submitLabel ?? "Search"}</Button>
+      </Group>
+    );
+  }
   return (
     <Group gap="xs">
       <TextInput type="date" value={filters.values[`${control.id}From`] ?? ""}
@@ -59,6 +82,15 @@ export function RenderNode({
     case "column":
       return <Stack>{node.children.map((c, i) => <RenderNode key={i} node={c} filters={filters} data={data} />)}</Stack>;
     case "row": {
+      if (node.justify) {
+        // Tight toolbar layout: children hug their content, positioned by the justification.
+        const justify = ({ start: "flex-start", center: "center", end: "flex-end", spaceBetween: "space-between" } as const)[node.justify];
+        return (
+          <Group justify={justify}>
+            {node.children.map((c, i) => <RenderNode key={i} node={c} filters={filters} data={data} />)}
+          </Group>
+        );
+      }
       const flexes = node.children.map((c) => (c.type === "widget" || c.type === "embed" ? c.flex : 1));
       const spans = gridSpans(flexes);
       return (
@@ -92,9 +124,20 @@ export function RenderNode({
       const slice = data[node.id];
       if (slice === undefined || slice === null)
         return <Alert color="red" variant="light">This section couldn't be displayed.</Alert>;
-      return <Boundary>{renderWidget(node, slice)}</Boundary>;
+      return <Boundary>{renderWidget(node, slice, filters)}</Boundary>;
     }
     case "embed":
       return <Boundary><EmbedFrame node={node} /></Boundary>;
+    case "button":
+      return <ButtonNode node={node} />;
   }
+}
+
+function ButtonNode({ node }: { node: Extract<LayoutNode, { type: "button" }> }) {
+  const rt = useTabRuntime();
+  if (node.intent === "refresh")
+    return <Button variant="default" onClick={() => rt.refresh()}>{node.label}</Button>;
+  const cmd = node.commandId ? rt.commands[node.commandId] : undefined;
+  if (!cmd || !rt.canRun(cmd)) return null;   // role-gated: hidden
+  return <Button onClick={() => rt.runCommand(cmd, { rowKey: null })}>{node.label}</Button>;
 }
