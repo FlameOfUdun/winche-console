@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.StaticFiles;
+using Microsoft.Extensions.FileProviders;
 using Winche.Console;
 using Winche.Console.Sample;
 using Winche.Console.Tabs;
@@ -24,6 +26,12 @@ builder.Services.AddWincheStorage(opts =>
         s3.ForcePathStyle = true;   // required for MinIO
     });
 });
+
+// The Flutter demo island is served from its build output when present (build it with
+// `flutter build web --csp --base-href=/plugins/flutter/` in samples/flutter-demo). Its tab and route
+// register only when the build exists, so `dotnet build`/run never depends on Flutter being installed.
+var flutterWeb = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "flutter-demo", "build", "web"));
+var hasFlutter = Directory.Exists(flutterWeb);
 
 builder.Services.AddWincheConsole(o =>
 {
@@ -75,6 +83,20 @@ builder.Services.AddWincheConsole(o =>
             new Embed("note-editor", "/plugins/notes") { MinHeight = 160 },
         ]));
     });
+
+    // A Flutter web app as an island — a sibling KPI (bumped by the island's refetch) next to the embed.
+    if (hasFlutter)
+    {
+        o.AddTab("flutter", "Flutter", tab =>
+        {
+            tab.Icon = "layout-dashboard";
+            tab.MinRole = ConsoleRole.Viewer;
+            tab.Layout(new Column([
+                new StatRow<FlutterTabProvider>(d => d.Status),
+                new Embed("flutter-island", "/plugins/flutter/") { MinHeight = 340, Sandbox = EmbedSandbox.Popups },
+            ]));
+        });
+    }
 });
 
 var app = builder.Build();
@@ -100,6 +122,33 @@ app.MapGet("/plugins/notes", (HttpContext http) =>
     return Results.Content(NotesIsland.Html, "text/html");
 });
 app.MapPost("/plugins/api/notes", (NoteRequest req) => Results.Ok(new NoteCountResponse(NoteStore.Add(req.Text))));
+
+// Flutter web island: serve its build output at /plugins/flutter with a Flutter-appropriate CSP. It's looser
+// than the notes island — CanvasKit needs 'wasm-unsafe-eval', Flutter injects inline styles and uses data:/blob:
+// images + workers. Built with --no-web-resources-cdn so CanvasKit is self-hosted, but CanvasKit still fetches
+// its default Roboto font from Google Fonts at runtime, so fonts.gstatic.com is allowed. (A token-bearing island
+// would bundle the font instead, keeping connect-src 'self' — see the design notes.) Each island tunes its own CSP.
+if (hasFlutter)
+{
+    var flutterFiles = new PhysicalFileProvider(flutterWeb);
+    var flutterTypes = new FileExtensionContentTypeProvider();
+    flutterTypes.Mappings[".wasm"] = "application/wasm";
+    flutterTypes.Mappings[".mjs"] = "text/javascript";
+    const string flutterCsp =
+        "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; " +
+        "connect-src 'self' https://fonts.gstatic.com; worker-src 'self' blob:; frame-ancestors 'self'";
+
+    app.MapGet("/plugins/flutter/{**path}", (HttpContext http, string? path) =>
+    {
+        var rel = string.IsNullOrEmpty(path) ? "index.html" : path;
+        var file = flutterFiles.GetFileInfo(rel);
+        if (!file.Exists) return Results.NotFound();
+        http.Response.Headers["Content-Security-Policy"] = flutterCsp;
+        var contentType = flutterTypes.TryGetContentType(rel, out var ct) ? ct : "application/octet-stream";
+        return Results.File(file.CreateReadStream(), contentType);
+    });
+}
 
 app.MapWincheConsole("/_console");
 

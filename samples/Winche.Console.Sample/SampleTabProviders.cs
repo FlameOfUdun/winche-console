@@ -66,3 +66,17 @@ public sealed class TrafficTabProvider : ITabData
             new Point("Thu", 8300), new Point("Fri", 7600), new Point("Sat", 4200),
             new Point("Sun", 3900))));
 }
+
+/// <summary>
+/// Sibling KPI for the custom "Flutter" tab: a fetch counter that bumps on every data load, so the Flutter
+/// island's <c>winche:refetch</c> button visibly updates a declarative widget next to it (cross-framework).
+/// </summary>
+public sealed class FlutterTabProvider : ITabData
+{
+    private static int _fetches;
+
+    public Task<StatRowData> Status(WidgetContext ctx, CancellationToken ct) =>
+        Task.FromResult(new StatRowData(
+            new Stat("Data fetches", Interlocked.Increment(ref _fetches)),
+            new Stat("Signed in as", ctx.User.Email ?? "guest")));
+}

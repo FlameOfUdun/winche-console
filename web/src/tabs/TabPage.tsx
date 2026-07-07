@@ -1,5 +1,5 @@
 import { Loader, Stack, Text, Title } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -36,6 +36,7 @@ export function TabPage() {
     queryKey: ["console-tab-data", tabId, visibleIds, values],
     queryFn: () => api.consoleTabData(tabId!, visibleIds, values),
     enabled: !!root && visibleIds.length > 0,
+    placeholderData: keepPreviousData,
   });
 
   if (layout.isLoading) return <Loader />;
@@ -47,7 +48,9 @@ export function TabPage() {
     <Stack>
       <Title order={3}>{layout.data!.label}</Title>
       {data.isError && <Text c="red">Failed to load data.</Text>}
-      <RenderNode node={root} filters={filters} data={data.data?.widgets ?? {}} />
+      {data.isLoading
+        ? <Loader />
+        : <RenderNode node={root} filters={filters} data={data.data?.widgets ?? {}} />}
     </Stack>
   );
 }

@@ -93,7 +93,7 @@ export function EmbedFrame({ node }: { node: EmbedNode }) {
       src={node.route}
       title={node.id}
       onLoad={() => setLoaded(true)}
-      sandbox="allow-scripts allow-same-origin allow-forms"
+      sandbox={node.sandbox}
       style={{ width: "100%", height, border: 0, display: "block" }}
     />
   );

@@ -44,6 +44,13 @@ test("renders widgets from layout + data and re-fetches on filter change", async
   await waitFor(() => expect(api.consoleTabData).toHaveBeenCalledWith("analytics", ["kpis"], { range: "30d" }));
 });
 
+test("shows a loader (not a red widget error) while data is loading", async () => {
+  (api.consoleTabLayout as ReturnType<typeof vi.fn>).mockResolvedValue(LAYOUT);
+  (api.consoleTabData as ReturnType<typeof vi.fn>).mockReturnValue(new Promise(() => {})); // never resolves
+  renderTab();
+  await waitFor(() => expect(screen.queryByText("This section couldn't be displayed.")).not.toBeInTheDocument());
+});
+
 test("redirects home for an unknown tab", async () => {
   (api.consoleTabLayout as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("404"));
   renderTab();

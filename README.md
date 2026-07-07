@@ -248,6 +248,12 @@ toast). Messages are origin- and source-pinned both ways.
   endpoints yourself (cookie `[Authorize]` in Identity mode, the handed-over bearer in Keycloak mode) and set a
   restrictive CSP (`connect-src`/`form-action 'self'`) on the island document so the token can't be exfiltrated.
   The `role` in `winche:init` is display data, never an authorization decision.
+- **Sandbox.** The iframe carries `allow-scripts allow-same-origin allow-forms`; opt into more (never navigation)
+  via the `[Flags] EmbedSandbox` enum — `new Embed(id, route) { Sandbox = EmbedSandbox.Popups | EmbedSandbox.Downloads }`.
+
+`samples/flutter-demo` is a runnable **Flutter web** island that exercises the whole protocol end to end
+(inbound `init`/`token`; outbound `resize`/`refetch`/`notify`, incl. a Flutter button reloading a sibling
+declarative widget) — see its README for the one build command.
 
 ## API (under the chosen prefix)
 

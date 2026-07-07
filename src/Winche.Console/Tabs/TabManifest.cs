@@ -31,7 +31,7 @@ internal static class TabManifest
             type = "filter", control = Project(f.Control), mode = "switch",
             branches = f.Branches!.ToDictionary(kv => kv.Key, kv => kv.Value.Select(Project).ToArray()),
         },
-        Embed e => new { type = "embed", id = e.Id, route = e.Route, flex = e.Flex, minHeight = e.MinHeight },
+        Embed e => new { type = "embed", id = e.Id, route = e.Route, flex = e.Flex, minHeight = e.MinHeight, sandbox = EmbedSandboxPolicy.ToAttribute(e.Sandbox) },
         WidgetNode w => ProjectWidget(w),
         _ => throw new InvalidOperationException($"Unknown node {node.GetType().Name}."),
     };

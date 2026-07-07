@@ -10,7 +10,7 @@ export type LayoutNode =
   | { type: "filter"; control: ControlSpec; mode: "switch"; branches: Record<string, LayoutNode[]> }
   | { type: "widget"; kind: "statRow" | "table"; id: string; flex: number }
   | { type: "widget"; kind: "chart"; chart: "line" | "bar"; id: string; flex: number }
-  | { type: "embed"; id: string; route: string; flex: number; minHeight: number };
+  | { type: "embed"; id: string; route: string; flex: number; minHeight: number; sandbox: string };
 
 export interface TabNav { id: string; label: string; icon: string }
 export interface TabLayout { id: string; label: string; root: LayoutNode }

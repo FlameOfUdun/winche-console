@@ -14,7 +14,7 @@ vi.mock("../../auth/keycloak", () => ({
   onKeycloakTokenRenewed: vi.fn(() => () => {}),
 }));
 
-const node = { type: "embed", id: "editor", route: "/plugins/notes", flex: 1, minHeight: 200 } as Extract<
+const node = { type: "embed", id: "editor", route: "/plugins/notes", flex: 1, minHeight: 200, sandbox: "allow-scripts allow-same-origin allow-forms" } as Extract<
   LayoutNode,
   { type: "embed" }
 >;
@@ -155,7 +155,7 @@ test("ignores a message from a foreign origin", () => {
 import { RenderNode } from "../nodes/render";
 
 test("RenderNode routes an embed node to an iframe", () => {
-  const embed = { type: "embed", id: "editor", route: "/plugins/notes", flex: 1, minHeight: 180 } as LayoutNode;
+  const embed = { type: "embed", id: "editor", route: "/plugins/notes", flex: 1, minHeight: 180, sandbox: "allow-scripts allow-same-origin allow-forms" } as LayoutNode;
   const utils = render(
     <MantineProvider>
       <Notifications />

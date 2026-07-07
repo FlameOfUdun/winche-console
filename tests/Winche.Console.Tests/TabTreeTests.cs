@@ -347,6 +347,26 @@ public class TabTreeTests
     }
 
     [Fact]
+    public void EmbedSandbox_none_is_the_base_and_flags_are_additive()
+    {
+        Assert.Equal("allow-scripts allow-same-origin allow-forms", EmbedSandboxPolicy.ToAttribute(EmbedSandbox.None));
+        Assert.Equal(EmbedSandbox.None, new Embed("e", "/plugins/e").Sandbox);   // default
+        var attr = EmbedSandboxPolicy.ToAttribute(EmbedSandbox.Popups | EmbedSandbox.Downloads);
+        Assert.StartsWith("allow-scripts allow-same-origin allow-forms", attr);
+        Assert.Contains("allow-popups", attr);
+        Assert.Contains("allow-downloads", attr);
+    }
+
+    [Fact]
+    public void Manifest_projects_the_embed_sandbox_string()
+    {
+        var b = new TabBuilder();
+        b.Layout(new Column([ new Embed("editor", "/plugins/editor") { Sandbox = EmbedSandbox.Popups } ]));
+        var json = System.Text.Json.JsonSerializer.Serialize(TabManifest.Layout(b.Build("t", "T")), TabManifest.JsonOptions);
+        Assert.Contains("\"sandbox\":\"allow-scripts allow-same-origin allow-forms allow-popups\"", json);
+    }
+
+    [Fact]
     public void Manifest_switch_filter_emits_a_branch_per_option()
     {
         var b = new TabBuilder();
