@@ -10,6 +10,7 @@ import { firebaseTheme } from "./theme";
 import "@mantine/core/styles.css";
 import "@mantine/notifications/styles.css";
 import "@mantine/dropzone/styles.css";
+import "@mantine/charts/styles.css";
 
 const queryClient = new QueryClient();
 const basename = new URL(document.baseURI).pathname.replace(/\/$/, "");

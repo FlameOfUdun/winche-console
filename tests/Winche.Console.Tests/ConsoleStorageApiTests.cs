@@ -23,7 +23,7 @@ public class ConsoleStorageApiTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task List_browse_get_delete()
+    public async Task Browse_get_delete()
     {
         await fx.ResetAuthAsync();
         using var app = new ConsoleAppFactory(fx);
@@ -31,10 +31,6 @@ public class ConsoleStorageApiTests(PostgresFixture fx) : IAsyncLifetime
         using var client = app.CreateClient();
         await client.SetupAdminAsync();
         await client.LoginAsync();
-
-        var list = await client.PostAsJsonAsync("/_console/api/storage/list", new { directory = "docs" });
-        Assert.Equal(HttpStatusCode.OK, list.StatusCode);
-        Assert.Contains("docs/a.txt", await list.Content.ReadAsStringAsync());
 
         var browse = await client.GetAsync("/_console/api/storage/browse?path=");
         Assert.Equal(HttpStatusCode.OK, browse.StatusCode);

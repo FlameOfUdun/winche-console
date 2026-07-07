@@ -51,7 +51,7 @@ public class TwoFactorTests(PostgresFixture fx) : IAsyncLifetime
         // Completing the challenge signs in fully.
         var two = await fresh.PostAsJsonAsync("/_console/api/auth/login/2fa", new { code = Totp(key) });
         Assert.Equal(HttpStatusCode.OK, two.StatusCode);
-        var protectedRead = await fresh.GetAsync("/_console/api/data/collections");
+        var protectedRead = await fresh.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.OK, protectedRead.StatusCode);
     }
 
@@ -72,7 +72,7 @@ public class TwoFactorTests(PostgresFixture fx) : IAsyncLifetime
         // The member can log in (no authenticator yet) but is gated from everything but enrollment.
         using var mc = app.CreateClient();
         await mc.LoginAsync("m@example.com", "Passw0rd!");
-        var gated = await mc.GetAsync("/_console/api/data/collections");
+        var gated = await mc.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.Forbidden, gated.StatusCode);
         Assert.Contains("two_factor_setup_required", await gated.Content.ReadAsStringAsync());
 
@@ -81,7 +81,7 @@ public class TwoFactorTests(PostgresFixture fx) : IAsyncLifetime
 
         // Enrolling lifts the gate.
         await EnrollAsync(mc);
-        var ok = await mc.GetAsync("/_console/api/data/collections");
+        var ok = await mc.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
     }
 

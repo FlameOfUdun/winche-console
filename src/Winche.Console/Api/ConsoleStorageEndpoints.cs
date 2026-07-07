@@ -6,22 +6,21 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Winche.Storage.Services;
 using Winche.Console.Identity;
+using Winche.Console.Tabs;
 
 namespace Winche.Console.Api;
 
 public static class ConsoleStorageEndpoints
 {
-    public sealed record ListRequest(string Directory, string? MimeType);
     public sealed record UploadUrlRequest(string Path, string MimeType, long SizeBytes, JsonObject? Metadata);
     public sealed record PathRequest(string Path);
     public sealed record UpdateMetadataRequest(string Path, JsonObject Metadata);
 
-    public static IEndpointRouteBuilder MapConsoleStorageEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapConsoleStorageEndpoints(this IEndpointRouteBuilder app, ConsoleRole minRole)
     {
         var group = app.MapGroup("/api/storage");
-
-        group.MapPost("/list", async (ListRequest body, [FromServices] FileStorage files, CancellationToken ct) =>
-            Results.Json(await files.ListAsync(body.Directory, body.MimeType, ct))).RequireAuthorization(ConsoleRoles.ViewerPolicy);
+        var readPolicy = ConsoleRolePolicy.For(minRole);
+        var writePolicy = ConsoleRolePolicy.For(minRole < ConsoleRole.Member ? ConsoleRole.Member : minRole);
 
         // Folder-style browse: immediate subdirectories + files directly in a directory ("" = root),
         // using the library's directory lister (Winche.Storage 6.3+) instead of raw SQL.
@@ -39,21 +38,21 @@ public static class ConsoleStorageEndpoints
             } while (!string.IsNullOrEmpty(token));
             folders.Sort(StringComparer.Ordinal);
             return Results.Json(new { folders, files = fileList });
-        }).RequireAuthorization(ConsoleRoles.ViewerPolicy);
+        }).RequireAuthorization(readPolicy);
 
         group.MapGet("/files/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
             var record = await files.GetAsync(decoded, ct);
             return record is null ? Results.NotFound() : Results.Json(record);
-        }).RequireAuthorization(ConsoleRoles.ViewerPolicy);
+        }).RequireAuthorization(readPolicy);
 
         group.MapDelete("/files/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
             await files.DeleteAsync(decoded, ct);
             return Results.NoContent();
-        }).RequireAuthorization(ConsoleRoles.MemberPolicy);
+        }).RequireAuthorization(writePolicy);
 
         // Cascading directory delete: FileStorage.DeleteAsync removes the path plus everything under
         // "<path>/", so passing a directory id wipes the whole subtree in one transaction.
@@ -62,7 +61,7 @@ public static class ConsoleStorageEndpoints
             if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
             await files.DeleteAsync(decoded, ct);
             return Results.NoContent();
-        }).RequireAuthorization(ConsoleRoles.MemberPolicy);
+        }).RequireAuthorization(writePolicy);
 
         // Create the file record + return a presigned upload URL. The SPA then PUTs the bytes to that URL
         // and calls /confirm. (Paths carry slashes, so these endpoints take the path in the body/query.)
@@ -71,20 +70,20 @@ public static class ConsoleStorageEndpoints
             await files.SetAsync(body.Path, body.MimeType, body.SizeBytes, body.Metadata ?? new JsonObject(), ct);
             var session = await files.GenerateUploadUrlAsync(body.Path, ct);
             return Results.Json(new { uploadUrl = session.Url, expiresAt = session.ExpiresAt });
-        }).RequireAuthorization(ConsoleRoles.MemberPolicy);
+        }).RequireAuthorization(writePolicy);
 
         group.MapPost("/confirm", async (PathRequest body, [FromServices] FileStorage files, CancellationToken ct) =>
-            Results.Json(await files.ConfirmUploadAsync(body.Path, ct))).RequireAuthorization(ConsoleRoles.MemberPolicy);
+            Results.Json(await files.ConfirmUploadAsync(body.Path, ct))).RequireAuthorization(writePolicy);
 
         group.MapGet("/download-url", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             var session = await files.GenerateDownloadUrlAsync(path, ct);
             return Results.Json(new { downloadUrl = session.Url, expiresAt = session.ExpiresAt });
-        }).RequireAuthorization(ConsoleRoles.ViewerPolicy);
+        }).RequireAuthorization(readPolicy);
 
         group.MapPost("/metadata", async (UpdateMetadataRequest body, [FromServices] FileStorage files, CancellationToken ct) =>
             Results.Json(await files.UpdateMetadataAsync(body.Path, body.Metadata ?? new JsonObject(), ct)))
-            .RequireAuthorization(ConsoleRoles.MemberPolicy);
+            .RequireAuthorization(writePolicy);
 
         return app;
     }

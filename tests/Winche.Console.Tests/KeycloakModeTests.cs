@@ -65,7 +65,7 @@ public class KeycloakModeTests(PostgresFixture fx) : IAsyncLifetime
     {
         using var app = new KeycloakConsoleAppFactory(fx);
         using var anon = app.CreateClient();
-        var resp = await anon.GetAsync("/_console/api/data/collections");
+        var resp = await anon.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
     }
 
@@ -73,11 +73,11 @@ public class KeycloakModeTests(PostgresFixture fx) : IAsyncLifetime
     public async Task Viewer_can_read_but_not_write()
     {
         using var app = new KeycloakConsoleAppFactory(fx);
-        var read = await Bearer(app, ["Viewer"]).GetAsync("/_console/api/data/collections");
+        var read = await Bearer(app, ["Viewer"]).GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.OK, read.StatusCode);
 
         var write = await Bearer(app, ["Viewer"]).PutAsJsonAsync(
-            $"/_console/api/data/documents/{B64("users/alice")}",
+            $"/_console/api/database/documents/{B64("users/alice")}",
             new { fields = new { name = new { stringValue = "Alice" } } });
         Assert.Equal(HttpStatusCode.Forbidden, write.StatusCode);
     }
@@ -87,7 +87,7 @@ public class KeycloakModeTests(PostgresFixture fx) : IAsyncLifetime
     {
         using var app = new KeycloakConsoleAppFactory(fx);
         var write = await Bearer(app, ["Member"]).PutAsJsonAsync(
-            $"/_console/api/data/documents/{B64("users/bob")}",
+            $"/_console/api/database/documents/{B64("users/bob")}",
             new { fields = new { name = new { stringValue = "Bob" } } });
         Assert.Equal(HttpStatusCode.OK, write.StatusCode);
     }

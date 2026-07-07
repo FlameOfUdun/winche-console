@@ -16,13 +16,13 @@ public class MapWincheConsoleTests(PostgresFixture fx) : IAsyncLifetime
         using var app = new ConsoleAppFactory(fx);
 
         using var anon = app.CreateClient();
-        var unauth = await anon.GetAsync("/_console/api/data/collections");
+        var unauth = await anon.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.Unauthorized, unauth.StatusCode);
 
         using var client = app.CreateClient();
         await client.SetupAdminAsync();
         await client.LoginAsync();
-        var ok = await client.GetAsync("/_console/api/data/collections");
+        var ok = await client.GetAsync("/_console/api/database/collections");
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
     }
 }

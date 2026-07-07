@@ -22,3 +22,7 @@ class ResizeObserverMock {
   disconnect() {}
 }
 window.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+
+// jsdom doesn't implement scrollIntoView; Mantine's Combobox calls it when
+// navigating options (e.g. Select dropdown), so stub it out.
+window.HTMLElement.prototype.scrollIntoView = vi.fn();

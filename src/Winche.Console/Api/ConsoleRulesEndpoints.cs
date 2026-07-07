@@ -357,6 +357,13 @@ public static class ConsoleRulesEndpoints
             return (null, [new RuleValidationError(null, $"Invalid rules JSON: {ex.Message}")]);
         }
 
+        // System.Text.Json leaves the positional `Matches` parameter null when the JSON carries no
+        // correctly-cased "Matches" property (e.g. "{}" or a mis-cased "matches" key from hand-edited or
+        // imported JSON). An absent match list is a valid, empty (deny-all) ruleset — normalize it so
+        // validation is total and neither the loop below nor a later repo.Update(parsed) dereferences null.
+        if (parsed.Matches is null)
+            parsed = parsed with { Matches = [] };
+
         var errors = new List<RuleValidationError>();
         foreach (var block in parsed.Matches)
             ValidateMatchBlock(block, errors, breadcrumb: "");

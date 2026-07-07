@@ -27,6 +27,9 @@ builder.Services.AddWincheConsole(o =>
     o.ConnectionString = consoleAuthConn;   // the console's own auth database (Identity tables)
     o.SeedAdminEmail = "admin@example.com"; // optional: seeds a first admin on first run
     o.SeedAdminPassword = "…";
+
+    o.AddDatabaseTab();                     // opt in to the document browser (needs AddWincheDatabase)
+    o.AddStorageTab();                      // opt in to the file browser (needs AddWincheStorage)
 });
 
 var app = builder.Build();
@@ -39,6 +42,15 @@ already register (keyed internally), and browses via the **unguarded** cores (`D
 `FileStorage`), so rules are bypassed exactly like the Firebase console's superuser view. Choose any
 prefix you like (`/_console` is the default); the SPA discovers it at runtime via an injected
 `<base href>`.
+
+The **Database** and **Storage** tabs are **opt-in** — call `AddDatabaseTab()` / `AddStorageTab()` for the
+ones you want (a Database-only app simply omits `AddStorageTab()` and never shows a Storage tab or maps its
+endpoints). Each takes an optional builder for a minimum role and its rules editor —
+`o.AddDatabaseTab(b => { b.MinRole = ConsoleRole.Member; b.UseRulesEditor(); })`. `MinRole` is the floor to
+see and read the tab (writes still require at least Member); the default is `Viewer`. Calling `AddDatabaseTab()`
+without `AddWincheDatabase()` (or `AddStorageTab()` without `AddWincheStorage()`) throws a clear startup error.
+The **Access** tab (user management) stays automatic — it's the console's own auth, shown to Admins in
+Identity mode.
 
 ## Authentication & roles
 
@@ -145,21 +157,21 @@ user-management screens do not apply in Keycloak mode.
 
 ## Rule editor (optional)
 
-Opt in and the console adds a **Rules** sub-tab to the Database and Storage screens for editing the
-Firestore-style security rules that guard `Winche.Database` and `Winche.Storage` (the `Winche.Rules`
-engine). Edits **hot-swap** into the live engine immediately — no restart — and every save is a durable,
-versioned entry you can review and revert to.
+Call `b.UseRulesEditor()` on a built-in tab and the console adds a **Rules** sub-tab to that screen for
+editing the Firestore-style security rules that guard `Winche.Database` and `Winche.Storage` (the
+`Winche.Rules` engine). Edits **hot-swap** into the live engine immediately — no restart — and every save is
+a durable, versioned entry you can review and revert to.
 
 ```csharp
 services.AddWincheConsole(o =>
 {
-    o.ConnectionString = consoleConn;           // REQUIRED once any rule editor is enabled
-    o.UseDatabaseRulesEditor();                 // adds Database → Rules
-    o.UseStorageRulesEditor(r => r.ApplyPersistedRulesOnStartup = false); // adds Storage → Rules
+    o.ConnectionString = consoleConn;                       // REQUIRED once any rule editor is enabled
+    o.AddDatabaseTab(b => b.UseRulesEditor());              // Database tab + its Rules sub-tab
+    o.AddStorageTab(b => b.UseRulesEditor(r => r.ApplyPersistedRulesOnStartup = false)); // Storage tab + Rules
 });
 ```
 
-- **Per subsystem, independent.** Enable `UseDatabaseRulesEditor()` and/or `UseStorageRulesEditor()`;
+- **Per subsystem, independent.** Call `b.UseRulesEditor()` inside `AddDatabaseTab` and/or `AddStorageTab`;
   omit one and its Rules tab never appears. Each is gated to **Admins** and only shows when its rule
   engine is actually registered in the host.
 - **Storage.** The versioned history lives in a dedicated `console_rule_versions` table on
@@ -175,14 +187,76 @@ services.AddWincheConsole(o =>
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
+## Custom tabs (server-driven dashboards)
+
+Register a tab as a declarative **layout tree** in C#; the console renders it. Widget data comes from
+typed handler methods on DI-resolved provider classes, bound by selector. Filters are nodes that scope
+a value to their subtree and either re-fetch it or switch which widgets show.
+
+```csharp
+o.AddTab("analytics", "Analytics", tab =>
+{
+    tab.Icon = "chart-bar";
+    tab.MinRole = ConsoleRole.Member;
+    tab.Layout(new Filter(new Select("range", ["7 days", "30 days"]),
+    [
+        new StatRow<AnalyticsData>(d => d.Kpis),
+        new Row([ new Chart<AnalyticsData>(d => d.Signups, ChartKind.Line) { Flex = 2 },
+                  new Table<BillingData>(d => d.Invoices) { Flex = 1 } ]),   // mix providers in one tab
+    ]));
+});
+```
+
+```csharp
+public sealed class AnalyticsData(IAnalytics analytics)   // constructor-injected, resolved per request
+{
+    public async Task<StatRowData> Kpis(WidgetContext ctx, CancellationToken ct)
+        => new(new Stat("Users", await analytics.CountAsync(ctx.Filters["range"], ct), "+12%", Trend.Up));
+    public Task<ChartData> Signups(WidgetContext ctx, CancellationToken ct) => /* … */;
+}
+```
+
+- **Widgets:** `StatRow`, `Table`, `Chart(Line|Bar)`; containers `Column`/`Row`(with `Flex`)/`Section`; controls `Select`/`DateRange`.
+- **Ids** come free from the handler method name; **types** are enforced (a `Chart` only accepts a chart-returning handler).
+- **Filters:** `new Filter(control, [children])` re-fetches; `new Filter(select, v => branches)` switches. Values reach handlers via `ctx.Filters`; roles via `ctx.User`.
+- **Endpoints:** `GET {prefix}/api/tabs` (nav), `GET …/{id}` (layout), `POST …/{id}/data` (typed data).
+
+### Escape hatch: embed a custom island
+
+When a tab needs genuine interactivity (forms, buttons, mutations) beyond the read-mostly widget catalog, add
+an `Embed` node: the console mounts a **consumer-authored document in a same-origin `<iframe>`** at that spot in
+the layout. The declarative tree stays read-only; the island owns its own UI and fetches its own endpoints.
+
+```csharp
+new Column([
+    new StatRow<AnalyticsData>(d => d.Kpis),
+    new Embed("collections-editor", "/plugins/collections-editor") { Flex = 1, MinHeight = 320 },
+])
+```
+
+The console bridges a **closed `postMessage` protocol**: on load it sends `winche:init` (current user + theme,
+and in Keycloak mode a bearer token) and, on silent renewal, `winche:token`; the island may send back exactly
+`winche:resize`, `winche:refetch` (reload the sibling declarative widgets), and `winche:notify` (raise a console
+toast). Messages are origin- and source-pinned both ways.
+
+- **Same-origin only.** `route` must be a root-relative path your host serves (`/plugins/…`); cross-origin
+  routes are rejected at registration. Same origin means the auth cookie (Identity mode) rides along on the
+  island's own calls; in Keycloak mode the console hands the island its **same-audience** bearer token via
+  `winche:init`/`winche:token`.
+- **The island authorizes itself.** The tab's `MinRole` gates who *sees* the tab (and thus the embed); it does
+  **not** protect the island's route or API calls — those bypass the console. Authorize the island's data
+  endpoints yourself (cookie `[Authorize]` in Identity mode, the handed-over bearer in Keycloak mode) and set a
+  restrictive CSP (`connect-src`/`form-action 'self'`) on the island document so the token can't be exfiltrated.
+  The `role` in `winche:init` is display data, never an authorization decision.
+
 ## API (under the chosen prefix)
 
 - **Auth** — `GET api/auth/state`, `POST api/auth/{setup,login,login/2fa,login/recovery,logout,password,profile,forgot-password,reset-password}`, `POST api/auth/2fa/{setup,enable,disable,recovery-codes}`
 - **Users** (Admin) — `GET/POST api/users`, `PUT/DELETE api/users/{id}`, `POST api/users/{id}/{reset-password,unlock}`
 - **Invites** (Admin) — `GET/POST api/invites`, `GET api/invites/{id}/link`, `POST api/invites/{id}/resend`, `DELETE api/invites/{id}`; **acceptance** (anonymous) — `GET/POST api/invites/accept`
-- **Data** (Viewer reads, Member writes) — `GET api/data/collections`, `POST api/data/query`,
-  `GET/PUT/PATCH/DELETE api/data/documents/{base64Path}`, `DELETE api/data/collections/{base64Path}`
-- **Storage** (Viewer reads/downloads, Member writes) — `POST api/storage/list`,
+- **Database** (Viewer reads, Member writes) — `GET api/database/collections`, `POST api/database/query`,
+  `GET/PUT/PATCH/DELETE api/database/documents/{base64Path}`, `DELETE api/database/collections/{base64Path}`
+- **Storage** (Viewer reads/downloads, Member writes) —
   `GET api/storage/browse?path=`, `GET/DELETE api/storage/files/{base64Path}`,
   `DELETE api/storage/directories/{base64Path}` (cascading folder delete),
   `POST api/storage/{upload-url,confirm,metadata}`, `GET api/storage/download-url?path=`

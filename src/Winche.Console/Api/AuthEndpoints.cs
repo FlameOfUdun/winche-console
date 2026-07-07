@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Winche.Console.Email;
 using Winche.Console.Identity;
 using Winche.Console.Options;
+using Winche.Console.Tabs;
 
 namespace Winche.Console.Api;
 
@@ -21,10 +22,13 @@ public static class AuthEndpoints
     public sealed record ForgotPasswordRequest(string Email);
     public sealed record ResetPasswordBody(string Email, string Token, string NewPassword);
 
-    // In Identity mode the console owns the full lifecycle; manageUsers is role-gated client-side (Admin only).
-    private static readonly object IdentityCapabilities = new
+    // manageUsers/invites/etc. describe the Identity provider (role-gated client-side); database/storage are
+    // per-user (tab enabled AND the user's role meets its MinRole).
+    private static object CapabilitiesFor(ConsoleRole? role, ConsoleOptions options) => new
     {
         manageUsers = true, invites = true, twoFactor = true, changePassword = true, editProfile = true,
+        database = options.DatabaseTab is { } dt && role is { } r && r >= dt.MinRole,
+        storage = options.StorageTab is { } st && role is { } r2 && r2 >= st.MinRole,
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>
@@ -44,16 +48,22 @@ public static class AuthEndpoints
             var authResult = await http.AuthenticateAsync(IdentityConstants.ApplicationScheme);
             var principal = authResult.Succeeded ? authResult.Principal : null;
             if (principal is null)
-                return Results.Json(new { provider = "identity", capabilities = IdentityCapabilities, initialized, selfServiceResetEnabled, user = (object?)null });
+                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options), initialized, selfServiceResetEnabled, user = (object?)null });
 
             var user = await users.GetUserAsync(principal);
             if (user is null)
-                return Results.Json(new { provider = "identity", capabilities = IdentityCapabilities, initialized, selfServiceResetEnabled, user = (object?)null });
+                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options), initialized, selfServiceResetEnabled, user = (object?)null });
             var role = (await users.GetRolesAsync(user)).FirstOrDefault();
+            var consoleRole = role switch
+            {
+                ConsoleRoles.Admin => ConsoleRole.Admin,
+                ConsoleRoles.Member => ConsoleRole.Member,
+                _ => ConsoleRole.Viewer,
+            };
             return Results.Json(new
             {
                 provider = "identity",
-                capabilities = IdentityCapabilities,
+                capabilities = CapabilitiesFor(consoleRole, options),
                 initialized,
                 selfServiceResetEnabled,
                 user = new

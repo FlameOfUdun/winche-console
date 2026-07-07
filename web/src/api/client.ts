@@ -1,5 +1,6 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
+import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -81,14 +82,14 @@ export const api = {
     http<void>("POST", "api/invites/accept", body),
 
   listCollections: (parent?: string) =>
-    http<string[]>("GET", `api/data/collections${parent ? `?parent=${encodeURIComponent(parent)}` : ""}`),
-  deleteCollection: (collection: string) => http<void>("DELETE", `api/data/collections/${b64Path(collection)}`),
+    http<string[]>("GET", `api/database/collections${parent ? `?parent=${encodeURIComponent(parent)}` : ""}`),
+  deleteCollection: (collection: string) => http<void>("DELETE", `api/database/collections/${b64Path(collection)}`),
   queryDocuments: (collection: string, limit?: number) =>
-    http<QueryResult>("POST", "api/data/query", { collection, limit }),
-  getDocument: (path: string) => http<WincheDocument>("GET", `api/data/documents/${b64Path(path)}`),
+    http<QueryResult>("POST", "api/database/query", { collection, limit }),
+  getDocument: (path: string) => http<WincheDocument>("GET", `api/database/documents/${b64Path(path)}`),
   putDocument: (path: string, fields: Record<string, unknown>) =>
-    http<WincheDocument>("PUT", `api/data/documents/${b64Path(path)}`, { fields }),
-  deleteDocument: (path: string) => http<void>("DELETE", `api/data/documents/${b64Path(path)}`),
+    http<WincheDocument>("PUT", `api/database/documents/${b64Path(path)}`, { fields }),
+  deleteDocument: (path: string) => http<void>("DELETE", `api/database/documents/${b64Path(path)}`),
 
   browseStorage: (path: string) =>
     http<BrowseResult>("GET", `api/storage/browse?path=${encodeURIComponent(path)}`),
@@ -116,4 +117,9 @@ export const api = {
     sys: RuleSubsystem,
     body: { rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string> },
   ) => http<SimulateResult>("POST", `api/rules/${sys}/simulate`, body),
+
+  consoleTabs: () => http<{ tabs: TabNav[] }>("GET", "api/tabs"),
+  consoleTabLayout: (tabId: string) => http<TabLayout>("GET", `api/tabs/${tabId}`),
+  consoleTabData: (tabId: string, widgetIds: string[], filters: Record<string, string>) =>
+    http<TabDataResponse>("POST", `api/tabs/${tabId}/data`, { widgetIds, filters }),
 };

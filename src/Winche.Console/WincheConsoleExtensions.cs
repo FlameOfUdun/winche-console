@@ -10,8 +10,11 @@ using Winche.Console.Identity;
 using Winche.Console.Options;
 using Winche.Console.Rules;
 using Winche.Console.Spa;
+using Winche.Console.Tabs;
 using Winche.Database.Constants;
+using Winche.Database.Runtime;
 using Winche.Storage.Constants;
+using Winche.Storage.Services;
 
 namespace Winche.Console;
 
@@ -31,6 +34,10 @@ public static class WincheConsoleExtensions
         services.AddSingleton(options);
         options.EmailSenderRegistration?.Invoke(services);
         services.AddSingleton<ConsolePrefix>();
+
+        services.AddSingleton<TabRegistry>();
+        foreach (var providerType in options.Tabs.SelectMany(t => t.ProviderTypes).Distinct())
+            services.TryAddScoped(providerType);
 
         services.TryAddSingleton(TimeProvider.System);
         if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
@@ -114,12 +121,29 @@ public static class WincheConsoleExtensions
             group.MapInviteEndpoints();
         }
 
-        group.MapConsoleDataEndpoints();
-        group.MapConsoleStorageEndpoints();
+        var isService = endpoints.ServiceProvider.GetService<IServiceProviderIsService>();
+        if (options.DatabaseTab is { } databaseTab)
+        {
+            if (isService?.IsService(typeof(DocumentDatabase)) == false)
+                throw new InvalidOperationException(
+                    "AddDatabaseTab() requires AddWincheDatabase() — the Database tab browses the document store.");
+            group.MapConsoleDataEndpoints(databaseTab.MinRole);
+        }
+        if (options.StorageTab is { } storageTab)
+        {
+            if (isService?.IsService(typeof(FileStorage)) == false)
+                throw new InvalidOperationException(
+                    "AddStorageTab() requires AddWincheStorage() — the Storage tab browses the file store.");
+            group.MapConsoleStorageEndpoints(storageTab.MinRole);
+        }
         if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
         {
             group.MapConsoleRulesEndpoints();
         }
+
+        var tabRegistry = endpoints.ServiceProvider.GetRequiredService<TabRegistry>();
+        group.MapConsoleTabsEndpoints(tabRegistry, options);
+
         ConsoleSpa.Map(group, prefix);
         return group;
     }

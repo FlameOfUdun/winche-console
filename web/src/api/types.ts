@@ -30,6 +30,8 @@ export type AuthProvider = "identity" | "keycloak";
 
 export interface Capabilities {
   manageUsers: boolean;
+  database: boolean;
+  storage: boolean;
   invites: boolean;
   twoFactor: boolean;
   changePassword: boolean;

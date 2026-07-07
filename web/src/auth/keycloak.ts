@@ -47,6 +47,14 @@ export async function keycloakIsAuthenticated(): Promise<boolean> {
   return !!user && !user.expired;
 }
 
+/** Subscribe to access-token renewals (fires on silent renew). Returns an unsubscribe fn. */
+export function onKeycloakTokenRenewed(cb: (token: string) => void): () => void {
+  const m = requireMgr();
+  const handler = (user: User) => { if (user?.access_token) cb(user.access_token); };
+  m.events.addUserLoaded(handler);
+  return () => m.events.removeUserLoaded(handler);
+}
+
 /**
  * URL of the Keycloak account-management console for the signed-in realm, with a referrer back to the
  * console so Keycloak shows a "Back to Winche Console" link.

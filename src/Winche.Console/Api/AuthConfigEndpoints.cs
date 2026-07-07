@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Winche.Console.Identity;
 using Winche.Console.Options;
+using Winche.Console.Tabs;
 
 namespace Winche.Console.Api;
 
@@ -31,11 +32,17 @@ public static class AuthConfigEndpoints
             var user = http.User;
             var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value);
             var role = KeycloakRoleMap.HighestRole(roles, options.Keycloak);
+            var consoleRole = ConsoleRolePolicy.Highest(user, options);
             return Results.Json(new
             {
                 provider = "keycloak",
                 initialized = true,
-                capabilities = new { manageUsers = false, invites = false, twoFactor = false, changePassword = false, editProfile = false },
+                capabilities = new
+                {
+                    manageUsers = false, invites = false, twoFactor = false, changePassword = false, editProfile = false,
+                    database = options.DatabaseTab is { } dt && consoleRole >= dt.MinRole,
+                    storage = options.StorageTab is { } st && consoleRole >= st.MinRole,
+                },
                 user = new
                 {
                     id = user.FindFirstValue("sub"),

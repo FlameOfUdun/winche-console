@@ -18,7 +18,7 @@ public class ConsolePathDecodingTests(PostgresFixture fx) : IAsyncLifetime
         await client.SetupAdminAsync();
         await client.LoginAsync();
         // "!!!!" is not valid base64.
-        var resp = await client.GetAsync("/_console/api/data/documents/!!!!");
+        var resp = await client.GetAsync("/_console/api/database/documents/!!!!");
         Assert.Equal(HttpStatusCode.BadRequest, resp.StatusCode);
     }
 

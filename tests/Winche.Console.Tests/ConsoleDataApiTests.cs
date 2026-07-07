@@ -22,23 +22,23 @@ public class ConsoleDataApiTests(PostgresFixture fx) : IAsyncLifetime
         await client.LoginAsync();
 
         var put = await client.PutAsJsonAsync(
-            $"/_console/api/data/documents/{B64("users/alice")}",
+            $"/_console/api/database/documents/{B64("users/alice")}",
             new { fields = new { name = new { stringValue = "Alice" } } });
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);
 
-        var get = await client.GetAsync($"/_console/api/data/documents/{B64("users/alice")}");
+        var get = await client.GetAsync($"/_console/api/database/documents/{B64("users/alice")}");
         Assert.Equal(HttpStatusCode.OK, get.StatusCode);
         Assert.Contains("Alice", await get.Content.ReadAsStringAsync());
 
-        var cols = await client.GetFromJsonAsync<List<string>>("/_console/api/data/collections");
+        var cols = await client.GetFromJsonAsync<List<string>>("/_console/api/database/collections");
         Assert.Contains("users", cols!);
 
-        var query = await client.PostAsJsonAsync("/_console/api/data/query", new { collection = "users", limit = 10 });
+        var query = await client.PostAsJsonAsync("/_console/api/database/query", new { collection = "users", limit = 10 });
         Assert.Contains("Alice", await query.Content.ReadAsStringAsync());
 
-        var del = await client.DeleteAsync($"/_console/api/data/documents/{B64("users/alice")}");
+        var del = await client.DeleteAsync($"/_console/api/database/documents/{B64("users/alice")}");
         Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-        var after = await client.GetAsync($"/_console/api/data/documents/{B64("users/alice")}");
+        var after = await client.GetAsync($"/_console/api/database/documents/{B64("users/alice")}");
         Assert.Equal(HttpStatusCode.NotFound, after.StatusCode);
     }
 
@@ -51,17 +51,17 @@ public class ConsoleDataApiTests(PostgresFixture fx) : IAsyncLifetime
         await client.SetupAdminAsync();
         await client.LoginAsync();
 
-        await client.PutAsJsonAsync($"/_console/api/data/documents/{B64("users/alice/posts/p1")}",
+        await client.PutAsJsonAsync($"/_console/api/database/documents/{B64("users/alice/posts/p1")}",
             new { fields = new { title = new { stringValue = "Hi" } } });
 
         // Root: the top-level collection id.
-        var roots = await client.GetFromJsonAsync<List<string>>("/_console/api/data/collections");
+        var roots = await client.GetFromJsonAsync<List<string>>("/_console/api/database/collections");
         Assert.Contains("users", roots!);
         Assert.DoesNotContain("users/alice/posts", roots!);
 
         // Subcollections under a document: returned as full paths.
         var subs = await client.GetFromJsonAsync<List<string>>(
-            $"/_console/api/data/collections?parent={Uri.EscapeDataString("users/alice")}");
+            $"/_console/api/database/collections?parent={Uri.EscapeDataString("users/alice")}");
         Assert.Contains("users/alice/posts", subs!);
     }
 }

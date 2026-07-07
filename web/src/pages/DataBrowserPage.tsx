@@ -13,7 +13,7 @@ import { SubsystemTabs } from "./rules/SubsystemTabs";
 
 export function DataBrowserPage() {
   return (
-    <SubsystemTabs subsystem="database" primaryLabel="Documents" basePath="/data">
+    <SubsystemTabs subsystem="database" primaryLabel="Documents" basePath="/database">
       <DataView />
     </SubsystemTabs>
   );

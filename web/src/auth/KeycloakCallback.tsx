@@ -22,7 +22,7 @@ export function KeycloakCallback() {
         }
       } catch { /* fall through to the gate (shows sign-in again) */ }
       await refresh();
-      navigate("/data", { replace: true });
+      navigate("/database", { replace: true });
     })();
   }, [navigate, refresh]);
   return <Center h="100vh"><Loader /></Center>;

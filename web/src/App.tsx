@@ -9,6 +9,9 @@ import { UsersPage } from "./pages/UsersPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { TabPage } from "./tabs/TabPage";
+import { useTabsManifest } from "./tabs/useTabsManifest";
+import { homePath } from "./layout/nav";
 
 export function App() {
   return (
@@ -23,18 +26,21 @@ export function App() {
 }
 
 function GatedApp() {
-  const { state } = useSession();
-  const canManageUsers = state?.capabilities?.manageUsers ?? false;
+  const { state, user } = useSession();
+  const manifest = useTabsManifest();
+  const home = homePath(state, user, manifest.data?.tabs) ?? "/database";
+  const caps = state?.capabilities;
   return (
     <AuthGate>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route index element={<Navigate to="data" replace />} />
-          <Route path="data" element={<DataBrowserPage />} />
-          <Route path="data/rules" element={<DataBrowserPage />} />
-          <Route path="storage" element={<StorageBrowserPage />} />
-          <Route path="storage/rules" element={<StorageBrowserPage />} />
-          <Route path="users" element={canManageUsers ? <UsersPage /> : <Navigate to="/data" replace />} />
+          <Route index element={<Navigate to={home} replace />} />
+          <Route path="database" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="database/rules" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="storage" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="storage/rules" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
+          <Route path=":tabId" element={<TabPage />} />
         </Route>
       </Routes>
     </AuthGate>

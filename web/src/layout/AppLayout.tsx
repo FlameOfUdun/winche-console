@@ -12,13 +12,9 @@ import { api } from "../api/client";
 import { useSession } from "../auth/session";
 import { keycloakAccountUrl, keycloakLogout } from "../auth/keycloak";
 import { TwoFactorSetup } from "../auth/TwoFactorSetup";
+import { useTabsManifest, tabIcon } from "../tabs/useTabsManifest";
+import { builtinNav } from "./nav";
 import logoUrl from "../assets/winche-logo.png";
-
-const NAV = [
-  { to: "/data", label: "Database", icon: IconDatabase, adminOnly: false },
-  { to: "/storage", label: "Storage", icon: IconFolder, adminOnly: false },
-  { to: "/users", label: "Access", icon: IconShield, adminOnly: true },
-];
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -29,7 +25,11 @@ export function AppLayout() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const nav = NAV.filter((n) => !n.adminOnly || (caps?.manageUsers && user?.role === "Admin"));
+  const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield };
+  const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon] }));
+  const manifest = useTabsManifest();
+  const customTabs = (manifest.data?.tabs ?? []).map((t) => ({ to: `/${t.id}`, label: t.label, icon: tabIcon(t.icon) }));
+  const allNav = [...builtins, ...customTabs];
 
   const onLogout = async () => {
     if (isKeycloak) { await keycloakLogout(); return; }
@@ -77,7 +77,7 @@ export function AppLayout() {
 
         {/* Nav */}
         <Stack gap={4} mt="xs">
-          {nav.map(({ to, label, icon: Icon }) => {
+          {allNav.map(({ to, label, icon: Icon }) => {
             const active = pathname === to || pathname.startsWith(to + "/");
             const link = (
               <NavLink component={Link} to={to} active={active}

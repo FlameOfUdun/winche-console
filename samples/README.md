@@ -31,12 +31,12 @@ and no in-console user management — that all lives in Keycloak.
 
 **Seeded Keycloak users** (imported from `keycloak/winche-realm.json`):
 
-| Username | Password | Role   | Sees |
-| -------- | -------- | ------ | ---- |
-| `admin`  | `admin`  | Admin  | Full access to data & files |
+| Username | Password | Role   | Sees                           |
+| -------- | -------- | ------ | ------------------------------ |
+| `admin`  | `admin`  | Admin  | Full access to data & files    |
 | `viewer` | `viewer` | Viewer | Read-only view of data & files |
 
-Manage users/roles at the **Keycloak admin console**: http://localhost:8080 (master admin `admin`/`admin`),
+Manage users/roles at the **Keycloak admin console**: <http://localhost:8080> (master admin `admin`/`admin`),
 realm **winche**.
 
 Try it:

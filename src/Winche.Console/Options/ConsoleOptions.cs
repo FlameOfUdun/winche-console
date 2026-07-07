@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Winche.Console.Email;
+using Winche.Console.Tabs;
 
 namespace Winche.Console.Options;
 
@@ -71,41 +72,51 @@ public sealed class ConsoleOptions
         return this;
     }
 
-    /// <summary>
-    /// Rules-editor options for the database subsystem; null when <see cref="UseDatabaseRulesEditor"/>
-    /// was never called (the feature stays off for this subsystem).
-    /// </summary>
-    internal RulesEditorOptions? DatabaseRulesEditor { get; private set; }
+    internal BuiltInTabConfig? DatabaseTab { get; private set; }
+    internal BuiltInTabConfig? StorageTab { get; private set; }
 
-    /// <summary>
-    /// Rules-editor options for the storage subsystem; null when <see cref="UseStorageRulesEditor"/>
-    /// was never called (the feature stays off for this subsystem).
-    /// </summary>
-    internal RulesEditorOptions? StorageRulesEditor { get; private set; }
+    // Kept as pass-throughs so the existing rules wiring (store factory, startup service, subsystem
+    // registration, MapConsoleRulesEndpoints) is unchanged: a rules editor is enabled iff its tab set one.
+    internal RulesEditorOptions? DatabaseRulesEditor => DatabaseTab?.RulesEditor;
+    internal RulesEditorOptions? StorageRulesEditor => StorageTab?.RulesEditor;
 
-    /// <summary>
-    /// Enable the GUI rules editor for the database (Firestore-style) rule engine. Its versioned rules
-    /// store reuses <see cref="ConnectionString"/> (required whenever any rules editor is enabled — see
-    /// <c>AddWincheConsole</c>), in a dedicated table separate from the identity tables.
-    /// </summary>
-    public ConsoleOptions UseDatabaseRulesEditor(Action<RulesEditorOptions>? configure = null)
+    /// <summary>Enable the Database browser tab (requires AddWincheDatabase). Configure its min role and optional rules editor.</summary>
+    public ConsoleOptions AddDatabaseTab(Action<BuiltInTabBuilder>? configure = null)
     {
-        var opts = new RulesEditorOptions();
-        configure?.Invoke(opts);
-        DatabaseRulesEditor = opts;
+        DatabaseTab = BuildBuiltInTab(configure, DatabaseTab, "Database");
         return this;
     }
 
-    /// <summary>
-    /// Enable the GUI rules editor for the storage (Firestore-style) rule engine. Its versioned rules
-    /// store reuses <see cref="ConnectionString"/> (required whenever any rules editor is enabled — see
-    /// <c>AddWincheConsole</c>), in a dedicated table separate from the identity tables.
-    /// </summary>
-    public ConsoleOptions UseStorageRulesEditor(Action<RulesEditorOptions>? configure = null)
+    /// <summary>Enable the Storage browser tab (requires AddWincheStorage). Configure its min role and optional rules editor.</summary>
+    public ConsoleOptions AddStorageTab(Action<BuiltInTabBuilder>? configure = null)
     {
-        var opts = new RulesEditorOptions();
-        configure?.Invoke(opts);
-        StorageRulesEditor = opts;
+        StorageTab = BuildBuiltInTab(configure, StorageTab, "Storage");
+        return this;
+    }
+
+    private static BuiltInTabConfig BuildBuiltInTab(Action<BuiltInTabBuilder>? configure, BuiltInTabConfig? existing, string name)
+    {
+        if (existing is not null)
+            throw new InvalidOperationException($"The {name} tab is already registered.");
+        var b = new BuiltInTabBuilder();
+        configure?.Invoke(b);
+        return new BuiltInTabConfig { MinRole = b.MinRole, RulesEditor = b.RulesEditor };
+    }
+
+    private readonly List<TabDefinition> _tabs = new();
+    internal IReadOnlyList<TabDefinition> Tabs => _tabs;
+
+    /// <summary>Register a custom console tab: a declarative layout tree rendered by the console, with widget
+    /// data supplied by typed handler methods on DI-resolved provider classes.</summary>
+    public ConsoleOptions AddTab(string id, string label, Action<TabBuilder> configure)
+    {
+        ArgumentNullException.ThrowIfNull(configure);
+        var builder = new TabBuilder();
+        configure(builder);
+        var definition = builder.Build(id, label);
+        if (_tabs.Any(t => t.Id == definition.Id))
+            throw new InvalidOperationException($"A tab with id '{definition.Id}' is already registered.");
+        _tabs.Add(definition);
         return this;
     }
 }
