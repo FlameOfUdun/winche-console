@@ -9,6 +9,17 @@ public sealed class KeycloakOptions
     /// <summary>Keycloak base URL, no trailing slash, e.g. "https://id.example.com". Maps to Keycloak:Server.</summary>
     public string? Server { get; set; }
 
+    /// <summary>
+    /// Optional internal Keycloak base URL the backend uses to fetch OIDC metadata + JWKS (e.g.
+    /// "http://keycloak.internal:8080"), for when the public <see cref="Server"/> is not reachable
+    /// server-to-server — typically because it sits behind a CDN/WAF (e.g. Cloudflare) that blocks the app's
+    /// egress IP. The browser SPA still logs in against the public <see cref="Server"/>; only the backend's
+    /// document retrieval is redirected here (including the JWKS, whose URL Keycloak advertises as the public
+    /// host), and tokens are still validated against the public issuer. Leave null to use <see cref="Server"/>
+    /// for everything.
+    /// </summary>
+    public string? BackchannelServer { get; set; }
+
     /// <summary>Target realm. Maps to Keycloak:Realm.</summary>
     public string? Realm { get; set; }
 

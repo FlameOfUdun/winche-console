@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Winche.Console.Options;
 
 namespace Winche.Console.Identity;
@@ -48,6 +50,23 @@ internal static class ConsoleKeycloak
             o.RequireHttpsMetadata = k.RequireHttpsMetadata;
             o.MapInboundClaims = false;   // keep sub/email/given_name/family_name as-is on the principal
             o.TokenValidationParameters.RoleClaimType = ClaimTypes.Role;
+
+            // When the public Server isn't reachable server-to-server (behind a CDN/WAF that blocks the app's
+            // egress), fetch OIDC metadata + JWKS from the internal BackchannelServer instead. The SPA still
+            // uses the public authority; tokens carry — and are validated against — the public issuer.
+            if (!string.IsNullOrWhiteSpace(k.BackchannelServer))
+            {
+                var backchannel = k.BackchannelServer!.TrimEnd('/');
+                var backchannelMetadata = $"{backchannel}/realms/{realm}/.well-known/openid-configuration";
+                o.MetadataAddress = backchannelMetadata;
+                o.RequireHttpsMetadata = backchannel.StartsWith("https", StringComparison.OrdinalIgnoreCase);
+                o.TokenValidationParameters.ValidIssuer = authority;
+                o.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                    backchannelMetadata,
+                    new OpenIdConnectConfigurationRetriever(),
+                    new BackchannelRewriteDocumentRetriever(server, backchannel));
+            }
+
             o.Events = new JwtBearerEvents
             {
                 // Flatten Keycloak realm + resource roles into ClaimTypes.Role so RequireRole(...) works.
