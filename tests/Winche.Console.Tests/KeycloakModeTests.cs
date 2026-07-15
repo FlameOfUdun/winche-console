@@ -61,6 +61,26 @@ public class KeycloakModeTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Role_less_user_is_denied_and_sees_no_console()
+    {
+        using var app = new KeycloakConsoleAppFactory(fx);
+
+        // Authenticated token, but holding none of the three console roles.
+        var state = await Bearer(app, []).GetAsync("/_console/api/auth/state");
+        Assert.Equal(HttpStatusCode.OK, state.StatusCode);
+        var json = await state.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        // No user object => the SPA's AuthGate shows its "no access" screen rather than the console shell.
+        Assert.Equal(System.Text.Json.JsonValueKind.Null, json.GetProperty("user").ValueKind);
+        Assert.True(json.GetProperty("accessDenied").GetBoolean());
+        Assert.False(json.GetProperty("capabilities").GetProperty("database").GetBoolean());
+        Assert.False(json.GetProperty("capabilities").GetProperty("storage").GetBoolean());
+
+        // And every data surface stays forbidden for such a caller.
+        var data = await Bearer(app, []).GetAsync("/_console/api/database/collections");
+        Assert.Equal(HttpStatusCode.Forbidden, data.StatusCode);
+    }
+
+    [Fact]
     public async Task Anonymous_data_request_is_unauthorized()
     {
         using var app = new KeycloakConsoleAppFactory(fx);

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Winche.Console.Api;
+using Winche.Console.Diagnostics;
 using Winche.Console.Email;
 using Winche.Console.Identity;
 using Winche.Console.Options;
@@ -91,6 +92,14 @@ public static class WincheConsoleExtensions
         endpoints.ServiceProvider.GetRequiredService<ConsolePrefix>().Value = prefix;
         var options = endpoints.ServiceProvider.GetRequiredService<ConsoleOptions>();
         var group = endpoints.MapGroup(prefix);
+
+        // Surface the most common deployment mistake (behind a TLS-terminating proxy without
+        // UseForwardedHeaders -> cookie/OIDC login 401s) as one actionable log line. Logs once.
+        group.AddEndpointFilter(async (ctx, next) =>
+        {
+            ForwardedHeadersDiagnostic.Inspect(ctx.HttpContext);
+            return await next(ctx);
+        });
 
         group.MapAuthConfigEndpoint(options);
 

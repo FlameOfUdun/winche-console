@@ -48,6 +48,8 @@ export interface AuthState {
   selfServiceResetEnabled: boolean;
   capabilities: Capabilities;
   user: SessionUser | null;
+  /** Keycloak mode: authenticated but holding none of the console roles. Show the "no access" screen. */
+  accessDenied?: boolean;
 }
 
 export interface ConsoleUserItem {

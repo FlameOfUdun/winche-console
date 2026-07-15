@@ -24,6 +24,11 @@ const keycloakSignedOut: AuthState = {
   user: null,
 } as AuthState;
 
+const keycloakNoAccess: AuthState = {
+  ...keycloakSignedOut,
+  accessDenied: true,
+} as AuthState;
+
 describe("AuthGate (Keycloak)", () => {
   it("shows the Keycloak sign-in button and Winche logo when signed out", () => {
     renderWithState(keycloakSignedOut);
@@ -35,5 +40,13 @@ describe("AuthGate (Keycloak)", () => {
   it("renders protected content when a Keycloak user is present", () => {
     renderWithState({ ...keycloakSignedOut, user: { id: "u1", email: "a@b", role: "Member" } } as AuthState);
     expect(screen.getByText("PROTECTED")).toBeInTheDocument();
+  });
+
+  it("shows a no-access screen for an authenticated user without a role", () => {
+    renderWithState(keycloakNoAccess);
+    expect(screen.getByText("No access")).toBeInTheDocument();
+    expect(screen.getByText("Sign out")).toBeInTheDocument();
+    expect(screen.queryByText("Sign in with Keycloak")).not.toBeInTheDocument();
+    expect(screen.queryByText("PROTECTED")).not.toBeInTheDocument();
   });
 });

@@ -32,11 +32,33 @@ public static class AuthConfigEndpoints
             var user = http.User;
             var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value);
             var role = KeycloakRoleMap.HighestRole(roles, options.Keycloak);
+
+            // The ConsoleKeycloakUser policy guarantees the caller is authenticated, but holding none of the
+            // three console roles means no access. Return a null user + accessDenied so the SPA renders its
+            // "no access" screen instead of the console shell, and advertise no capabilities. (Every data,
+            // tab and rules endpoint already requires a concrete role and 403s such a caller.)
+            if (role is null)
+            {
+                return Results.Json(new
+                {
+                    provider = "keycloak",
+                    initialized = true,
+                    accessDenied = true,
+                    capabilities = new
+                    {
+                        manageUsers = false, invites = false, twoFactor = false, changePassword = false, editProfile = false,
+                        database = false, storage = false,
+                    },
+                    user = (object?)null,
+                });
+            }
+
             var consoleRole = ConsoleRolePolicy.Highest(user, options);
             return Results.Json(new
             {
                 provider = "keycloak",
                 initialized = true,
+                accessDenied = false,
                 capabilities = new
                 {
                     manageUsers = false, invites = false, twoFactor = false, changePassword = false, editProfile = false,
