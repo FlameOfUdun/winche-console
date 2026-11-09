@@ -17,7 +17,9 @@ namespace Winche.Console.Rules;
 /// <param name="RepositoryKey">The DI service key for this subsystem's keyed <c>IMutableRuleSetRepository</c>.</param>
 /// <param name="ApplyOnStartup">Whether the persisted active version should be re-applied to the live
 /// repository on host startup. When <see langword="false"/>, the host's code-seeded rules are left untouched.</param>
+/// <param name="SyncInterval">How often to pick up versions activated on other nodes; zero disables.</param>
 internal sealed record RuleSubsystemRegistration(
     string Subsystem,
     object RepositoryKey,
-    bool ApplyOnStartup);
+    bool ApplyOnStartup,
+    TimeSpan SyncInterval = default);

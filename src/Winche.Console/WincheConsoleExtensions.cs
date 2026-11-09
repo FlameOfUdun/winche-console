@@ -52,13 +52,15 @@ public static class WincheConsoleExtensions
 
             services.AddSingleton(new RuleStoreFactory(options.ConnectionString));
             services.AddHostedService<ConsoleRulesStartupService>();
+            services.AddHostedService<ConsoleRulesSyncService>();
 
             if (options.DatabaseRulesEditor is not null)
             {
                 services.AddSingleton(new RuleSubsystemRegistration(
                     RuleSubsystems.Database,
                     WincheDatabaseKeys.RuleEngine,
-                    options.DatabaseRulesEditor.ApplyPersistedRulesOnStartup));
+                    options.DatabaseRulesEditor.ApplyPersistedRulesOnStartup,
+                    options.DatabaseRulesEditor.SyncInterval));
             }
 
             if (options.StorageRulesEditor is not null)
@@ -66,7 +68,8 @@ public static class WincheConsoleExtensions
                 services.AddSingleton(new RuleSubsystemRegistration(
                     RuleSubsystems.Storage,
                     WincheStorageKeys.RULE_ENGINE_KEY,
-                    options.StorageRulesEditor.ApplyPersistedRulesOnStartup));
+                    options.StorageRulesEditor.ApplyPersistedRulesOnStartup,
+                    options.StorageRulesEditor.SyncInterval));
             }
         }
 
