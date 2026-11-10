@@ -97,4 +97,39 @@ public class RuleFieldSamplerTests(PostgresFixture fx) : IAsyncLifetime
         var storage = JsonDocument.Parse(await client.GetStringAsync("/_console/api/rules/storage/fields")).RootElement;
         Assert.Contains(storage.GetProperty("fields").EnumerateArray(), f => f.GetProperty("path").GetString() == "mimeType");
     }
+
+    [Fact]
+    public async Task A_recursive_wildcard_before_the_collection_samples_the_whole_group()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        var db = app.Services.GetRequiredService<DocumentDatabase>();
+        await SeedAsync(db, "s4");
+        await db.WriteAsync([new SetWrite { Path = "s4notes/x", Fields = F(("ignored", new StringValue("not a 'notes' collection"))) }]);
+        var sampler = new RuleFieldSampler(db);
+
+        var notes = Map(await sampler.SampleAsync("{path=**}/notes/{noteId}"));
+        Assert.Contains("text", notes.Keys);
+        Assert.Contains("pinned", notes.Keys);
+        Assert.DoesNotContain("name", notes.Keys);      // users, not notes
+        Assert.DoesNotContain("ignored", notes.Keys);
+
+        var underUsers = Map(await sampler.SampleAsync("s4u/{uid}/{p=**}/edits/{id}"));
+        Assert.Equal(["at"], underUsers.Keys);
+    }
+
+    [Theory]
+    [InlineData("{path=**}/notes/{id}", "notes/n1", true)]
+    [InlineData("{path=**}/notes/{id}", "users/u1/notes/n1", true)]
+    [InlineData("{path=**}/notes/{id}", "users/u1/other/n1", false)]
+    [InlineData("users/{uid}/{p=**}/likes/{id}", "users/u1/likes/l", true)]
+    [InlineData("users/{uid}/{p=**}/likes/{id}", "users/u1/a/b/likes/l", true)]
+    [InlineData("users/{uid}/{p=**}/likes/{id}", "teams/t/likes/l", false)]
+    [InlineData("users/{rest=**}", "users/u1/x/y", true)]
+    [InlineData("users/{rest=**}", "users", false)]
+    [InlineData("users/{uid}", "users/u1/notes/n", false)]
+    public void The_pattern_check_matches_like_the_rules_engine(string pattern, string path, bool covered)
+    {
+        Assert.Equal(covered, RuleFieldSampler.PatternRegex(pattern.Split('/')).IsMatch(path));
+        Assert.Equal(covered, Winche.Rules.Matching.PathMatcher.IsMatch(pattern, path));
+    }
 }

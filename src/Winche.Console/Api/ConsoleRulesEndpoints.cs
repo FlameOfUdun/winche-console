@@ -266,7 +266,8 @@ public static class ConsoleRulesEndpoints
                     ok = true,
                     rulesJson = (string?)RuleJson.Serialize(ruleSet),
                     error = (RulesSyntaxError?)null,
-                    warnings = UnknownFunctions(ruleSet).Select(n => $"Unknown function '{n}' — it will always deny.").ToList(),
+                    warnings = UnknownFunctions(ruleSet).Select(n => $"Unknown function '{n}' — it will always deny.")
+                        .Concat(DataInListRules(ruleSet)).ToList(),
                 });
             }
             catch (RuleSyntaxException ex)
@@ -381,6 +382,38 @@ public static class ConsoleRulesEndpoints
 
         return app;
     }
+
+    // A list (query) rule is proven from the query's filters, which constrain fields — resource.x. They can't
+    // prove resource.data.x (a document may have its own `data` field), so such a list rule always denies.
+    private static IEnumerable<string> DataInListRules(RuleSet ruleSet)
+    {
+        var paths = new List<string>();
+        void Block(MatchBlock b, string parent)
+        {
+            var path = parent.Length == 0 ? b.Path : $"{parent}/{b.Path}";
+            if (b.Allow.Any(a => a.Operations.Contains(RuleOperation.List) && ReadsResourceData(a.Condition)))
+                paths.Add(path);
+            foreach (var m in b.Matches) Block(m, path);
+        }
+        foreach (var m in ruleSet.Matches) Block(m, "");
+        return paths.Select(p =>
+            $"match {p}: in a rule that allows list (or read), write resource.x, not resource.data.x — a query can't prove resource.data, so it would deny.");
+    }
+
+    private static bool ReadsResourceData(RuleExpression e) => e switch
+    {
+        MemberExpression { Target: VarExpression { Name: "resource" }, Name: "data" } => true,
+        MemberExpression m => ReadsResourceData(m.Target),
+        IndexExpression ix => ReadsResourceData(ix.Target) || ReadsResourceData(ix.Index),
+        CompareExpression c => ReadsResourceData(c.Left) || ReadsResourceData(c.Right),
+        AndExpression a => a.Operands.Any(ReadsResourceData),
+        OrExpression o => o.Operands.Any(ReadsResourceData),
+        NotExpression n => ReadsResourceData(n.Operand),
+        InExpression i => ReadsResourceData(i.Item) || ReadsResourceData(i.Collection),
+        ConditionalExpression c => ReadsResourceData(c.Condition) || ReadsResourceData(c.Then) || ReadsResourceData(c.Else),
+        CallExpression call => call.Args.Any(ReadsResourceData),
+        _ => false,
+    };
 
     private static IEnumerable<string> UnknownFunctions(RuleSet ruleSet)
     {

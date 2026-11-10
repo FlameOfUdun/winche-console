@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.RegularExpressions;
 using Winche.Database.Documents;
 using Winche.Database.Querying.Ast;
 using Winche.Database.Runtime;
@@ -11,7 +13,8 @@ public sealed record SampledField(string Path, IReadOnlyList<string> Types);
 /// <summary>
 /// Finds the fields of the documents a rules <c>match</c> pattern covers, for the editor's suggestions:
 /// walks the pattern (literal segments directly, <c>{capture}</c> by listing a few collections / documents,
-/// <c>{rest=**}</c> by descending a little), reading at most <see cref="MaxDocuments"/> documents with at most
+/// <c>{rest=**}</c> by descending a little — or, for <c>{path=**}/notes/{id}</c>, one collection group query on
+/// <c>notes</c>), keeps only documents the pattern covers, reading at most <see cref="MaxDocuments"/> documents with at most
 /// <see cref="MaxCalls"/> database calls. A hint, not a schema: only fields present in the sample show up.
 /// </summary>
 public sealed class RuleFieldSampler(DocumentDatabase db)
@@ -21,15 +24,45 @@ public sealed class RuleFieldSampler(DocumentDatabase db)
     private const int PerWildcard = 10;
     private const int RecursiveDepth = 3;
     private const int FieldDepth = 4;
+    private const int GroupSample = 200;
+
+    // The paths a rules pattern covers, as Winche.Rules matches them: {x} one segment; {x=**} at the end one
+    // or more, elsewhere zero or more.
+    internal static Regex PatternRegex(string[] segments)
+    {
+        var sb = new StringBuilder("^");
+        for (var i = 0; i < segments.Length; i++)
+        {
+            var s = segments[i];
+            if (i > 0 && !(IsRecursive(segments[i - 1]) && i - 1 < segments.Length - 1)) sb.Append('/');
+            if (IsRecursive(s)) sb.Append(i == segments.Length - 1 ? ".+" : "(?:[^/]+/)*");
+            else if (IsCapture(s)) sb.Append("[^/]+");
+            else sb.Append(Regex.Escape(s));
+        }
+        return new Regex(sb.Append('$').ToString(), RegexOptions.CultureInvariant);
+    }
 
     public async Task<IReadOnlyList<SampledField>> SampleAsync(string pattern, CancellationToken ct = default)
     {
         var segments = pattern.Split('/', StringSplitOptions.RemoveEmptyEntries);
         var state = new Walk();
-        await DocumentLevelAsync("", segments, 0, state, ct);
+        var recursive = Array.FindIndex(segments, IsRecursive);
+        if (recursive >= 0 && recursive < segments.Length - 1 && segments.Length >= 2 && !IsCapture(segments[^2]) && !IsRecursive(segments[^2]))
+        {
+            // {path=**}/notes/{id}, users/{uid}/{p=**}/likes/{id}: one collection group query on the last
+            // collection's id finds them under any parent; the pattern check below keeps the ones it covers.
+            state.Calls++;
+            var group = await db.QueryAsync(new Query(segments[^2], Limit: GroupSample, CollectionGroup: true), ct);
+            foreach (var d in group.Documents) state.Documents.TryAdd(d.Path, d);
+        }
+        else
+        {
+            await DocumentLevelAsync("", segments, 0, state, ct);
+        }
 
+        var covers = PatternRegex(segments);
         var fields = new SortedDictionary<string, SortedSet<string>>(StringComparer.Ordinal);
-        foreach (var doc in state.Documents.Values)
+        foreach (var doc in state.Documents.Values.Where(d => covers.IsMatch(d.Path)).Take(MaxDocuments))
             Collect(doc.Fields, "", fields, 0);
         return [.. fields.Select(f => new SampledField(f.Key, [.. f.Value]))];
     }

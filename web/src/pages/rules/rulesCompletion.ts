@@ -77,7 +77,7 @@ const TYPES = ["string", "int", "float", "number", "bool", "null", "map", "list"
   .map((t): Suggestion => ({ label: t, type: "type" }));
 
 const DOCUMENT_COLUMNS: Suggestion[] = [
-  { label: "data", type: "property", detail: "the fields alone", info: "For keys() / diff(): request.resource.data.keys()" },
+  { label: "data", type: "property", detail: "the fields alone", info: "For keys() / diff(): request.resource.data.keys(). In list (query) rules write resource.x instead — a query can't prove resource.data." },
   { label: "id", type: "property", detail: "string" },
   { label: "path", type: "property", detail: "path" },
   { label: "collection", type: "property", detail: "string" },

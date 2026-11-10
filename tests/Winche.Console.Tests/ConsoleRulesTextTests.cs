@@ -80,6 +80,23 @@ public class ConsoleRulesTextTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Parse_warns_about_resource_data_in_list_rules()
+    {
+        var (app, client) = await AdminAsync();
+        using var _ = app;
+
+        var body = await Json(await client.PostAsJsonAsync("/_console/api/rules/text/parse", new
+        {
+            text = "match a/{id} {\n  allow read: if resource.data.owner == request.auth.uid;\n  allow update: if resource.data.owner == request.auth.uid;\n}\n" +
+                   "match b/{id} {\n  allow get: if resource.data.x == 1;\n}",
+        }));
+
+        var warnings = body.GetProperty("warnings").EnumerateArray().Select(w => w.GetString()!).ToList();
+        var warning = Assert.Single(warnings);   // a/{id} allows list; b/{id} only get
+        Assert.StartsWith("match a/{id}: in a rule that allows list", warning);
+    }
+
+    [Fact]
     public async Task Format_writes_the_file()
     {
         var (app, client) = await AdminAsync();
