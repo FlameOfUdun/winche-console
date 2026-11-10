@@ -198,9 +198,10 @@ services.AddWincheConsole(o =>
   button tidies the file. The server parses and formats it (`api/rules/text/parse` / `format`), so the
   editor reads rules exactly as the engine does; they're still stored as rulesJson. An error shows its line and column, a call to an
   unknown function (usually a typo) is flagged, and Save stays disabled while the file has an error or
-  hasn't been checked yet. Comments aren't kept (rules are stored as data). JSON **import/export**, a
-  **Simulate request** panel, and a **version history** drawer with one-click **revert** and
-  optimistic-concurrency safety are around it. Syntax and functions: see Winche.Rules' README.
+  hasn't been checked yet. Comments aren't kept (rules are stored as data). Around it: a **Simulate
+  request** panel, and **history** like Firebase's — every save is a version (who, when, note); pick one to
+  see it as the rules file or its **changes** against the active version, **open it in the editor**, or
+  **revert** to it. Saves use optimistic concurrency. Syntax and functions: see Winche.Rules' README.
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 

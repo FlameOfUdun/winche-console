@@ -1,11 +1,6 @@
 import { useMemo, useState } from "react";
-import {
-  Alert, Badge, Box, Button, Drawer, FileButton, Group, Loader, Menu, Modal, Stack, Table, Text,
-  TextInput, Textarea,
-} from "@mantine/core";
-import {
-  IconAlertTriangle, IconChevronDown, IconClipboard, IconDownload, IconFileImport, IconHistory, IconUpload,
-} from "@tabler/icons-react";
+import { Alert, Badge, Box, Button, Group, Loader, Modal, Stack, Text, TextInput } from "@mantine/core";
+import { IconAlertTriangle, IconHistory } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client";
@@ -15,6 +10,7 @@ import type {
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { RuleSetEditor } from "./RuleSetEditor";
 import { SimulatePanel } from "./SimulatePanel";
+import { VersionHistory } from "./VersionHistory";
 
 /** Pretty-prints rulesJson for editing; falls back to the raw text if it somehow isn't valid JSON. */
 function prettyOrRaw(rulesJson: string): string {
@@ -56,9 +52,6 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   const [validationErrors, setValidationErrors] = useState<RuleValidationError[] | null>(null);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [note, setNote] = useState("");
-  const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importErrors, setImportErrors] = useState<RuleValidationError[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [revertTarget, setRevertTarget] = useState<RuleVersionSummary | null>(null);
 
@@ -116,6 +109,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
       setDraftJson(pretty);
       setBaselineJson(pretty);
       setRevertTarget(null);
+      setHistoryOpen(false);
       notifications.show({ color: "green", message: `Reverted to version ${detail.version}.` });
     },
     onError: () => notifications.show({ color: "red", message: "Revert failed." }),
@@ -138,6 +132,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
       // (or discarding by navigating away) behaves correctly.
       setDraftJson(prettyOrRaw(detail.rulesJson));
       setHistoryOpen(false);
+      notifications.show({ color: "blue", message: `Version ${detail.version} is in the editor — Save to make it live.` });
     },
     onError: () => notifications.show({ color: "red", message: "Could not load that version." }),
   });
@@ -155,36 +150,6 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
     saveMutation.mutate({ rulesJson: draftJson, note: note.trim() || undefined, expectedHeadVersion: activeVersion });
   };
 
-  const onExportCopy = async () => {
-    if (draftJson === null) return;
-    await navigator.clipboard.writeText(draftJson);
-    notifications.show({ color: "blue", message: "Copied rules JSON to clipboard." });
-  };
-
-  const onExportDownload = () => {
-    if (draftJson === null) return;
-    const blob = new Blob([draftJson], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${subsystem}-rules.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const onImportOpen = () => { setImportText(draftJson ?? ""); setImportErrors(null); setImportOpen(true); };
-  const onImportFile = async (file: File | null) => {
-    if (!file) return;
-    setImportErrors(null);
-    setImportText(await file.text());
-  };
-  const onImportConfirm = async () => {
-    setImportErrors(null);
-    const result = await validateMutation.mutateAsync(importText);
-    if (!result.ok) { setImportErrors(result.errors); return; }
-    setDraftJson(importText);
-    setImportOpen(false);
-  };
 
   if (live.isLoading) return <Group p="xl"><Loader size="sm" /><Text size="sm" c="dimmed">Loading rules…</Text></Group>;
   if (live.isError) return <Text size="sm" c="red" p="xl">Could not load rules for this subsystem.</Text>;
@@ -211,18 +176,6 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
           {!textValid && draftJson !== null && (
             <Text size="xs" c="dimmed">Save is available once the rules have no errors.</Text>
           )}
-          <Button size="xs" variant="default" leftSection={<IconFileImport size={15} />} onClick={onImportOpen}>
-            Import JSON
-          </Button>
-          <Menu withinPortal position="bottom-start">
-            <Menu.Target>
-              <Button size="xs" variant="default" rightSection={<IconChevronDown size={14} />}>Export JSON</Button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              <Menu.Item leftSection={<IconClipboard size={15} />} onClick={onExportCopy}>Copy to clipboard</Menu.Item>
-              <Menu.Item leftSection={<IconDownload size={15} />} onClick={onExportDownload}>Download file</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
           <Button size="xs" variant="default" leftSection={<IconHistory size={15} />} onClick={() => setHistoryOpen(true)}>
             History
           </Button>
@@ -266,77 +219,15 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
         </Stack>
       </Modal>
 
-      {/* Import JSON */}
-      <Modal opened={importOpen} onClose={() => setImportOpen(false)} title="Import rules JSON" size="lg">
-        <Stack>
-          <Group gap="xs">
-            <FileButton accept="application/json,.json" onChange={onImportFile}>
-              {(props) => <Button {...props} size="xs" variant="default" leftSection={<IconUpload size={15} />}>Choose .json file</Button>}
-            </FileButton>
-            <Text size="xs" c="dimmed">or paste the ruleset JSON below</Text>
-          </Group>
-          <Textarea
-            value={importText}
-            onChange={(e) => setImportText(e.currentTarget.value)}
-            autosize minRows={10} maxRows={22}
-            placeholder='{"Matches":[]}'
-            styles={{ input: { fontFamily: "monospace", fontSize: 12 } }}
-          />
-          {importErrors && importErrors.length > 0 && (
-            <Alert color="red" title="Import failed validation">
-              <Stack gap={4}>
-                {importErrors.map((e, i) => (
-                  <Text key={i} size="sm" ff="monospace">{e.path ? `${e.path}: ` : ""}{e.message}</Text>
-                ))}
-              </Stack>
-            </Alert>
-          )}
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setImportOpen(false)}>Cancel</Button>
-            <Button onClick={onImportConfirm} loading={validateMutation.isPending}>Import</Button>
-          </Group>
-        </Stack>
-      </Modal>
 
-      {/* Version history */}
-      <Drawer opened={historyOpen} onClose={() => setHistoryOpen(false)} title="Version history" position="right" size="lg">
-        {versions.isLoading && <Text size="sm" c="dimmed">Loading…</Text>}
-        {versions.data?.length === 0 && <Text size="sm" c="dimmed">No saved versions yet.</Text>}
-        {versions.data && versions.data.length > 0 && (
-          <Table verticalSpacing="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Version</Table.Th><Table.Th>Date</Table.Th><Table.Th>Author</Table.Th>
-                <Table.Th>Note</Table.Th><Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {versions.data.map((v) => (
-                <Table.Tr key={v.version}>
-                  <Table.Td>
-                    <Group gap={6}>
-                      <Text size="sm">#{v.version}</Text>
-                      {v.isActive && <Badge size="xs" color="blue" variant="light">active</Badge>}
-                    </Group>
-                  </Table.Td>
-                  <Table.Td><Text size="sm" c="dimmed">{new Date(v.createdAtUtc).toLocaleString()}</Text></Table.Td>
-                  <Table.Td><Text size="sm" c="dimmed">{v.createdBy ?? "—"}</Text></Table.Td>
-                  <Table.Td><Text size="sm" c="dimmed">{v.note ?? "—"}</Text></Table.Td>
-                  <Table.Td>
-                    <Group gap={6} justify="flex-end">
-                      <Button size="xs" variant="subtle" loading={viewVersionMutation.isPending && viewVersionMutation.variables === v.version}
-                        onClick={() => viewVersionMutation.mutate(v.version)}>View</Button>
-                      {!v.isActive && (
-                        <Button size="xs" variant="subtle" color="red" onClick={() => setRevertTarget(v)}>Revert</Button>
-                      )}
-                    </Group>
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        )}
-      </Drawer>
+
+      <VersionHistory
+        subsystem={subsystem}
+        opened={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        versions={versions.data}
+        onOpenInEditor={(version) => viewVersionMutation.mutate(version)}
+        onRevert={(v) => setRevertTarget(v)} />
 
       <ConfirmModal
         opened={!!revertTarget}
