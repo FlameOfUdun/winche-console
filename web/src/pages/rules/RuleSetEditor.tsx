@@ -13,6 +13,16 @@ function canonical(json: string): string {
   try { return JSON.stringify(JSON.parse(json)); } catch { return json; }
 }
 
+/**
+ * What an empty ruleset shows: explicit deny-all, as Firebase starts. The engine denies anything no rule
+ * allows, so this says what's already true; it counts as unedited (saving it changes nothing).
+ */
+export const DENY_ALL_TEMPLATE =
+  "// No rules yet: everything is denied. Rules only allow — add a match with an allow to open access.\n" +
+  "match {path=**} {\n" +
+  "  allow read, write: if false;\n" +
+  "}\n";
+
 /** What the parent can ask of the editor. */
 export interface RuleSetEditorHandle {
   /**
@@ -68,9 +78,10 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
     api.rulesFormatText(json)
       .then(({ text: formatted }) => {
         if (cancelled) return;
+        const shownText = formatted.trim() === "" ? DENY_ALL_TEMPLATE : formatted;
         shown.current = draft;
-        checkedText.current = formatted;
-        setText(formatted);
+        checkedText.current = shownText;
+        setText(shownText);
         setEdited(false);
         setError(null);
         setWarnings([]);

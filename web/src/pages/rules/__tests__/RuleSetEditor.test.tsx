@@ -125,3 +125,15 @@ test("rules loaded from outside are shown; our own checked draft isn't re-format
   rerender(JSON.stringify({ Matches: [{ Path: "other/{id}", Allow: [], Matches: [] }] }));
   await waitFor(() => expect(input).toHaveValue("match other/{id} {\n}\n"));
 });
+
+test("an empty ruleset starts as explicit deny-all, unedited", async () => {
+  format.mockResolvedValue({ text: "" });
+  const { onEdited, ref } = renderEditor(JSON.stringify({ Matches: [] }, null, 2));
+  const { DENY_ALL_TEMPLATE } = await import("../RuleSetEditor");
+  expect(await box()).toHaveValue(DENY_ALL_TEMPLATE);
+  expect(onEdited).not.toHaveBeenCalledWith(true);
+  let result: string | null = null;
+  await act(async () => { result = await ref.current!.check(); });
+  expect(parse).not.toHaveBeenCalled();              // nothing to check: it's what's saved
+  expect(result).toBe(JSON.stringify({ Matches: [] }, null, 2));
+});
