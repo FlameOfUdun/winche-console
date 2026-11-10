@@ -43,14 +43,14 @@ public static class ConsoleRulesEndpoints
 
     public sealed record ValidateRulesRequest(string RulesJson);
 
-    /// <summary>A condition in the text syntax (<see cref="RuleText"/>) to turn into its JSON form.</summary>
-    public sealed record ParseConditionRequest(string Text);
+    /// <summary>A rules file in the text syntax (<see cref="RuleText.ParseRuleSet"/>) to turn into rulesJson.</summary>
+    public sealed record ParseRulesTextRequest(string Text);
 
-    /// <summary>A condition's JSON form (a <c>RuleExpression</c>, as inside <c>rulesJson</c>) to write as text.</summary>
-    public sealed record FormatConditionRequest(string ExpressionJson);
+    /// <summary>A ruleset's rulesJson to write as a rules file.</summary>
+    public sealed record FormatRulesTextRequest(string RulesJson);
 
-    /// <summary>Where a condition's text is wrong; <see cref="Line"/>/<see cref="Column"/> are 1-based.</summary>
-    public sealed record ConditionSyntaxError(string Message, int Line, int Column, int Offset);
+    /// <summary>Where a rules file is wrong; <see cref="Line"/>/<see cref="Column"/> are 1-based.</summary>
+    public sealed record RulesSyntaxError(string Message, int Line, int Column, int Offset);
 
     /// <summary>
     /// Dry-run a draft ruleset against a single simulated request. <see cref="ResourceJson"/>/<see cref="RequestJson"/>
@@ -253,20 +253,20 @@ public static class ConsoleRulesEndpoints
             return Results.Json(new { appliedVersion = (int?)head.Version });
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
-        // The text form of conditions (subsystem-independent: same syntax for database and storage rules).
-        // Parse always answers 200: { ok, expressionJson, error, warnings }; warnings name calls to functions
-        // the engine doesn't know (most likely a typo — they would deny at runtime).
-        group.MapPost("/text/parse", (ParseConditionRequest body) =>
+        // The rules file: the whole ruleset as text (same syntax for database and storage rules), which the
+        // console edits; storage stays rulesJson. Parse always answers 200: { ok, rulesJson, error, warnings };
+        // warnings name calls to functions the engine doesn't know (most likely a typo — they always deny).
+        group.MapPost("/text/parse", (ParseRulesTextRequest body) =>
         {
             try
             {
-                var expression = RuleText.Parse(body.Text ?? "");
+                var ruleSet = RuleText.ParseRuleSet(body.Text ?? "");
                 return Results.Json(new
                 {
                     ok = true,
-                    expressionJson = (string?)RuleJson.Serialize(expression),
-                    error = (ConditionSyntaxError?)null,
-                    warnings = UnknownFunctions(expression).Select(n => $"Unknown function '{n}' — it will always deny.").ToList(),
+                    rulesJson = (string?)RuleJson.Serialize(ruleSet),
+                    error = (RulesSyntaxError?)null,
+                    warnings = UnknownFunctions(ruleSet).Select(n => $"Unknown function '{n}' — it will always deny.").ToList(),
                 });
             }
             catch (RuleSyntaxException ex)
@@ -274,18 +274,18 @@ public static class ConsoleRulesEndpoints
                 return Results.Json(new
                 {
                     ok = false,
-                    expressionJson = (string?)null,
-                    error = (ConditionSyntaxError?)new ConditionSyntaxError(ex.Reason, ex.Line, ex.Column, ex.Offset),
+                    rulesJson = (string?)null,
+                    error = (RulesSyntaxError?)new RulesSyntaxError(ex.Reason, ex.Line, ex.Column, ex.Offset),
                     warnings = new List<string>(),
                 });
             }
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
-        group.MapPost("/text/format", (FormatConditionRequest body) =>
+        group.MapPost("/text/format", (FormatRulesTextRequest body) =>
         {
             try
             {
-                return Results.Json(new { text = RuleText.Format(RuleJson.DeserializeExpr(body.ExpressionJson)) });
+                return Results.Json(new { text = RuleText.FormatRuleSet(RuleJson.DeserializeRuleSet(body.RulesJson)) });
             }
             catch (Exception ex) when (ex is JsonException or ArgumentException or NotSupportedException)
             {
@@ -361,6 +361,18 @@ public static class ConsoleRulesEndpoints
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
         return app;
+    }
+
+    private static IEnumerable<string> UnknownFunctions(RuleSet ruleSet)
+    {
+        var names = new SortedSet<string>(StringComparer.Ordinal);
+        void Block(MatchBlock b)
+        {
+            foreach (var a in b.Allow) names.UnionWith(UnknownFunctions(a.Condition));
+            foreach (var m in b.Matches) Block(m);
+        }
+        foreach (var m in ruleSet.Matches) Block(m);
+        return names;
     }
 
     private static IEnumerable<string> UnknownFunctions(RuleExpression e)

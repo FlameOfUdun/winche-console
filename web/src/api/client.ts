@@ -1,5 +1,5 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
-import type { ParseConditionResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
+import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 
 export class ApiError extends Error {
@@ -113,8 +113,8 @@ export const api = {
   rulesApplyHead: (sys: RuleSubsystem) => http<{ appliedVersion: number | null }>("POST", `api/rules/${sys}/apply-head`),
   rulesValidate: (sys: RuleSubsystem, rulesJson: string) =>
     http<RuleValidationResult>("POST", `api/rules/${sys}/validate`, { rulesJson }),
-  rulesParseText: (text: string) => http<ParseConditionResult>("POST", "api/rules/text/parse", { text }),
-  rulesFormatText: (expressionJson: string) => http<{ text: string }>("POST", "api/rules/text/format", { expressionJson }),
+  rulesParseText: (text: string) => http<ParseRulesTextResult>("POST", "api/rules/text/parse", { text }),
+  rulesFormatText: (rulesJson: string) => http<{ text: string }>("POST", "api/rules/text/format", { rulesJson }),
   rulesSimulate: (
     sys: RuleSubsystem,
     body: { rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string> },

@@ -181,22 +181,22 @@ services.AddWincheConsole(o =>
   latest saved ruleset to the live engine. Set it `false` to keep your code-seeded rules as the boot
   baseline — console edits still hot-swap and persist at runtime, they just aren't re-applied on restart
   (the UI shows a drift banner with an *Apply saved version* action when live ≠ saved).
-- **Editing.** A GUI builder (match-block tree) with a raw **JSON** toggle and file **import/export**; a
-  **Simulate request** panel to check allow/deny before saving; and a **version history** drawer with
-  one-click **revert** and optimistic-concurrency safety.
-- **Conditions as text (3.4.0).** Each allow rule's condition is edited as text in the Winche.Rules syntax
-  by default, with the tree builder one click away:
+- **Editing (3.4.0).** The rules are one text file, Firestore-style:
 
   ```text
-  request.auth.uid == uid
-    && request.resource.data.keys().hasOnly(['name', 'email'])
-    && !('role' in request.resource.data.diff(resource.data).affectedKeys())
+  match users/{uid} {
+    allow read: if request.auth.uid == uid;
+    allow create: if request.auth.uid == uid
+      && request.resource.data.keys().hasOnly(['name', 'email']);
+  }
   ```
 
-  The server parses and formats it (`api/rules/text/parse` / `format`), so the editor reads it exactly as
-  the engine does. A syntax error shows its line and column; a call to an unknown function (usually a
-  typo) is flagged; and Save stays disabled while any condition has an error or hasn't been checked yet,
-  so what's saved is always what's on screen. Functions and syntax: see Winche.Rules' README.
+  The server parses and formats it (`api/rules/text/parse` / `format`), so the editor reads rules exactly
+  as the engine does; they're still stored as rulesJson. An error shows its line and column, a call to an
+  unknown function (usually a typo) is flagged, and Save stays disabled while the file has an error or
+  hasn't been checked yet. Comments aren't kept (rules are stored as data). JSON **import/export**, a
+  **Simulate request** panel, and a **version history** drawer with one-click **revert** and
+  optimistic-concurrency safety are around it. Syntax and functions: see Winche.Rules' README.
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
