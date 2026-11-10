@@ -12,6 +12,14 @@ vi.mock("../../../api/client", () => ({
   },
 }));
 
+// CodeMirror's contenteditable doesn't take typing in jsdom: stand in a textarea with the same contract
+// (RulesCodeEditor itself has its own test).
+vi.mock("../RulesCodeEditor", () => ({
+  RulesCodeEditor: ({ value, onChange }: { value: string; onChange: (t: string) => void }) => (
+    <textarea aria-label="Rules" value={value} onChange={(e) => onChange(e.currentTarget.value)} />
+  ),
+}));
+
 const { RuleSetEditor } = await import("../RuleSetEditor");
 
 const FILE = "match users/{uid} {\n  allow read: if request.auth.uid == uid;\n}\n";
@@ -22,12 +30,12 @@ function renderEditor(json = JSON_RULES) {
   const onValidity = vi.fn();
   const view = render(
     <MantineProvider>
-      <RuleSetEditor json={json} onChange={onChange} onValidityChange={onValidity} />
+      <RuleSetEditor subsystem="database" json={json} onChange={onChange} onValidityChange={onValidity} />
     </MantineProvider>,
   );
   const rerender = (next: string) => view.rerender(
     <MantineProvider>
-      <RuleSetEditor json={next} onChange={onChange} onValidityChange={onValidity} />
+      <RuleSetEditor subsystem="database" json={next} onChange={onChange} onValidityChange={onValidity} />
     </MantineProvider>,
   );
   return { onChange, onValidity, rerender };

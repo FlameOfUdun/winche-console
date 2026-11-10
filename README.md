@@ -191,8 +191,12 @@ services.AddWincheConsole(o =>
   }
   ```
 
-  The server parses and formats it (`api/rules/text/parse` / `format`), so the editor reads rules exactly
-  as the engine does; they're still stored as rulesJson. An error shows its line and column, a call to an
+  It's a code editor (CodeMirror) with syntax colours and suggestions as you type (or Ctrl+Space):
+  keywords and operations, path captures in scope, `request.` / `resource.` members, functions with a
+  short description, and **document field names** — sampled from up to 50 documents the enclosing
+  `match` covers (`api/rules/database/fields?pattern=…`; storage rules get a file's fields). A **Format**
+  button tidies the file. The server parses and formats it (`api/rules/text/parse` / `format`), so the
+  editor reads rules exactly as the engine does; they're still stored as rulesJson. An error shows its line and column, a call to an
   unknown function (usually a typo) is flagged, and Save stays disabled while the file has an error or
   hasn't been checked yet. Comments aren't kept (rules are stored as data). JSON **import/export**, a
   **Simulate request** panel, and a **version history** drawer with one-click **revert** and

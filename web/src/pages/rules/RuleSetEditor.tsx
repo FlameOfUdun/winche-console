@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { Loader, Stack, Text, Textarea } from "@mantine/core";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { api } from "../../api/client";
-import type { RulesSyntaxError } from "../../api/rules";
+import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
+import { RulesCodeEditor } from "./RulesCodeEditor";
+import type { FieldInfo } from "./rulesCompletion";
 
 const PARSE_DELAY_MS = 300;
 
@@ -22,12 +24,15 @@ function canonical(json: string): string {
  * hasn't been checked yet, the draft keeps the last valid rules and `onValidityChange(false)` tells the
  * parent to block Save — so what's saved is always what's on screen.
  */
-export function RuleSetEditor({ json, onChange, onValidityChange }: {
+export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
+  subsystem: RuleSubsystem;
   json: string;
   onChange: (json: string) => void;
   onValidityChange: (valid: boolean) => void;
 }) {
   const [text, setText] = useState<string | null>(null);
+  const textRef = useRef<string | null>(null);
+  textRef.current = text;
   const [error, setError] = useState<RulesSyntaxError | string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pending, setPending] = useState(false);
@@ -56,9 +61,28 @@ export function RuleSetEditor({ json, onChange, onValidityChange }: {
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
+  // Field suggestions: one sample per match pattern, kept for the session of this editor.
+  const fieldCache = useRef(new Map<string, Promise<FieldInfo[]>>());
+  const fieldsFor = useCallback((pattern: string) => {
+    let fields = fieldCache.current.get(pattern);
+    if (!fields) {
+      fields = api.rulesFields(subsystem, pattern).then((r) => r.fields);
+      fieldCache.current.set(pattern, fields);
+      fields.catch(() => fieldCache.current.delete(pattern));
+    }
+    return fields;
+  }, [subsystem]);
+
+  const onFormat = async () => {
+    const { text: formatted } = await api.rulesFormatText(json);
+    shown.current = canonical(json);
+    setText(formatted);
+  };
+
   useEffect(() => onValidityChange(text !== null && !pending && error === null), [text, pending, error, onValidityChange]);
 
   const onText = (next: string) => {
+    if (next === textRef.current) return;   // the editor echoing text we set (load, format)
     setText(next);
     setPending(true);
     if (timer.current) clearTimeout(timer.current);
@@ -88,15 +112,17 @@ export function RuleSetEditor({ json, onChange, onValidityChange }: {
 
   return (
     <Stack gap={6}>
-      <Textarea
+      <Group justify="space-between">
+        <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers.</Text>
+        <Button size="xs" variant="default" onClick={onFormat} disabled={pending || error !== null}>Format</Button>
+      </Group>
+      <RulesCodeEditor
         value={text ?? ""}
-        onChange={(e) => onText(e.currentTarget.value)}
-        autosize minRows={18} maxRows={60}
-        spellCheck={false}
-        aria-label="Rules"
-        placeholder={"match users/{uid} {\n  allow read: if request.auth.uid == uid;\n}"}
-        error={error !== null}
-        styles={{ input: { fontFamily: "monospace", fontSize: 13, lineHeight: 1.5 } }} />
+        onChange={onText}
+        error={typeof error === "object" ? error : null}
+        subsystem={subsystem}
+        fieldsFor={fieldsFor}
+        placeholder={"match users/{uid} {\n  allow read: if request.auth.uid == uid;\n}"} />
       {error !== null && (
         <Text size="sm" c="red" role="alert">
           {typeof error === "string" ? error : `Line ${error.line}, column ${error.column}: ${error.message}`}

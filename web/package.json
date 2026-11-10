@@ -9,6 +9,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "6.16.0",
+    "@codemirror/commands": "6.5.0",
+    "@codemirror/language": "6.10.1",
+    "@codemirror/lint": "6.8.0",
+    "@codemirror/state": "6.4.1",
+    "@codemirror/view": "6.26.3",
+    "@lezer/highlight": "1.2.0",
     "@mantine/charts": "^7.17.8",
     "@mantine/core": "^7.13.0",
     "@mantine/dropzone": "^7.17.8",

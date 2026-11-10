@@ -26,3 +26,10 @@ window.ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
 // jsdom doesn't implement scrollIntoView; Mantine's Combobox calls it when
 // navigating options (e.g. Select dropdown), so stub it out.
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
+
+// jsdom has no layout: CodeMirror measures text ranges, so give Range the (empty) measuring methods.
+if (typeof Range !== "undefined") {
+  const empty = { x: 0, y: 0, top: 0, left: 0, bottom: 0, right: 0, width: 0, height: 0, toJSON: () => ({}) } as DOMRect;
+  Range.prototype.getClientRects ??= () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
+  Range.prototype.getBoundingClientRect ??= () => empty;
+}

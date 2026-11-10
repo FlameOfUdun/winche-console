@@ -115,6 +115,8 @@ export const api = {
     http<RuleValidationResult>("POST", `api/rules/${sys}/validate`, { rulesJson }),
   rulesParseText: (text: string) => http<ParseRulesTextResult>("POST", "api/rules/text/parse", { text }),
   rulesFormatText: (rulesJson: string) => http<{ text: string }>("POST", "api/rules/text/format", { rulesJson }),
+  rulesFields: (sys: RuleSubsystem, pattern: string) =>
+    http<{ fields: { path: string; types: string[] }[] }>("GET", `api/rules/${sys}/fields?pattern=${encodeURIComponent(pattern)}`),
   rulesSimulate: (
     sys: RuleSubsystem,
     body: { rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string> },

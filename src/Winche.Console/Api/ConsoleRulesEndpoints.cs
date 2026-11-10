@@ -293,6 +293,25 @@ public static class ConsoleRulesEndpoints
             }
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
+        // Field names for the editor's suggestions: the fields of documents a match pattern covers (database:
+        // sampled, see RuleFieldSampler) or a file's fields (storage: fixed, plus sampled metadata keys are not
+        // known here).
+        group.MapGet("/{sys}/fields", async (
+            string sys,
+            string? pattern,
+            [FromServices] IEnumerable<RuleSubsystemRegistration> registrations,
+            [FromServices] IServiceProvider sp,
+            CancellationToken ct) =>
+        {
+            var reg = FindRegistration(registrations, sys);
+            if (reg is null) return Results.NotFound();
+            if (sys == "storage") return Results.Json(new { fields = StorageFields });
+            if (string.IsNullOrWhiteSpace(pattern)) return Results.Json(new { fields = Array.Empty<SampledField>() });
+            var db = sp.GetService<Winche.Database.Runtime.DocumentDatabase>();
+            if (db is null) return Results.Json(new { fields = Array.Empty<SampledField>() });
+            return Results.Json(new { fields = await new RuleFieldSampler(db).SampleAsync(pattern, ct) });
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
         group.MapPost("/{sys}/validate", (
             string sys,
             ValidateRulesRequest body,
@@ -399,6 +418,15 @@ public static class ConsoleRulesEndpoints
         Walk(e);
         return names;
     }
+
+    // A file as storage rules see it (Winche.Storage FileToResource).
+    private static readonly SampledField[] StorageFields =
+    [
+        new("createdAt", ["timestamp"]), new("directory", ["string"]), new("id", ["string"]),
+        new("metadata", ["map"]), new("mimeType", ["string"]), new("path", ["string"]),
+        new("sizeBytes", ["int"]), new("updatedAt", ["timestamp"]), new("uploadStatus", ["string"]),
+        new("version", ["int"]),
+    ];
 
     private static RuleSubsystemRegistration? FindRegistration(IEnumerable<RuleSubsystemRegistration> registrations, string sys) =>
         registrations.FirstOrDefault(r => string.Equals(r.Subsystem, sys, StringComparison.Ordinal));
