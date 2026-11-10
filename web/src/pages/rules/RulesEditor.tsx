@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Badge, Box, Button, Group, Loader, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { IconAlertTriangle, IconHistory } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -17,6 +17,8 @@ function prettyOrRaw(rulesJson: string): string {
   try { return JSON.stringify(JSON.parse(rulesJson), null, 2); }
   catch { return rulesJson; }
 }
+
+const SAVE_KEYS = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘S" : "Ctrl+S";
 
 const liveKey = (sys: RuleSubsystem) => ["rules-live", sys] as const;
 const versionsKey = (sys: RuleSubsystem) => ["rules-versions", sys] as const;
@@ -154,6 +156,22 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   };
 
 
+  // ⌘S / Ctrl+S anywhere on the page saves (and, with the note dialog open, confirms it) instead of the
+  // browser's "save page". Latest handlers via a ref so the listener is added once.
+  const shortcut = useRef({ onClickSave, confirmSave, noteModalOpen, busy: true });
+  shortcut.current = { onClickSave, confirmSave, noteModalOpen, busy: validateMutation.isPending || saveMutation.isPending || !dirty };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== "s") return;
+      e.preventDefault();
+      const { onClickSave: save, confirmSave: confirm, noteModalOpen: confirming, busy } = shortcut.current;
+      if (busy) return;
+      if (confirming) confirm(); else void save();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   if (live.isLoading) return <Group p="xl"><Loader size="sm" /><Text size="sm" c="dimmed">Loading rules…</Text></Group>;
   if (live.isError) return <Text size="sm" c="red" p="xl">Could not load rules for this subsystem.</Text>;
 
@@ -172,9 +190,10 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
 
       <Group justify="space-between" wrap="wrap">
         <Group gap="xs">
-          <Button size="xs" onClick={onClickSave} disabled={draftJson === null}
+          <Button size="xs" onClick={onClickSave} disabled={draftJson === null || !dirty}
             loading={validateMutation.isPending || saveMutation.isPending}>
             Save{dirty ? " *" : ""}
+            <Text span size="xs" ml={6} fw={400} visibleFrom="sm" style={{ opacity: 0.7 }}>{SAVE_KEYS}</Text>
           </Button>
           <Button size="xs" variant="default" leftSection={<IconHistory size={15} />} onClick={() => setHistoryOpen(true)}>
             History

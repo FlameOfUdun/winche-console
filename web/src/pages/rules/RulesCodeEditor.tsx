@@ -1,8 +1,8 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { Box } from "@mantine/core";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, lineNumbers, highlightActiveLine, drawSelection, placeholder as cmPlaceholder } from "@codemirror/view";
-import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab, redo, redoDepth, undo, undoDepth } from "@codemirror/commands";
 import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, type Completion, type CompletionContext } from "@codemirror/autocomplete";
 import { HighlightStyle, StreamLanguage, bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { lintGutter, setDiagnostics } from "@codemirror/lint";
@@ -74,21 +74,34 @@ const KINDS: Record<Suggestion["type"], string> = {
   keyword: "keyword", variable: "variable", property: "property", method: "method", function: "function", type: "type",
 };
 
-export function RulesCodeEditor({ value, onChange, onBlur, error, subsystem, fieldsFor, placeholder }: {
+/** Undo / redo from outside the editor (the toolbar). */
+export interface RulesCodeEditorHandle {
+  undo: () => void;
+  redo: () => void;
+}
+
+export const RulesCodeEditor = forwardRef<RulesCodeEditorHandle, {
   value: string;
   onChange: (text: string) => void;
   onBlur?: () => void;
+  /** Whether there's anything to undo / redo, whenever that changes. */
+  onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
   error: RulesSyntaxError | null;
   subsystem: RuleSubsystem;
   /** The fields of the documents a match pattern covers (cached by the caller). */
   fieldsFor: (pattern: string) => Promise<FieldInfo[]>;
   placeholder?: string;
-}) {
+}>(function RulesCodeEditor({ value, onChange, onBlur, onHistoryChange, error, subsystem, fieldsFor, placeholder }, ref) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // Latest props for the long-lived editor's callbacks.
-  const props = useRef({ onChange, onBlur, subsystem, fieldsFor });
-  props.current = { onChange, onBlur, subsystem, fieldsFor };
+  const props = useRef({ onChange, onBlur, onHistoryChange, subsystem, fieldsFor });
+  props.current = { onChange, onBlur, onHistoryChange, subsystem, fieldsFor };
+
+  useImperativeHandle(ref, () => ({
+    undo: () => { if (view.current) { undo(view.current); view.current.focus(); } },
+    redo: () => { if (view.current) { redo(view.current); view.current.focus(); } },
+  }), []);
 
   useEffect(() => {
     const complete = async (context: CompletionContext) => {
@@ -124,7 +137,11 @@ export function RulesCodeEditor({ value, onChange, onBlur, error, subsystem, fie
           keymap.of([...closeBracketsKeymap, ...completionKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           cmPlaceholder(placeholder ?? ""),
           EditorView.contentAttributes.of({ "aria-label": "Rules", spellcheck: "false" }),
-          EditorView.updateListener.of((u) => { if (u.docChanged) props.current.onChange(u.state.doc.toString()); }),
+          EditorView.updateListener.of((u) => {
+            if (u.docChanged) props.current.onChange(u.state.doc.toString());
+            if (u.docChanged || u.transactions.length > 0)
+              props.current.onHistoryChange?.(undoDepth(u.state) > 0, redoDepth(u.state) > 0);
+          }),
           EditorView.domEventHandlers({ blur: () => { props.current.onBlur?.(); } }),
           EditorView.theme({
             "&": { fontSize: "13px", border: "1px solid #dee2e6", borderRadius: "6px", background: "#fff" },
@@ -159,4 +176,4 @@ export function RulesCodeEditor({ value, onChange, onBlur, error, subsystem, fie
   }, [error]);
 
   return <Box ref={host} />;
-}
+});

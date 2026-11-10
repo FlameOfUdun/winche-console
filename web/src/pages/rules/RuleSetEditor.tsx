@@ -1,5 +1,7 @@
 import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Button, Group, Loader, Stack, Text } from "@mantine/core";
+import { ActionIcon, Button, Group, Loader, Stack, Text, Tooltip } from "@mantine/core";
+import { IconArrowBackUp, IconArrowForwardUp } from "@tabler/icons-react";
+import type { RulesCodeEditorHandle } from "./RulesCodeEditor";
 import { api } from "../../api/client";
 import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
 // CodeMirror is most of the console's JavaScript: load it only when the rules are opened.
@@ -51,6 +53,11 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
   const shown = useRef<string | null>(null);
   const checkedText = useRef<string | null>(null);
   const [edited, setEdited] = useState(false);
+  const code = useRef<RulesCodeEditorHandle>(null);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const onHistoryChange = useCallback((u: boolean, r: boolean) => { setCanUndo(u); setCanRedo(r); }, []);
+  const mac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
   useEffect(() => onEditedChange?.(edited), [edited, onEditedChange]);
 
   // Format when the draft changes from outside: first load, a loaded or reverted version.
@@ -136,10 +143,24 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
     <Stack gap={6}>
       <Group justify="space-between">
         <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers. Checked when you leave the editor or save.</Text>
-        <Button size="xs" variant="default" onClick={onFormat} loading={checking}>Format</Button>
+        <Group gap={4}>
+          <Tooltip label={`Undo (${mac ? "⌘Z" : "Ctrl+Z"})`}>
+            <ActionIcon variant="default" size="md" aria-label="Undo" disabled={!canUndo} onClick={() => code.current?.undo()}>
+              <IconArrowBackUp size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Tooltip label={`Redo (${mac ? "⌘⇧Z" : "Ctrl+Y"})`}>
+            <ActionIcon variant="default" size="md" aria-label="Redo" disabled={!canRedo} onClick={() => code.current?.redo()}>
+              <IconArrowForwardUp size={16} />
+            </ActionIcon>
+          </Tooltip>
+          <Button size="xs" variant="default" onClick={onFormat} loading={checking}>Format</Button>
+        </Group>
       </Group>
       <Suspense fallback={<Loader size="sm" />}>
       <RulesCodeEditor
+        ref={code}
+        onHistoryChange={onHistoryChange}
         value={text ?? ""}
         onChange={onText}
         onBlur={() => { void check(); }}
