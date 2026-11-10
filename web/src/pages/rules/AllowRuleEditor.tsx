@@ -1,6 +1,6 @@
 import { Button, Chip, Group, Stack } from "@mantine/core";
 import type { AllowRule, RuleOperation } from "../../api/rules";
-import { ExpressionBuilder } from "./ExpressionBuilder";
+import { ConditionEditor } from "./ConditionEditor";
 
 const ALL_OPS: RuleOperation[] = ["Get", "List", "Create", "Update", "Delete"];
 const READ_OPS: RuleOperation[] = ["Get", "List"];
@@ -33,7 +33,7 @@ export function AllowRuleEditor({ rule, onChange }: { rule: AllowRule; onChange:
           </Button>
         </Group>
       </Group>
-      <ExpressionBuilder value={rule.Condition} onChange={(cond) => onChange({ ...rule, Condition: cond })} />
+      <ConditionEditor value={rule.Condition} onChange={(cond) => onChange({ ...rule, Condition: cond })} />
     </Stack>
   );
 }

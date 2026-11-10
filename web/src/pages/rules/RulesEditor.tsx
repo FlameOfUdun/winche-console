@@ -15,6 +15,7 @@ import type {
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { RuleSetEditor } from "./RuleSetEditor";
 import { SimulatePanel } from "./SimulatePanel";
+import { ConditionValidityProvider } from "./conditionValidity";
 
 /** Pretty-prints rulesJson for editing; falls back to the raw text if it somehow isn't valid JSON. */
 function prettyOrRaw(rulesJson: string): string {
@@ -35,6 +36,8 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   const status = subsystems.data?.find((s) => s.id === subsystem);
 
   const [draftJson, setDraftJson] = useState<string | null>(null);
+  // Conditions whose text has an error or hasn't been checked yet (see conditionValidity).
+  const [invalidConditions, setInvalidConditions] = useState(0);
   const [baselineJson, setBaselineJson] = useState<string | null>(null);
   if (live.data && draftJson === null) {
     // Lazily seed the draft the first time live rules arrive. Deliberately NOT keyed to every
@@ -141,7 +144,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   });
 
   const onClickSave = async () => {
-    if (draftJson === null || parsed.error) return;
+    if (draftJson === null || parsed.error || invalidConditions > 0) return;
     setValidationErrors(null);
     const result = await validateMutation.mutateAsync(draftJson);
     if (!result.ok) { setValidationErrors(result.errors); return; }
@@ -188,6 +191,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   if (live.isError) return <Text size="sm" c="red" p="xl">Could not load rules for this subsystem.</Text>;
 
   return (
+    <ConditionValidityProvider onChange={setInvalidConditions}>
     <Stack gap="sm">
       {status && status.liveMatchesHead === false && (
         <Alert color="yellow" icon={<IconAlertTriangle size={18} />} title="Live rules differ from the saved version">
@@ -202,10 +206,15 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
 
       <Group justify="space-between" wrap="wrap">
         <Group gap="xs">
-          <Button size="xs" onClick={onClickSave} disabled={draftJson === null || !!parsed.error}
+          <Button size="xs" onClick={onClickSave} disabled={draftJson === null || !!parsed.error || invalidConditions > 0}
             loading={validateMutation.isPending || saveMutation.isPending}>
             Save{dirty ? " *" : ""}
           </Button>
+          {invalidConditions > 0 && (
+            <Text size="xs" c="red">
+              {invalidConditions === 1 ? "A condition has an error" : `${invalidConditions} conditions have errors`} — fix before saving.
+            </Text>
+          )}
           <Button size="xs" variant="default" leftSection={<IconFileImport size={15} />} onClick={onImportOpen}>
             Import JSON
           </Button>
@@ -344,5 +353,6 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
         onCancel={() => setRevertTarget(null)}
       />
     </Stack>
+    </ConditionValidityProvider>
   );
 }

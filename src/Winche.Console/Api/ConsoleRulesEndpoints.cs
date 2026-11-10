@@ -9,7 +9,9 @@ using Winche.Console.Identity;
 using Winche.Console.Rules;
 using Winche.Rules;
 using Winche.Rules.Evaluation;
+using Winche.Rules.Expressions;
 using Winche.Rules.Json;
+using Winche.Rules.Text;
 
 namespace Winche.Console.Api;
 
@@ -40,6 +42,15 @@ public static class ConsoleRulesEndpoints
     public sealed record SaveRulesRequest(string RulesJson, string? Note, int? ExpectedHeadVersion);
 
     public sealed record ValidateRulesRequest(string RulesJson);
+
+    /// <summary>A condition in the text syntax (<see cref="RuleText"/>) to turn into its JSON form.</summary>
+    public sealed record ParseConditionRequest(string Text);
+
+    /// <summary>A condition's JSON form (a <c>RuleExpression</c>, as inside <c>rulesJson</c>) to write as text.</summary>
+    public sealed record FormatConditionRequest(string ExpressionJson);
+
+    /// <summary>Where a condition's text is wrong; <see cref="Line"/>/<see cref="Column"/> are 1-based.</summary>
+    public sealed record ConditionSyntaxError(string Message, int Line, int Column, int Offset);
 
     /// <summary>
     /// Dry-run a draft ruleset against a single simulated request. <see cref="ResourceJson"/>/<see cref="RequestJson"/>
@@ -242,6 +253,46 @@ public static class ConsoleRulesEndpoints
             return Results.Json(new { appliedVersion = (int?)head.Version });
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
+        // The text form of conditions (subsystem-independent: same syntax for database and storage rules).
+        // Parse always answers 200: { ok, expressionJson, error, warnings }; warnings name calls to functions
+        // the engine doesn't know (most likely a typo — they would deny at runtime).
+        group.MapPost("/text/parse", (ParseConditionRequest body) =>
+        {
+            try
+            {
+                var expression = RuleText.Parse(body.Text ?? "");
+                return Results.Json(new
+                {
+                    ok = true,
+                    expressionJson = (string?)RuleJson.Serialize(expression),
+                    error = (ConditionSyntaxError?)null,
+                    warnings = UnknownFunctions(expression).Select(n => $"Unknown function '{n}' — it will always deny.").ToList(),
+                });
+            }
+            catch (RuleSyntaxException ex)
+            {
+                return Results.Json(new
+                {
+                    ok = false,
+                    expressionJson = (string?)null,
+                    error = (ConditionSyntaxError?)new ConditionSyntaxError(ex.Reason, ex.Line, ex.Column, ex.Offset),
+                    warnings = new List<string>(),
+                });
+            }
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        group.MapPost("/text/format", (FormatConditionRequest body) =>
+        {
+            try
+            {
+                return Results.Json(new { text = RuleText.Format(RuleJson.DeserializeExpr(body.ExpressionJson)) });
+            }
+            catch (Exception ex) when (ex is JsonException or ArgumentException or NotSupportedException)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
         group.MapPost("/{sys}/validate", (
             string sys,
             ValidateRulesRequest body,
@@ -310,6 +361,31 @@ public static class ConsoleRulesEndpoints
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
         return app;
+    }
+
+    private static IEnumerable<string> UnknownFunctions(RuleExpression e)
+    {
+        var names = new SortedSet<string>(StringComparer.Ordinal);
+        void Walk(RuleExpression x)
+        {
+            switch (x)
+            {
+                case CallExpression c:
+                    if (!RuleFunctions.Names.Contains(c.Name)) names.Add(c.Name);
+                    foreach (var a in c.Args) Walk(a);
+                    break;
+                case MemberExpression m: Walk(m.Target); break;
+                case IndexExpression ix: Walk(ix.Target); Walk(ix.Index); break;
+                case CompareExpression cmp: Walk(cmp.Left); Walk(cmp.Right); break;
+                case AndExpression a: foreach (var o in a.Operands) Walk(o); break;
+                case OrExpression o: foreach (var p in o.Operands) Walk(p); break;
+                case NotExpression n: Walk(n.Operand); break;
+                case InExpression i: Walk(i.Item); Walk(i.Collection); break;
+                case ConditionalExpression cond: Walk(cond.Condition); Walk(cond.Then); Walk(cond.Else); break;
+            }
+        }
+        Walk(e);
+        return names;
     }
 
     private static RuleSubsystemRegistration? FindRegistration(IEnumerable<RuleSubsystemRegistration> registrations, string sys) =>

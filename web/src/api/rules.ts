@@ -93,6 +93,22 @@ export interface RuleValidationResult {
   errors: RuleValidationError[];
 }
 
+/** Where a condition's text is wrong (1-based line/column). */
+export interface ConditionSyntaxError {
+  message: string;
+  line: number;
+  column: number;
+  offset: number;
+}
+
+/** `api/rules/text/parse`: the condition's JSON form (a RuleExpression, PascalCase like rulesJson) or the error. */
+export interface ParseConditionResult {
+  ok: boolean;
+  expressionJson: string | null;
+  error: ConditionSyntaxError | null;
+  warnings: string[];
+}
+
 export interface SimulateResult {
   allowed: boolean;
   error: string | null;
