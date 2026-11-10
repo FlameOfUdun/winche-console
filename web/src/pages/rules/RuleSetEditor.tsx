@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { forwardRef, lazy, Suspense, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { api } from "../../api/client";
 import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
@@ -6,11 +6,18 @@ import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
 const RulesCodeEditor = lazy(() => import("./RulesCodeEditor").then((m) => ({ default: m.RulesCodeEditor })));
 import type { FieldInfo } from "./rulesCompletion";
 
-const PARSE_DELAY_MS = 300;
-
 /** rulesJson in a canonical form, so the same rules compare equal however they were spaced. */
 function canonical(json: string): string {
   try { return JSON.stringify(JSON.parse(json)); } catch { return json; }
+}
+
+/** What the parent can ask of the editor. */
+export interface RuleSetEditorHandle {
+  /**
+   * Checks the text now. Valid: the draft becomes these rules (via onChange) and their rulesJson is
+   * returned. Not valid: the error is shown in the editor and null is returned.
+   */
+  check: () => Promise<string | null>;
 }
 
 /**
@@ -21,29 +28,32 @@ function canonical(json: string): string {
  *   }
  *
  * `json` (rulesJson) stays the parent's draft and what's saved; the server parses the text into it and
- * formats it back, so the editor reads rules exactly as the engine does. While the text has an error, or
- * hasn't been checked yet, the draft keeps the last valid rules and `onValidityChange(false)` tells the
- * parent to block Save — so what's saved is always what's on screen.
+ * formats it back, so the editor reads rules exactly as the engine does. Checking is lazy — nothing is
+ * sent while typing: the text is checked when the editor loses focus, on Format, and when the parent
+ * calls check() (Save does), so what's saved is always what's on screen.
  */
-export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
+export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
   subsystem: RuleSubsystem;
   json: string;
   onChange: (json: string) => void;
-  onValidityChange: (valid: boolean) => void;
-}) {
+  /** Whether the text has changes not yet checked into the draft. */
+  onEditedChange?: (edited: boolean) => void;
+}>(function RuleSetEditor({ subsystem, json, onChange, onEditedChange }, ref) {
   const [text, setText] = useState<string | null>(null);
   const textRef = useRef<string | null>(null);
   textRef.current = text;
   const [error, setError] = useState<RulesSyntaxError | string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [pending, setPending] = useState(false);
-  // The rules the text currently stands for: a draft that comes back from our own onChange isn't
-  // re-formatted (that would rewrite what's being typed and move the cursor).
+  const [checking, setChecking] = useState(false);
+  // The rules the draft currently holds, and the text that was last checked into it: a draft that comes
+  // back from our own onChange isn't re-formatted (that would rewrite the text and move the cursor), and
+  // unchanged text isn't checked again.
   const shown = useRef<string | null>(null);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const latest = useRef(0);
+  const checkedText = useRef<string | null>(null);
+  const [edited, setEdited] = useState(false);
+  useEffect(() => onEditedChange?.(edited), [edited, onEditedChange]);
 
-  // Format when the draft changes from outside: first load, import, a loaded or reverted version.
+  // Format when the draft changes from outside: first load, a loaded or reverted version.
   useEffect(() => {
     const draft = canonical(json);
     if (draft === shown.current) return;
@@ -52,15 +62,15 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
       .then(({ text: formatted }) => {
         if (cancelled) return;
         shown.current = draft;
+        checkedText.current = formatted;
         setText(formatted);
+        setEdited(false);
         setError(null);
         setWarnings([]);
       })
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : "Could not show these rules as text."));
     return () => { cancelled = true; };
   }, [json]);
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   // Field suggestions: one sample per match pattern, kept for the session of this editor.
   const fieldCache = useRef(new Map<string, Promise<FieldInfo[]>>());
@@ -74,39 +84,50 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
     return fields;
   }, [subsystem]);
 
+  const check = useCallback(async (): Promise<string | null> => {
+    const current = textRef.current;
+    if (current === null) return null;
+    if (current === checkedText.current && shown.current !== null) return json;   // nothing new to check
+    setChecking(true);
+    try {
+      const result = await api.rulesParseText(current);
+      if (textRef.current !== current) return null;   // edited again while checking
+      if (!result.ok || !result.rulesJson) {
+        setError(result.error);
+        setWarnings([]);
+        return null;
+      }
+      const pretty = JSON.stringify(JSON.parse(result.rulesJson), null, 2);
+      shown.current = canonical(result.rulesJson);
+      checkedText.current = current;
+      setEdited(false);
+      setError(null);
+      setWarnings(result.warnings);
+      onChange(pretty);
+      return pretty;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not check the rules.");
+      return null;
+    } finally {
+      setChecking(false);
+    }
+  }, [json, onChange]);
+
+  useImperativeHandle(ref, () => ({ check }), [check]);
+
   const onFormat = async () => {
-    const { text: formatted } = await api.rulesFormatText(json);
-    shown.current = canonical(json);
+    const checked = await check();
+    if (checked === null) return;
+    const { text: formatted } = await api.rulesFormatText(checked);
+    checkedText.current = formatted;
     setText(formatted);
   };
-
-  useEffect(() => onValidityChange(text !== null && !pending && error === null), [text, pending, error, onValidityChange]);
 
   const onText = (next: string) => {
     if (next === textRef.current) return;   // the editor echoing text we set (load, format)
     setText(next);
-    setPending(true);
-    if (timer.current) clearTimeout(timer.current);
-    const call = ++latest.current;
-    timer.current = setTimeout(async () => {
-      try {
-        const result = await api.rulesParseText(next);
-        if (call !== latest.current) return;   // a newer edit is on its way
-        if (result.ok && result.rulesJson) {
-          shown.current = canonical(result.rulesJson);
-          setError(null);
-          setWarnings(result.warnings);
-          onChange(JSON.stringify(JSON.parse(result.rulesJson), null, 2));
-        } else {
-          setError(result.error);
-          setWarnings([]);
-        }
-      } catch (e) {
-        if (call === latest.current) setError(e instanceof Error ? e.message : "Could not check the rules.");
-      } finally {
-        if (call === latest.current) setPending(false);
-      }
-    }, PARSE_DELAY_MS);
+    setEdited(next !== checkedText.current);
+    setError(null);   // a stale position would point at the wrong place; checked again on blur / Save
   };
 
   if (text === null && error === null) return <Loader size="sm" />;
@@ -114,13 +135,14 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
   return (
     <Stack gap={6}>
       <Group justify="space-between">
-        <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers.</Text>
-        <Button size="xs" variant="default" onClick={onFormat} disabled={pending || error !== null}>Format</Button>
+        <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers. Checked when you leave the editor or save.</Text>
+        <Button size="xs" variant="default" onClick={onFormat} loading={checking}>Format</Button>
       </Group>
       <Suspense fallback={<Loader size="sm" />}>
       <RulesCodeEditor
         value={text ?? ""}
         onChange={onText}
+        onBlur={() => { void check(); }}
         error={typeof error === "object" ? error : null}
         subsystem={subsystem}
         fieldsFor={fieldsFor}
@@ -138,4 +160,4 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
       </Text>
     </Stack>
   );
-}
+});

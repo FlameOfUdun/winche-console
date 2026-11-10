@@ -74,9 +74,10 @@ const KINDS: Record<Suggestion["type"], string> = {
   keyword: "keyword", variable: "variable", property: "property", method: "method", function: "function", type: "type",
 };
 
-export function RulesCodeEditor({ value, onChange, error, subsystem, fieldsFor, placeholder }: {
+export function RulesCodeEditor({ value, onChange, onBlur, error, subsystem, fieldsFor, placeholder }: {
   value: string;
   onChange: (text: string) => void;
+  onBlur?: () => void;
   error: RulesSyntaxError | null;
   subsystem: RuleSubsystem;
   /** The fields of the documents a match pattern covers (cached by the caller). */
@@ -86,8 +87,8 @@ export function RulesCodeEditor({ value, onChange, error, subsystem, fieldsFor, 
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // Latest props for the long-lived editor's callbacks.
-  const props = useRef({ onChange, subsystem, fieldsFor });
-  props.current = { onChange, subsystem, fieldsFor };
+  const props = useRef({ onChange, onBlur, subsystem, fieldsFor });
+  props.current = { onChange, onBlur, subsystem, fieldsFor };
 
   useEffect(() => {
     const complete = async (context: CompletionContext) => {
@@ -124,6 +125,7 @@ export function RulesCodeEditor({ value, onChange, error, subsystem, fieldsFor, 
           cmPlaceholder(placeholder ?? ""),
           EditorView.contentAttributes.of({ "aria-label": "Rules", spellcheck: "false" }),
           EditorView.updateListener.of((u) => { if (u.docChanged) props.current.onChange(u.state.doc.toString()); }),
+          EditorView.domEventHandlers({ blur: () => { props.current.onBlur?.(); } }),
           EditorView.theme({
             "&": { fontSize: "13px", border: "1px solid #dee2e6", borderRadius: "6px", background: "#fff" },
             "&.cm-focused": { outline: "2px solid #a5b4fc" },

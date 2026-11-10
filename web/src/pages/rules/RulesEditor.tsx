@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Alert, Badge, Box, Button, Group, Loader, Modal, Stack, Text, TextInput } from "@mantine/core";
 import { IconAlertTriangle, IconHistory } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
@@ -8,7 +8,7 @@ import type {
   RuleSet, RuleSubsystem, RuleValidationError, RuleVersionDetail, RuleVersionSummary,
 } from "../../api/rules";
 import { ConfirmModal } from "../../components/ConfirmModal";
-import { RuleSetEditor } from "./RuleSetEditor";
+import { RuleSetEditor, type RuleSetEditorHandle } from "./RuleSetEditor";
 import { SimulatePanel } from "./SimulatePanel";
 import { VersionHistory } from "./VersionHistory";
 
@@ -31,8 +31,9 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   const status = subsystems.data?.find((s) => s.id === subsystem);
 
   const [draftJson, setDraftJson] = useState<string | null>(null);
-  // False while the rules text has an error or hasn't been checked yet (see RuleSetEditor).
-  const [textValid, setTextValid] = useState(false);
+  // The editor checks its text lazily (on blur / Save); `textEdited` = it has changes not checked yet.
+  const editor = useRef<RuleSetEditorHandle>(null);
+  const [textEdited, setTextEdited] = useState(false);
   const [baselineJson, setBaselineJson] = useState<string | null>(null);
   if (live.data && draftJson === null) {
     // Lazily seed the draft the first time live rules arrive. Deliberately NOT keyed to every
@@ -41,7 +42,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
     setDraftJson(pretty);
     setBaselineJson(pretty);
   }
-  const dirty = draftJson !== null && draftJson !== baselineJson;
+  const dirty = (draftJson !== null && draftJson !== baselineJson) || textEdited;
 
   const parsed = useMemo((): { value: RuleSet | null; error: string | null } => {
     if (draftJson === null) return { value: null, error: null };
@@ -138,9 +139,11 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   });
 
   const onClickSave = async () => {
-    if (draftJson === null || parsed.error || !textValid) return;
+    if (draftJson === null) return;
     setValidationErrors(null);
-    const result = await validateMutation.mutateAsync(draftJson);
+    const checked = await editor.current?.check();   // the text, checked now; shows its error otherwise
+    if (!checked) return;
+    const result = await validateMutation.mutateAsync(checked);
     if (!result.ok) { setValidationErrors(result.errors); return; }
     setNoteModalOpen(true);
   };
@@ -169,13 +172,10 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
 
       <Group justify="space-between" wrap="wrap">
         <Group gap="xs">
-          <Button size="xs" onClick={onClickSave} disabled={draftJson === null || !!parsed.error || !textValid}
+          <Button size="xs" onClick={onClickSave} disabled={draftJson === null}
             loading={validateMutation.isPending || saveMutation.isPending}>
             Save{dirty ? " *" : ""}
           </Button>
-          {!textValid && draftJson !== null && (
-            <Text size="xs" c="dimmed">Save is available once the rules have no errors.</Text>
-          )}
           <Button size="xs" variant="default" leftSection={<IconHistory size={15} />} onClick={() => setHistoryOpen(true)}>
             History
           </Button>
@@ -200,7 +200,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
 
       <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", padding: 12 }}>
         {draftJson !== null && (
-          <RuleSetEditor subsystem={subsystem} json={draftJson} onChange={setDraftJson} onValidityChange={setTextValid} />
+          <RuleSetEditor ref={editor} subsystem={subsystem} json={draftJson} onChange={setDraftJson} onEditedChange={setTextEdited} />
         )}
       </Box>
 
