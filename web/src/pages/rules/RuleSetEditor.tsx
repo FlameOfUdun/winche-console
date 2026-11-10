@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Button, Group, Loader, Stack, Text } from "@mantine/core";
 import { api } from "../../api/client";
 import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
-import { RulesCodeEditor } from "./RulesCodeEditor";
+// CodeMirror is most of the console's JavaScript: load it only when the rules are opened.
+const RulesCodeEditor = lazy(() => import("./RulesCodeEditor").then((m) => ({ default: m.RulesCodeEditor })));
 import type { FieldInfo } from "./rulesCompletion";
 
 const PARSE_DELAY_MS = 300;
@@ -116,6 +117,7 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
         <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers.</Text>
         <Button size="xs" variant="default" onClick={onFormat} disabled={pending || error !== null}>Format</Button>
       </Group>
+      <Suspense fallback={<Loader size="sm" />}>
       <RulesCodeEditor
         value={text ?? ""}
         onChange={onText}
@@ -123,6 +125,7 @@ export function RuleSetEditor({ subsystem, json, onChange, onValidityChange }: {
         subsystem={subsystem}
         fieldsFor={fieldsFor}
         placeholder={"match users/{uid} {\n  allow read: if request.auth.uid == uid;\n}"} />
+      </Suspense>
       {error !== null && (
         <Text size="sm" c="red" role="alert">
           {typeof error === "string" ? error : `Line ${error.line}, column ${error.column}: ${error.message}`}
