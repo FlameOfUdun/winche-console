@@ -208,6 +208,37 @@ services.AddWincheConsole(o =>
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
+## Logs (optional)
+
+The console can keep the app's log entries and show them to Admins — a **Logs** sub-tab on the Database and
+Storage tabs for that library's entries, and a top-level **Logs** tab for everything (the app's own code and the
+framework too):
+
+```csharp
+services.AddWincheConsole(o =>
+{
+    o.ConnectionString = consoleConn;                          // REQUIRED for logs: entries are kept here
+    o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); });   // Winche.Database.* entries
+    o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });    // Winche.Storage.* entries
+    o.AddLogsTab(l =>                                          // everything
+    {
+        l.MinimumLevel = LogLevel.Warning;                     // default; Information while debugging
+        l.Retention = TimeSpan.FromDays(7);                    // default
+    });
+});
+```
+
+- **Collected** by a logging provider the console adds to the host: entries at the minimum level and up (from the
+  categories some view shows) are queued and written in batches to a `console_logs` table — created on first start —
+  so logging never waits on the database; if the store is unreachable, entries are dropped rather than retried.
+- **Every instance** of the app writes to the same table, so the tabs show all of them (each entry names its
+  instance). Entries older than `Retention`, or beyond `MaxEntries` (200,000), are pruned hourly.
+- **The views** filter by level, source (category prefix) and text — message, exception, user and structured
+  values, so the error id from an `Internal error (3f9c…)` report finds its entry — page back, and have a live mode.
+  Clicking an entry shows its exception and values. The user column is filled from a `UserId` / `User` value.
+- **Admins only** (`api/logs/{app|database|storage}`): logs can hold personal data.
+- It's for "what just went wrong", next to the data — keep shipping logs to CloudWatch or similar for the long term.
+
 ## Deploying rules from the repo: `winche`
 
 Rules can also live in your repo as `.rules` files and be published with the

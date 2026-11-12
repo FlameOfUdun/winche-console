@@ -39,8 +39,9 @@ else
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup
 
-        o.AddDatabaseTab(b => b.UseRulesEditor());   // Database tab + its Rules sub-tab
-        o.AddStorageTab(b => b.UseRulesEditor());     // Storage tab + its Rules sub-tab
+        o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); });   // Database tab + its Rules and Logs sub-tabs
+        o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });     // Storage tab + its Rules and Logs sub-tabs
+        o.AddLogsTab(l => l.FlushInterval = TimeSpan.FromMilliseconds(100));   // the app's logs (tests: written quickly)
 
         o.AddTab("analytics", "Analytics", tab =>
         {

@@ -100,8 +100,28 @@ public sealed class ConsoleOptions
             throw new InvalidOperationException($"The {name} tab is already registered.");
         var b = new BuiltInTabBuilder();
         configure?.Invoke(b);
-        return new BuiltInTabConfig { MinRole = b.MinRole, RulesEditor = b.RulesEditor };
+        return new BuiltInTabConfig { MinRole = b.MinRole, RulesEditor = b.RulesEditor, Logs = b.Logs };
     }
+
+    /// <summary>What the Logs tab and the Logs sub-tabs keep: level, retention, size (see <see cref="Logs.LogsOptions"/>).</summary>
+    public Logs.LogsOptions Logs { get; } = new();
+
+    internal bool AppLogsTab { get; private set; }
+
+    /// <summary>
+    /// Add a top-level <b>Logs</b> tab (Admins) with the app's log entries — its own code and the framework, as well as
+    /// Winche's — searchable by level, source, text (error ids too) and time, with a live mode. Entries at
+    /// <see cref="Logs.LogsOptions.MinimumLevel"/> and above (Warning by default) are kept in the console's database
+    /// (<see cref="ConnectionString"/>) for <see cref="Logs.LogsOptions.Retention"/>.
+    /// </summary>
+    public ConsoleOptions AddLogsTab(Action<Logs.LogsOptions>? configure = null)
+    {
+        configure?.Invoke(Logs);
+        AppLogsTab = true;
+        return this;
+    }
+
+    internal bool AnyLogs => AppLogsTab || DatabaseTab?.Logs == true || StorageTab?.Logs == true;
 
     private readonly List<TabDefinition> _tabs = new();
     internal IReadOnlyList<TabDefinition> Tabs => _tabs;

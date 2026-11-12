@@ -64,6 +64,7 @@ public static class AuthConfigEndpoints
                     manageUsers = false, invites = false, twoFactor = false, changePassword = false, editProfile = false,
                     database = options.DatabaseTab is { } dt && consoleRole >= dt.MinRole,
                     storage = options.StorageTab is { } st && consoleRole >= st.MinRole,
+                    logs = ConsoleLogsEndpoints.Capabilities(options, consoleRole),
                 },
                 user = new
                 {

@@ -29,6 +29,7 @@ public static class AuthEndpoints
         manageUsers = true, invites = true, twoFactor = true, changePassword = true, editProfile = true,
         database = options.DatabaseTab is { } dt && role is { } r && r >= dt.MinRole,
         storage = options.StorageTab is { } st && role is { } r2 && r2 >= st.MinRole,
+        logs = ConsoleLogsEndpoints.Capabilities(options, role),
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>

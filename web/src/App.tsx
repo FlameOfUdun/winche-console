@@ -5,6 +5,7 @@ import { useSession } from "./auth/session";
 import { AppLayout } from "./layout/AppLayout";
 import { DataBrowserPage } from "./pages/DataBrowserPage";
 import { StorageBrowserPage } from "./pages/StorageBrowserPage";
+import { LogsPage } from "./pages/logs/LogsPage";
 import { UsersPage } from "./pages/UsersPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
@@ -39,6 +40,9 @@ function GatedApp() {
           <Route path="database/rules" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="storage" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="storage/rules" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="database/logs" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="storage/logs" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
           <Route path=":tabId" element={<TabPage />} />
         </Route>

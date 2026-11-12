@@ -32,6 +32,8 @@ export interface Capabilities {
   manageUsers: boolean;
   database: boolean;
   storage: boolean;
+  /** Which log views the user may open (Admins only). */
+  logs?: { app: boolean; database: boolean; storage: boolean };
   invites: boolean;
   twoFactor: boolean;
   changePassword: boolean;

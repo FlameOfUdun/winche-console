@@ -10,6 +10,15 @@ public sealed class BuiltInTabBuilder
 
     internal RulesEditorOptions? RulesEditor { get; private set; }
 
+    internal bool Logs { get; private set; }
+
+    /// <summary>
+    /// Add a <b>Logs</b> sub-tab (Admins) showing this library's log entries (<c>Winche.Database.*</c> or
+    /// <c>Winche.Storage.*</c>). What's kept, and for how long, is <see cref="ConsoleOptions.Logs"/>; needs
+    /// <see cref="ConsoleOptions.ConnectionString"/> (the entries are stored in the console's database).
+    /// </summary>
+    public void UseLogs() => Logs = true;
+
     /// <summary>Enable the GUI rules editor for this subsystem (adds its Rules sub-tab).</summary>
     public void UseRulesEditor(Action<RulesEditorOptions>? configure = null)
     {
@@ -24,4 +33,5 @@ internal sealed class BuiltInTabConfig
 {
     public required ConsoleRole MinRole { get; init; }
     public RulesEditorOptions? RulesEditor { get; init; }
+    public bool Logs { get; init; }
 }

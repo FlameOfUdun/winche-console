@@ -8,6 +8,7 @@ using Winche.Console.Api;
 using Winche.Console.Diagnostics;
 using Winche.Console.Email;
 using Winche.Console.Identity;
+using Winche.Console.Logs;
 using Winche.Console.Options;
 using Winche.Console.Rules;
 using Winche.Console.Spa;
@@ -71,6 +72,20 @@ public static class WincheConsoleExtensions
                     options.StorageRulesEditor.ApplyPersistedRulesOnStartup,
                     options.StorageRulesEditor.SyncInterval));
             }
+        }
+
+        if (options.AnyLogs)
+        {
+            if (string.IsNullOrWhiteSpace(options.ConnectionString))
+                throw new InvalidOperationException(
+                    "The Logs tab (AddLogsTab / UseLogs) requires ConsoleOptions.ConnectionString — the entries are kept in the console's database.");
+            var prefixes = new List<string>();
+            if (options.DatabaseTab?.Logs == true) prefixes.Add(ConsoleLogsEndpoints.DatabaseScope);
+            if (options.StorageTab?.Logs == true) prefixes.Add(ConsoleLogsEndpoints.StorageScope);
+            services.AddSingleton(new ConsoleLogQueue(options.Logs, options.AppLogsTab, prefixes));
+            services.AddSingleton(new ConsoleLogStore(options.ConnectionString, options.Logs));
+            services.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider, ConsoleLoggerProvider>();
+            services.AddHostedService<ConsoleLogWriter>();
         }
 
         if (options.Provider == ConsoleAuthProvider.Keycloak)
@@ -151,6 +166,11 @@ public static class WincheConsoleExtensions
         if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
         {
             group.MapConsoleRulesEndpoints();
+        }
+
+        if (options.AnyLogs)
+        {
+            group.MapConsoleLogsEndpoints(options);
         }
 
         var tabRegistry = endpoints.ServiceProvider.GetRequiredService<TabRegistry>();

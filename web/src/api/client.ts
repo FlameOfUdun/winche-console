@@ -1,6 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
+import { logQuery, type LogFilter, type LogPage, type LogScope } from "./logs";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -103,6 +104,8 @@ export const api = {
   updateFileMetadata: (path: string, metadata: Record<string, unknown>) =>
     http<FileRecord>("POST", "api/storage/metadata", { path, metadata }),
 
+  logs: (scope: LogScope, filter: LogFilter) => http<LogPage>("GET", `api/logs/${scope}${logQuery(filter)}`),
+  logCategories: (scope: LogScope) => http<string[]>("GET", `api/logs/${scope}/categories`),
   rulesSubsystems: () => http<RuleSubsystemStatus[]>("GET", "api/rules/subsystems"),
   rulesLive: (sys: RuleSubsystem) => http<{ rulesJson: string }>("GET", `api/rules/${sys}/live`),
   rulesVersions: (sys: RuleSubsystem) => http<RuleVersionSummary[]>("GET", `api/rules/${sys}/versions`),

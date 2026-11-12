@@ -6,11 +6,13 @@ import { api } from "../../api/client";
 import type { RuleSubsystem } from "../../api/rules";
 import { useSession } from "../../auth/session";
 import { RulesEditor } from "./RulesEditor";
+import { LogsView } from "../logs/LogsView";
 
 /**
- * Wraps an existing browser page (Documents / Files) with a routed "Rules" sub-tab. The Rules tab
+ * Wraps an existing browser page (Documents / Files) with routed "Rules" and "Logs" sub-tabs. The Rules tab
  * is gated to Admins whose subsystem is present in `api.rulesSubsystems()` (that list is admin-only
- * and only contains enabled + available subsystems, so presence alone is sufficient).
+ * and only contains enabled + available subsystems, so presence alone is sufficient); the Logs tab to the
+ * session's `capabilities.logs[subsystem]` (Admins, when the host enabled it with UseLogs()).
  */
 export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
   subsystem: RuleSubsystem;
@@ -20,7 +22,7 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
 }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { user } = useSession();
+  const { user, state } = useSession();
   const isAdmin = user?.role === "Admin";
 
   const subsystems = useQuery({
@@ -30,22 +32,31 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
   });
   const eligible = isAdmin && !!subsystems.data?.some((s) => s.id === subsystem);
 
-  const onRulesPath = pathname.endsWith("/rules");
-  if (onRulesPath && !eligible) return <Navigate to={basePath} replace />;
+  const logsEligible = !!state?.capabilities?.logs?.[subsystem];
 
-  const active = onRulesPath ? "rules" : "primary";
+  const onRulesPath = pathname.endsWith("/rules");
+  const onLogsPath = pathname.endsWith("/logs");
+  if ((onRulesPath && !eligible && !subsystems.isLoading) || (onLogsPath && !logsEligible)) return <Navigate to={basePath} replace />;
+
+  const active = onRulesPath ? "rules" : onLogsPath ? "logs" : "primary";
 
   return (
-    <Tabs value={active} onChange={(v) => navigate(v === "rules" ? `${basePath}/rules` : basePath)}>
+    <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" ? `${basePath}/${v}` : basePath)}>
       <Tabs.List mb="sm">
         <Tabs.Tab value="primary">{primaryLabel}</Tabs.Tab>
         {eligible && <Tabs.Tab value="rules">Rules</Tabs.Tab>}
+        {logsEligible && <Tabs.Tab value="logs">Logs</Tabs.Tab>}
       </Tabs.List>
 
       <Tabs.Panel value="primary">{children}</Tabs.Panel>
       {eligible && (
         <Tabs.Panel value="rules">
           <RulesEditor subsystem={subsystem} />
+        </Tabs.Panel>
+      )}
+      {logsEligible && active === "logs" && (
+        <Tabs.Panel value="logs">
+          <LogsView scope={subsystem} />
         </Tabs.Panel>
       )}
     </Tabs>
