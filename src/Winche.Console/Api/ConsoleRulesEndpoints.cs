@@ -487,12 +487,9 @@ public static class ConsoleRulesEndpoints
             ?? user.FindFirstValue("sub");
 
     /// <summary>
-    /// Parses <paramref name="rulesJson"/> and structurally validates every match block's path pattern.
-    /// Path-pattern parsing and the "no nested matches under a recursive wildcard" rule live on
-    /// <c>Winche.Rules</c>'s internal <c>PathPattern</c> type (only visible to <c>RuleSetBuilder</c>/
-    /// <c>MatchBuilder</c> within that package), so rather than duplicate that logic here, this rebuilds
-    /// each match block through the public <see cref="RuleSetBuilder"/> fluent API — which performs the
-    /// exact same checks — and turns any resulting <see cref="ArgumentException"/> into a structured error.
+    /// Parses <paramref name="rulesJson"/> and structurally validates it with Winche.Rules'
+    /// <see cref="RuleSetValidation"/> (path patterns, nested matches under a recursive wildcard, two
+    /// recursive wildcards in one path), reporting every problem rather than the first.
     /// </summary>
     private static (RuleSet? RuleSet, IReadOnlyList<RuleValidationError> Errors) ValidateRulesJson(string rulesJson)
     {
@@ -513,35 +510,9 @@ public static class ConsoleRulesEndpoints
         if (parsed.Matches is null)
             parsed = parsed with { Matches = [] };
 
-        var errors = new List<RuleValidationError>();
-        foreach (var block in parsed.Matches)
-            ValidateMatchBlock(block, errors, breadcrumb: "");
-
+        var errors = RuleSetValidation.Validate(parsed)
+            .Select(issue => new RuleValidationError(issue.Path, issue.Message))
+            .ToList();
         return errors.Count == 0 ? (parsed, errors) : (null, errors);
-    }
-
-    private static void ValidateMatchBlock(MatchBlock block, List<RuleValidationError> errors, string breadcrumb)
-    {
-        var label = breadcrumb.Length == 0 ? block.Path : $"{breadcrumb}/{block.Path}";
-
-        try
-        {
-            // A one-off probe tree: builds just this block (plus a trivial nested probe match when it
-            // has children, to trigger the recursive-wildcard-with-nested-matches check) without needing
-            // to also validate the real children here — they're validated independently below, so one
-            // invalid block never masks errors in its siblings.
-            RuleSetBuilder.Build(root => root.Match(block.Path, match =>
-            {
-                if (block.Matches.Count > 0)
-                    match.Match("__validation_probe__", _ => { });
-            }));
-        }
-        catch (ArgumentException ex)
-        {
-            errors.Add(new RuleValidationError(label, ex.Message));
-        }
-
-        foreach (var child in block.Matches)
-            ValidateMatchBlock(child, errors, label);
     }
 }
