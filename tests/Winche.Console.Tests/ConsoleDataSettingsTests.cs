@@ -81,4 +81,29 @@ public class ConsoleDataSettingsTests(PostgresFixture fx) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/_console/api/settings/auth.signIn")).StatusCode);   // auth has its own screens
         await Json(await client.GetAsync("/_console/api/settings/database/suggestions"));
     }
+
+    [Fact]
+    public async Task Where_files_are_kept_is_shown_and_a_move_needs_a_location_this_app_can_use()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        var location = await Json(await client.GetAsync("/_console/api/settings/storage/location"));
+        Assert.Equal("the app's own archive (NoOpArchive)", location.GetProperty("activeLabel").GetString());
+        Assert.Equal(JsonValueKind.Null, location.GetProperty("move").ValueKind);
+        Assert.Empty(location.GetProperty("kinds").EnumerateArray());   // no S3 package in this app
+
+        var bucket = new { kind = "s3", s3 = new { bucket = "files", region = "auto", serviceUrl = "https://acct.r2.cloudflarestorage.com", accessKey = "AK" } };
+        var test = await Json(await client.PostAsJsonAsync("/_console/api/settings/storage/location/test", new { location = bucket, secretKey = "s" }));
+        Assert.False(test.GetProperty("ok").GetBoolean());
+        Assert.Contains("add the package", test.GetProperty("steps")[0].GetProperty("error").GetString());
+
+        var move = await client.PostAsJsonAsync("/_console/api/settings/storage/location/move", new { location = bucket, secretKey = "s", reason = "To R2" });
+        Assert.Equal(HttpStatusCode.BadRequest, move.StatusCode);
+        Assert.Contains("didn't pass its test", await move.Content.ReadAsStringAsync());
+        var finish = await client.PostAsJsonAsync("/_console/api/settings/storage/location/move/finish", new { reason = "x" });
+        Assert.Contains("Switch to the new location first", await finish.Content.ReadAsStringAsync());
+    }
 }

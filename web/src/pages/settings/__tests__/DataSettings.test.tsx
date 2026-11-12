@@ -17,7 +17,8 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, rulesSubsystems: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(), dataSettingsHistory: vi.fn(),
-      restoreDataSettings: vi.fn(), indexSuggestions: vi.fn(),
+      restoreDataSettings: vi.fn(), indexSuggestions: vi.fn(), storageLocation: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(),
+      storageMoveStep: vi.fn(),
     },
   };
 });
@@ -55,6 +56,12 @@ beforeEach(() => {
   mock(api.dataSettingsHistory).mockResolvedValue({ versions: [], editable: true });
   mock(api.indexSuggestions).mockResolvedValue({ suggestions: [] });
   mock(api.saveDataSettings).mockResolvedValue({ number: 1 });
+  mock(api.storageLocation).mockResolvedValue(location());
+});
+
+const location = (over: object = {}) => ({
+  active: null, activeLabel: "a folder on the server (/srv/files)", codeLabel: "a folder on the server (/srv/files)", kinds: ["s3"], move: null,
+  progress: null, editable: true, secretsAvailable: true, ...over,
 });
 
 test("the Settings sub-tab shows for admins when the database uses settings", async () => {
@@ -110,4 +117,53 @@ test("storage: the size limit and the clean-up change", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("storage",
     { ...storage, maxFileSizeMb: 5, orphanSweep: { ...storage.orphanSweep, enabled: true } }, "Smaller uploads"));
+});
+
+test("moving files: choose an R2 bucket, test it, then start copying with a reason", async () => {
+  mock(api.testStorageLocation).mockResolvedValue({ ok: true, steps: [{ name: "Write a file", ok: true, error: null }, { name: "Delete it", ok: true, error: null }] });
+  mock(api.startStorageMove).mockResolvedValue({});
+  renderIt(<StorageSettingsView />);
+  expect(await screen.findByTestId("location-active")).toHaveTextContent("a folder on the server (/srv/files)");
+  await userEvent.click(screen.getByRole("button", { name: "Move files…" }));
+  await userEvent.click(screen.getByText("Cloudflare R2"));
+  await userEvent.type(screen.getByLabelText("Bucket"), "smartairway-files");
+  await userEvent.type(screen.getByLabelText("Service address"), "https://acct.r2.cloudflarestorage.com");
+  await userEvent.type(screen.getByLabelText("Access key id"), "AK");
+  await userEvent.type(screen.getByLabelText(/Secret access key/), "SK");
+  expect(screen.queryByRole("button", { name: "Start copying" })).toBeNull();   // test first
+  await userEvent.click(screen.getByRole("button", { name: "Test" }));
+  expect(await screen.findByTestId("location-test")).toHaveTextContent("✓ Write a file");
+  await userEvent.type(screen.getByLabelText("Reason for the move"), "Off the server's disk");
+  await userEvent.click(screen.getByRole("button", { name: "Start copying" }));
+  const bucket = { kind: "s3", s3: { bucket: "smartairway-files", region: "auto", serviceUrl: "https://acct.r2.cloudflarestorage.com", accessKey: "AK", forcePathStyle: false } };
+  expect(mock(api.testStorageLocation)).toHaveBeenCalledWith(bucket, "SK");
+  await waitFor(() => expect(mock(api.startStorageMove)).toHaveBeenCalledWith(bucket, "SK", "Off the server's disk"));
+});
+
+const move = (phase: string) => ({ id: "m1", phase, startedAt: "2026-11-12T20:00:00Z", fromLabel: "a folder on the server (/srv/files)", toLabel: "bucket smartairway-files" });
+
+test("moving files: once everything is copied, switch; finish waits for a clean catch-up", async () => {
+  mock(api.storageLocation).mockResolvedValue(location({
+    move: move("ready"),
+    progress: { moveId: "m1", total: 120, copied: 120, alreadyThere: 0, failed: 0, bytes: 52428800, lastError: null, passStartedAt: "2026-11-12T20:00:00Z", passFinishedAt: "2026-11-12T20:01:00Z", passes: 1 },
+  }));
+  mock(api.storageMoveStep).mockResolvedValue(undefined);
+  renderIt(<StorageSettingsView />);
+  expect(await screen.findByTestId("move-progress")).toHaveTextContent("120 of 120 files there");
+  expect(screen.getByText("Every file is copied")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Reason for this step"), "All copied");
+  await userEvent.click(screen.getByRole("button", { name: "Switch to the new place" }));
+  await waitFor(() => expect(mock(api.storageMoveStep)).toHaveBeenCalledWith("switch", "All copied"));
+});
+
+test("moving files: after the switch, finish is held until a pass completes with no failures", async () => {
+  mock(api.storageLocation).mockResolvedValue(location({
+    move: move("switched"),
+    progress: { moveId: "m1", total: 121, copied: 0, alreadyThere: 120, failed: 1, bytes: 0, lastError: "docs/x.pdf: timeout", passStartedAt: null, passFinishedAt: "2026-11-12T20:05:00Z", passes: 3 },
+  }));
+  renderIt(<StorageSettingsView />);
+  expect(await screen.findByText("Last problem: docs/x.pdf: timeout")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Reason for this step"), "Done");
+  expect(screen.getByRole("button", { name: "Finish" })).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Cancel the move" })).toBeNull();
 });

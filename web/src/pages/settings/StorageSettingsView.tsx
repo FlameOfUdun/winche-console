@@ -1,6 +1,7 @@
 import { Group, NumberInput, Stack, Switch, TextInput } from "@mantine/core";
 import type { StorageSettings } from "../../api/dataSettings";
 import { AreaSettingsView, num, Section } from "./AreaSettings";
+import { LocationSection } from "./LocationSection";
 
 /** Storage → Settings: the size limit, request logging and the orphan sweep. */
 export function StorageSettingsView() {
@@ -8,6 +9,7 @@ export function StorageSettingsView() {
     <AreaSettingsView<StorageSettings> area="storage" title="Storage settings" about="Limits and housekeeping for stored files.">
       {(draft, set, editable) => (
         <Stack gap="md">
+          <LocationSection />
           <Section title="File size" hint="Uploads larger than this are refused before any bytes are sent.">
             <Group align="flex-end" wrap="wrap">
               <Switch label="Limit file size" disabled={!editable} checked={draft.maxFileSizeMb != null}

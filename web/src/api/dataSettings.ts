@@ -33,6 +33,30 @@ export interface StorageSettings {
   orphanSweep: { enabled: boolean; intervalHours: number; graceHours: number; prefix: string | null };
 }
 
+export interface ArchiveLocation {
+  id?: string;
+  kind: "code" | "s3";
+  s3?: { bucket: string; region: string; serviceUrl: string | null; accessKey: string | null; forcePathStyle: boolean } | null;
+}
+
+export interface MoveProgress {
+  moveId: string; total: number; copied: number; alreadyThere: number; failed: number; bytes: number; lastError: string | null;
+  passStartedAt: string | null; passFinishedAt: string | null; passes: number;
+}
+
+export interface StorageLocationState {
+  active: ArchiveLocation | null;
+  activeLabel: string;
+  codeLabel: string;
+  kinds: string[];
+  move: { id: string; phase: "copying" | "ready" | "switched"; startedAt: string; fromLabel: string; toLabel: string } | null;
+  progress: MoveProgress | null;
+  editable: boolean;
+  secretsAvailable: boolean;
+}
+
+export interface LocationTest { ok: boolean; steps: { name: string; ok: boolean; error: string | null }[] }
+
 export interface IndexSuggestion extends IndexSettings {
   elapsedMs: number;
   at: string;

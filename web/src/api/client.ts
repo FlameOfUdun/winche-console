@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import type { AreaSettings, IndexSuggestion } from "./dataSettings";
+import type { ArchiveLocation, AreaSettings, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
@@ -145,6 +145,13 @@ export const api = {
   dataSettingsHistory: (area: "database" | "storage") =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
+  storageLocation: () => http<StorageLocationState>("GET", "api/settings/storage/location"),
+  testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
+    http<LocationTest>("POST", "api/settings/storage/location/test", { location, secretKey }),
+  startStorageMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
+    http<unknown>("POST", "api/settings/storage/location/move", { location, secretKey, reason }),
+  storageMoveStep: (step: "switch" | "finish" | "cancel", reason: string) =>
+    http<void>("POST", `api/settings/storage/location/move/${step}`, { reason }),
   indexSuggestions: () => http<{ suggestions: IndexSuggestion[] }>("GET", "api/settings/database/suggestions"),
   settingsHistory: (area?: string) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
