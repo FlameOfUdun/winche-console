@@ -16,7 +16,8 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, appUsers: vi.fn(), appUser: vi.fn(), createAppUser: vi.fn(), setAppUserDisabled: vi.fn(), setAppUserClaims: vi.fn(),
-      signOutAppUser: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
+      signOutAppUser: vi.fn(), authProviders: vi.fn(), saveAuthProviders: vi.fn(), checkAuthProvider: vi.fn(), testAuthToken: vi.fn(),
+      settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
     },
   };
@@ -61,6 +62,18 @@ beforeEach(() => {
   mock(api.appUsers).mockResolvedValue({ users: [user(), user({ uid: "guest1", email: null, displayName: null, isAnonymous: true, providers: ["anonymous"], customClaims: {} })], total: 2 });
   mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "SmartAirway/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
   mock(api.appAuthConfig).mockResolvedValue(config);
+  mock(api.authProviders).mockResolvedValue(providersResponse());
+  mock(api.settingsHistory).mockResolvedValue({ versions: [] });
+});
+
+const keycloak = {
+  name: "keycloak", displayName: "TruCorp Keycloak", kind: "keycloak", issuer: "https://auth.trucorp.com/realms/smartairway", authority: null,
+  audiences: ["smartairway-api"], validateAudience: true, uidClaim: "sub", claims: [{ from: "realm_access.roles", to: "roles" }], requireHttps: true,
+};
+const providersResponse = (over: object = {}) => ({
+  settings: { trustWincheAuth: false, providers: [keycloak] }, codeDefault: { trustWincheAuth: false, providers: [] },
+  source: "console", version: { id: 7, area: "auth.identityProviders", areaTitle: "Identity providers", number: 3, at: "2026-11-12T16:05:00Z", by: "admin@trucorp.com", reason: "Clinic rules", restoredFrom: null, reset: false },
+  editable: true, whyReadOnly: null, ...over,
 });
 
 test("lists users; opening one shows sessions and claims, and its actions call the API", async () => {
@@ -117,6 +130,7 @@ test("sign-in methods and settings show what's configured; keys can be rotated",
   expect(within(methods[6]).getByText("role")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /Tokens and keys/ }));
   expect(await screen.findByText("k-20261112-abc123")).toBeInTheDocument();
   expect(screen.getByText(/Stored unencrypted/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("Rotate now"));
@@ -160,4 +174,83 @@ test("email templates: edit with a live preview, save, test and reset", async ()
 
   await userEvent.click(screen.getByText("Reset to default"));
   await waitFor(() => expect(mock(api.resetAppEmailTemplate)).toHaveBeenCalledWith("resetPassword"));
+});
+
+test("Keycloak-only apps: settings first; providers, mapping with the token test, saved with a reason", async () => {
+  mock(api.appAuthConfig).mockResolvedValue({ ...config, wincheAuth: false, tokens: null, protection: null, hooks: null, emailPassword: null, email: null, mfa: null, anonymous: false, identityProviders: [] });
+  mock(api.checkAuthProvider).mockResolvedValue({ found: true, issuer: "https://auth-staging.trucorp.com/realms/smartairway", keys: 2, algorithms: ["RS256"], error: null });
+  mock(api.testAuthToken).mockResolvedValue({
+    wouldSignIn: true, provider: "keycloak",
+    checks: [{ outcome: "ok", text: "Signed by TruCorp Keycloak (key OqSi2)" }, { outcome: "warning", text: "groups is in the token but not passed to the rules" }],
+    auth: { uid: "6f1c2a9e", token: { uid: "6f1c2a9e", issuer: "keycloak", roles: ["clinician"] } }, notPassed: ["groups"],
+  });
+  mock(api.saveAuthProviders).mockResolvedValue({ number: 4 });
+  renderPage();
+
+  // No Users or Email templates tab without Winche Auth; Settings opens first.
+  expect(await screen.findByText(/Saved in the console: version 3/)).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: "Users" })).toBeNull();
+  expect(screen.queryByRole("tab", { name: "Email templates" })).toBeNull();
+  expect(within(screen.getByTestId("provider-card")).getByText("TruCorp Keycloak")).toBeInTheDocument();
+
+  // Add a provider: check its address first.
+  await userEvent.click(screen.getByText("Add provider"));
+  const form = screen.getByLabelText("Provider");
+  await userEvent.type(within(form).getByLabelText("Address (issuer)"), "https://auth-staging.trucorp.com/realms/smartairway");
+  await userEvent.click(within(form).getByText("Check address"));
+  expect(await within(form).findByText(/Found it: .*2 signing keys \(RS256\)/)).toBeInTheDocument();
+  expect(within(form).getByText(/Give the audience/)).toBeInTheDocument();
+  await userEvent.type(within(form).getByLabelText(/^Audience/), "smartairway-api");
+  await userEvent.clear(within(form).getByLabelText(/^Short name/));
+  await userEvent.type(within(form).getByLabelText(/^Short name/), "staging");
+  await userEvent.click(within(form).getByText("Add to the list"));
+  expect(screen.getAllByTestId("provider-card")).toHaveLength(2);
+
+  // The mapping: add a field, test a token against the draft.
+  await userEvent.click(screen.getByRole("tab", { name: /Token mapping/ }));
+  await userEvent.click(screen.getByText("Add a field"));
+  const rows = screen.getAllByTestId("mapping-row");
+  await userEvent.type(within(rows[1]).getByLabelText("Field in the token"), "org");
+  await userEvent.type(within(rows[1]).getByLabelText("Name in the rules"), "org");
+  await userEvent.type(screen.getByLabelText("Paste a token from a signed-in user"), "eyJ.a.b");
+  await userEvent.click(screen.getByText("Test with these settings"));
+  expect(await screen.findByText(/groups is in the token/)).toBeInTheDocument();
+  expect(screen.getByTestId("token-preview")).toHaveTextContent('"roles"');
+  const draft = mock(api.testAuthToken).mock.calls[0][1];
+  expect(draft.providers.map((p: { name: string }) => p.name)).toEqual(["keycloak", "staging"]);
+  expect(draft.providers[0].claims).toEqual([{ from: "realm_access.roles", to: "roles" }, { from: "org", to: "org" }]);
+
+  // Saving needs a reason.
+  const bar = screen.getByTestId("save-bar");
+  expect(within(bar).getByText("Save changes").closest("button")).toBeDisabled();
+  await userEvent.type(within(bar).getByLabelText("Reason for the change"), "Staging realm and clinic rules");
+  await userEvent.click(within(bar).getByText("Save changes"));
+  await waitFor(() => expect(mock(api.saveAuthProviders)).toHaveBeenCalledWith(expect.objectContaining({ trustWincheAuth: false }), "Staging realm and clinic rules"));
+});
+
+test("change history: restore and reset ask why", async () => {
+  mock(api.settingsHistory).mockResolvedValue({ versions: [
+    { id: 9, area: "auth.identityProviders", areaTitle: "Identity providers", number: 2, at: "2026-11-12T16:05:00Z", by: "admin@trucorp.com", reason: "Clinic rules", restoredFrom: null, reset: false, current: true },
+    { id: 8, area: "auth.identityProviders", areaTitle: "Identity providers", number: 1, at: "2026-11-02T17:15:00Z", by: "dev@trucorp.com", reason: "Trust Keycloak", restoredFrom: null, reset: false, current: false },
+  ] });
+  mock(api.restoreSettings).mockResolvedValue({ number: 3 });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /Change history/ }));
+  const rows = await screen.findAllByTestId("history-version");
+  expect(within(rows[0]).getByText("In use")).toBeInTheDocument();
+  await userEvent.click(within(rows[1]).getByText("Restore"));
+  expect(screen.getByText("Restore version 1 as a new change?")).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Reason"), "That one was right");
+  await userEvent.click(screen.getAllByText("Restore").at(-1)!);
+  await waitFor(() => expect(mock(api.restoreSettings)).toHaveBeenCalledWith(8, "That one was right"));
+});
+
+test("read-only when the app's code doesn't let the console change them", async () => {
+  mock(api.authProviders).mockResolvedValue(providersResponse({ editable: false, source: "code", version: null, whyReadOnly: "The app's code sets these." }));
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  expect(await screen.findByText(/Read-only\. The app's code sets these\./)).toBeInTheDocument();
+  expect(screen.queryByText("Add provider")).toBeNull();
+  expect(screen.getByText("These are the starting values from the app's code.")).toBeInTheDocument();
 });

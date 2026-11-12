@@ -52,13 +52,68 @@ public static class ConsoleAppAuthEndpoints
         _ => null,
     };
 
-    public static IEndpointRouteBuilder MapConsoleAppAuthEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapConsoleAppAuthEndpoints(this IEndpointRouteBuilder app, bool wincheAuth = true)
     {
         var group = app.MapGroup("/api/app-auth").RequireAuthorization(ConsoleRoles.AdminPolicy).AddEndpointFilter(async (ctx, next) =>
         {
             try { return await next(ctx); }
             catch (AuthException ex) { return Error(ex); }
         });
+
+        // How users sign in and how tokens are made, as set in code (and, for providers, the console).
+        group.MapGet("/config", async (IServiceProvider sp, CancellationToken ct) =>
+        {
+            var o = sp.GetService<WincheAuthOptions>();
+            var keys = sp.GetService<SigningKeyStore>();
+            var providers = sp.GetService<WincheTokenProviders>()?.Current;
+            return Results.Json(new
+            {
+                wincheAuth = o is not null,
+                emailPassword = o?.EmailPasswordSignIn is { } ep ? new { minLength = ep.MinLength, requireVerifiedEmail = ep.RequireVerifiedEmail } : null,
+                email = o?.EmailSending is { } es ? new
+                {
+                    appName = es.AppName,
+                    actionUrl = es.ActionUrl ?? $"{o.Issuer.TrimEnd('/')}/auth/v1/action",
+                    sendVerificationOnSignUp = es.SendVerificationOnSignUp,
+                    maxPerAddressPerHour = es.MaxPerAddressPerHour,
+                    logLinksOnly = es.LogLinksOnly,
+                    sender = es.LogLinksOnly ? null : sp.GetService<Winche.Auth.Email.IAuthEmailSender>()?.GetType().Name,
+                } : null,
+                emailLink = o?.EmailLinkSignIn is { } el ? new { linkUrl = el.LinkUrl } : null,
+                mfa = o?.MfaSettings is { } m ? new { issuer = m.Issuer ?? o.EmailSending?.AppName ?? new Uri(o.Issuer).Host, recoveryCodes = m.RecoveryCodes, pendingMinutes = m.PendingLifetime.TotalMinutes } : null,
+                identityProviders = (o?.IdentityProviders ?? []).Select(p => new
+                {
+                    name = p.Name, kind = p.Kind, displayName = p.DisplayName ?? p.Name, authority = p.Authority, audiences = p.Audiences,
+                    useSubjectAsUid = p.UseSubjectAsUid, copiedClaims = p.CopiedClaims, testingOnly = p.AllowUnsignedTokensForTesting,
+                }),
+                anonymous = o?.AnonymousSignIn ?? false,
+                trustsWincheTokens = providers?.TrustWincheAuth ?? false,
+                trustedIssuers = (providers?.Providers ?? []).Select(i => new
+                {
+                    name = i.Name, issuer = i.Issuer, authority = i.Authority, audience = i.ValidateAudience ? string.Join(", ", i.Audiences) : null,
+                    uidClaim = i.UidClaim, claims = i.Claims?.Select(c => c.From == c.To ? c.To : $"{c.From} → {c.To}"),
+                }),
+                tokens = o is null ? null : new
+                {
+                    issuer = o.Issuer,
+                    audience = string.IsNullOrEmpty(o.Audience) ? o.Issuer : o.Audience,
+                    accessTokenMinutes = o.AccessTokenLifetime.TotalMinutes,
+                    refreshTokenDays = o.RefreshTokenLifetime.TotalDays,
+                    keyRotationDays = o.KeyRotationInterval.TotalDays,
+                    keysEncrypted = o.KeyEncryptionSecret is not null,
+                },
+                keys = keys is null ? [] : (await keys.ListAsync(ct)).Select(k => (object)new { kid = k.Kid, createdAt = k.CreatedAt, retiredAt = k.RetiredAt }),
+                protection = o is null ? null : new { maxFailedSignIns = o.MaxFailedSignIns, lockoutMinutes = o.LockoutDuration.TotalMinutes },
+                hooks = o is null ? null : new
+                {
+                    beforeCreate = o.Events.BeforeCreate is not null,
+                    afterCreate = o.Events.AfterCreate is not null,
+                    beforeSignIn = o.Events.BeforeSignIn is not null,
+                },
+            });
+        });
+
+        if (!wincheAuth) return app;
 
         group.MapGet("/users", async ([FromQuery] string? search, [FromQuery] int? offset, [FromQuery] int? limit, IWincheAuth auth, CancellationToken ct) =>
         {
@@ -156,56 +211,6 @@ public static class ConsoleAppAuthEndpoints
         {
             await auth.DeleteUserAsync(uid, ct);
             return Results.NoContent();
-        });
-
-        // How users sign in and how tokens are made: read-only, set in code.
-        group.MapGet("/config", async (WincheAuthOptions o, SigningKeyStore keys, IServiceProvider sp, CancellationToken ct) =>
-        {
-            var tokens = sp.GetService<WincheTokenOptions>();
-            return Results.Json(new
-            {
-                emailPassword = o.EmailPasswordSignIn is { } ep ? new { minLength = ep.MinLength, requireVerifiedEmail = ep.RequireVerifiedEmail } : null,
-                email = o.EmailSending is { } es ? new
-                {
-                    appName = es.AppName,
-                    actionUrl = es.ActionUrl ?? $"{o.Issuer.TrimEnd('/')}/auth/v1/action",
-                    sendVerificationOnSignUp = es.SendVerificationOnSignUp,
-                    maxPerAddressPerHour = es.MaxPerAddressPerHour,
-                    logLinksOnly = es.LogLinksOnly,
-                    sender = es.LogLinksOnly ? null : sp.GetService<Winche.Auth.Email.IAuthEmailSender>()?.GetType().Name,
-                } : null,
-                emailLink = o.EmailLinkSignIn is { } el ? new { linkUrl = el.LinkUrl } : null,
-                mfa = o.MfaSettings is { } m ? new { issuer = m.Issuer ?? o.EmailSending?.AppName ?? new Uri(o.Issuer).Host, recoveryCodes = m.RecoveryCodes, pendingMinutes = m.PendingLifetime.TotalMinutes } : null,
-                identityProviders = o.IdentityProviders.Select(p => new
-                {
-                    name = p.Name, kind = p.Kind, displayName = p.DisplayName ?? p.Name, authority = p.Authority, audiences = p.Audiences,
-                    useSubjectAsUid = p.UseSubjectAsUid, copiedClaims = p.CopiedClaims, testingOnly = p.AllowUnsignedTokensForTesting,
-                }),
-                anonymous = o.AnonymousSignIn,
-                trustsWincheTokens = tokens?.TrustsWincheAuth ?? false,
-                trustedIssuers = (tokens?.TrustedIssuers ?? []).Select(i => new
-                {
-                    name = i.Name, issuer = i.Issuer ?? i.Authority, authority = i.Authority, audience = i.ValidateAudience ? i.Audience : null,
-                    uidClaim = i.UidClaim, claims = i.Claims,
-                }),
-                tokens = new
-                {
-                    issuer = o.Issuer,
-                    audience = string.IsNullOrEmpty(o.Audience) ? o.Issuer : o.Audience,
-                    accessTokenMinutes = o.AccessTokenLifetime.TotalMinutes,
-                    refreshTokenDays = o.RefreshTokenLifetime.TotalDays,
-                    keyRotationDays = o.KeyRotationInterval.TotalDays,
-                    keysEncrypted = o.KeyEncryptionSecret is not null,
-                },
-                keys = (await keys.ListAsync(ct)).Select(k => new { kid = k.Kid, createdAt = k.CreatedAt, retiredAt = k.RetiredAt }),
-                protection = new { maxFailedSignIns = o.MaxFailedSignIns, lockoutMinutes = o.LockoutDuration.TotalMinutes },
-                hooks = new
-                {
-                    beforeCreate = o.Events.BeforeCreate is not null,
-                    afterCreate = o.Events.AfterCreate is not null,
-                    beforeSignIn = o.Events.BeforeSignIn is not null,
-                },
-            });
         });
 
         group.MapPost("/keys/rotate", async (SigningKeyStore keys, CancellationToken ct) =>

@@ -23,6 +23,8 @@ export function AuthSettingsView() {
   if (config.isLoading) return <Loader size="sm" />;
   if (config.isError || !config.data) return <Alert color="red">Couldn't load the settings: {errorMessage(config.error)}</Alert>;
   const c = config.data;
+  if (!c.tokens || !c.protection || !c.hooks) return null;
+  const tokens = c.tokens, protection = c.protection, hooks = c.hooks;
 
   const rotate = async () => {
     if (!window.confirm("Make a new signing key now? The current one keeps checking the tokens it signed until they expire.")) return;
@@ -43,10 +45,10 @@ export function AuthSettingsView() {
       <Paper withBorder p="md">
         <Stack gap={8}>
           <Title order={5}>Tokens</Title>
-          <Row k="Access token lifetime" v={`${c.tokens.accessTokenMinutes} minutes`} />
-          <Row k="Session lifetime" v={`${c.tokens.refreshTokenDays} days from last use`} />
-          <Row k="Issuer" v={c.tokens.issuer} />
-          <Row k="Audience" v={c.tokens.audience} />
+          <Row k="Access token lifetime" v={`${tokens.accessTokenMinutes} minutes`} />
+          <Row k="Session lifetime" v={`${tokens.refreshTokenDays} days from last use`} />
+          <Row k="Issuer" v={tokens.issuer} />
+          <Row k="Audience" v={tokens.audience} />
           <Row k="Public keys" v="/.well-known/jwks.json" />
         </Stack>
       </Paper>
@@ -67,15 +69,15 @@ export function AuthSettingsView() {
           ))}
           {error && <Alert color="red">{error}</Alert>}
           <Text size="xs" c="dimmed">
-            A new key every {c.tokens.keyRotationDays} days; a retiring key still checks the tokens it signed.
-            {c.tokens.keysEncrypted ? " Stored encrypted." : " Stored unencrypted: set KeyEncryptionSecret to encrypt them."}
+            A new key every {tokens.keyRotationDays} days; a retiring key still checks the tokens it signed.
+            {tokens.keysEncrypted ? " Stored encrypted." : " Stored unencrypted: set KeyEncryptionSecret to encrypt them."}
           </Text>
         </Stack>
       </Paper>
       <Paper withBorder p="md">
         <Stack gap={8}>
           <Title order={5}>Protection</Title>
-          <Row k="Lockout" v={`${c.protection.maxFailedSignIns} failures in a row → ${c.protection.lockoutMinutes} minutes`} />
+          <Row k="Lockout" v={`${protection.maxFailedSignIns} failures in a row → ${protection.lockoutMinutes} minutes`} />
           <Row k="Sign-in attempts" v="20 a minute per address" />
           <Row k="New users" v="10 a minute per address" />
         </Stack>
@@ -83,9 +85,9 @@ export function AuthSettingsView() {
       <Paper withBorder p="md">
         <Stack gap={8}>
           <Title order={5}>Hooks in your code</Title>
-          <Row k="BeforeCreate" v={c.hooks.beforeCreate ? "Set" : "None"} />
-          <Row k="AfterCreate" v={c.hooks.afterCreate ? "Set" : "None"} />
-          <Row k="BeforeSignIn" v={c.hooks.beforeSignIn ? "Set" : "None"} />
+          <Row k="BeforeCreate" v={hooks.beforeCreate ? "Set" : "None"} />
+          <Row k="AfterCreate" v={hooks.afterCreate ? "Set" : "None"} />
+          <Row k="BeforeSignIn" v={hooks.beforeSignIn ? "Set" : "None"} />
         </Stack>
       </Paper>
     </SimpleGrid>

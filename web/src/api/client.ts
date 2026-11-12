@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo } from "./appAuth";
+import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
 import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
 
@@ -132,6 +132,15 @@ export const api = {
   saveAppEmailTemplate: (kind: string, subject: string, body: string) => http<void>("PUT", `api/app-auth/email-templates/${kind}`, { subject, body }),
   resetAppEmailTemplate: (kind: string) => http<void>("DELETE", `api/app-auth/email-templates/${kind}`),
   testAppEmailTemplate: (kind: string) => http<{ sentTo: string }>("POST", `api/app-auth/email-templates/${kind}/test`),
+  authProviders: () => http<ProvidersResponse>("GET", "api/app-auth/settings/providers"),
+  saveAuthProviders: (settings: ProvidersSettings, reason: string) => http<SettingsVersionInfo>("PUT", "api/app-auth/settings/providers", { settings, reason }),
+  checkAuthProvider: (issuer: string, authority: string | null, requireHttps: boolean) =>
+    http<ProviderCheckResult>("POST", "api/app-auth/settings/providers/check", { issuer, authority, requireHttps }),
+  testAuthToken: (token: string, settings?: ProvidersSettings) => http<TokenTestResult>("POST", "api/app-auth/settings/providers/test", { token, settings }),
+  settingsHistory: (area?: string) =>
+    http<{ versions: SettingsVersionInfo[] }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
+  restoreSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/history/${id}/restore`, { reason }),
+  resetSettings: (area: string, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/${encodeURIComponent(area)}/reset`, { reason }),
   appAuthConfig: () => http<AppAuthConfig>("GET", "api/app-auth/config"),
   rotateAppAuthKeys: () => http<void>("POST", "api/app-auth/keys/rotate"),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),

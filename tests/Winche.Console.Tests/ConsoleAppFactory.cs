@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace Winche.Console.Tests;
 
 /// <summary>Boots the sample host (which calls AddWincheConsole) against the test container DB.</summary>
-public sealed class ConsoleAppFactory(PostgresFixture fx) : WebApplicationFactory<Program>
+public sealed class ConsoleAppFactory(PostgresFixture fx, params (string Key, string Value)[] settings) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -13,5 +13,6 @@ public sealed class ConsoleAppFactory(PostgresFixture fx) : WebApplicationFactor
         // top-level Program reads these during host build.
         builder.UseSetting("Winche:ConnectionString", fx.ConnectionString);
         builder.UseSetting("Console:ConnectionString", fx.ConsoleAuthConnectionString);
+        foreach (var (key, value) in settings) builder.UseSetting(key, value);
     }
 }

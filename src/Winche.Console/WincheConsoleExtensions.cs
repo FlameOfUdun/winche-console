@@ -188,9 +188,13 @@ public static class WincheConsoleExtensions
 
         if (options.AuthenticationTab)
         {
-            if (isService?.IsService(typeof(Winche.Auth.IWincheAuth)) == false)
-                throw new InvalidOperationException("AddAuthenticationTab() requires AddWincheAuth() (Winche.Auth) — the tab manages its users.");
-            group.MapConsoleAppAuthEndpoints();
+            var wincheAuth = isService?.IsService(typeof(Winche.Auth.IWincheAuth)) == true;
+            var tokens = isService?.IsService(typeof(Winche.Auth.AspNetCore.WincheTokenProviders)) == true;
+            if (!wincheAuth && !tokens)
+                throw new InvalidOperationException(
+                    "AddAuthenticationTab() requires AddWincheAuth() (Winche.Auth users) or AddAuthentication().AddWincheTokens(…) (trusted providers).");
+            group.MapConsoleAppAuthEndpoints(wincheAuth);
+            if (tokens) group.MapConsoleAuthSettingsEndpoints();
         }
 
         var tabRegistry = endpoints.ServiceProvider.GetRequiredService<TabRegistry>();

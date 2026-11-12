@@ -231,6 +231,28 @@ services.AddWincheConsole(o => o.AddAuthenticationTab());
 Sign-ins, failures, lockouts and account changes appear in the Logs Explorer as resource `auth`, with a built-in
 *Failed sign-ins* query. The console's own admins are separate: they're in **Access**. Needs Winche.Auth 1.0.0.
 
+### Settings: identity providers and token mapping
+
+The tab's **Settings** manage which sign-in systems the app trusts and how their tokens become `request.auth`, without
+a code change or restart — for apps on Winche Auth, and for apps that only use another provider such as Keycloak
+(then the tab has just Sign-in methods and Settings):
+
+```csharp
+services.AddWincheConfig(c => c.ConnectionString = connectionString);           // where console settings are saved
+services.AddAuthentication().AddWincheTokens(t => t.UseSettings());              // the code's TrustIssuer(...) calls are the starting values
+services.AddWincheConsole(o => o.AddAuthenticationTab());
+```
+
+- **Identity providers:** add Keycloak, Auth0, Microsoft Entra ID, Google Workspace or any OpenID Connect provider by
+  its address; *Check* fetches its discovery document and keys before you rely on it.
+- **Token mapping:** which field is the user's id, and which fields the rules see — renamed, read from nested fields
+  (`realm_access.roles`) or joined (`given_name + family_name`). Paste a real token to see the checks and exactly what
+  the rules will get, with the settings on the page, saved or not.
+- **Change history:** every save with who, when and why (a reason is required), *Restore* an earlier version as a new
+  change, or *Reset* to the app's code values.
+
+Without `UseSettings()` the same screens are read-only. Needs Winche.Config 1.0.0 and Winche.Auth 1.0.0.
+
 ## History (optional)
 
 A **History** sub-tab on the Database tab shows who changed which document, when, and how — each field's old and

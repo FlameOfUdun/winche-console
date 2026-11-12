@@ -23,6 +23,12 @@ internal static class ConsoleSpa
         // Catch-all under the group: specific API routes win; everything else is an asset or index.
         group.MapGet("/{**path}", async (HttpContext ctx, string? path) =>
         {
+            // An API address that matched nothing is a 404, not the console's page.
+            if (path is not null && (path == "api" || path.StartsWith("api/", StringComparison.Ordinal)))
+            {
+                ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
             var rel = string.IsNullOrEmpty(path) ? "index.html" : path;
             var file = Files.GetFileInfo(rel);
             if (rel == "index.html" || !file.Exists)

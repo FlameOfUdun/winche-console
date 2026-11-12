@@ -1,6 +1,7 @@
 using SampleHost;
 using Winche.Auth.AspNetCore;
 using Winche.Auth.DependencyInjection;
+using Winche.Config;
 using Winche.Console;
 using Winche.Console.Tabs;
 using Winche.Database.DependencyInjection;
@@ -43,8 +44,10 @@ else
     var authConn = builder.Configuration["Console:ConnectionString"]
         ?? throw new InvalidOperationException("Console:ConnectionString is required.");
 
-    // The app's own users (Winche Auth), managed in the console's Authentication tab.
-    builder.Services.AddWincheAuth(a =>
+    // The app's own users (Winche Auth), managed in the console's Authentication tab — unless the test runs the
+    // SmartAirway shape: only an external provider (Sample:ExternalOnly), managed in the tab's Settings.
+    var externalOnly = string.Equals(builder.Configuration["Sample:ExternalOnly"], "true", StringComparison.OrdinalIgnoreCase);
+    if (!externalOnly) builder.Services.AddWincheAuth(a =>
     {
         a.ConnectionString = wincheConn;
         a.Issuer = "https://sample.test";
@@ -56,7 +59,8 @@ else
     });
     builder.Services.AddSingleton<RecordingEmailSender>();
     builder.Services.AddSingleton<Winche.Auth.Email.IAuthEmailSender>(sp => sp.GetRequiredService<RecordingEmailSender>());
-    builder.Services.AddAuthentication().AddWincheTokens(t => t.TrustWincheAuth());
+    builder.Services.AddWincheConfig(c => c.ConnectionString = wincheConn);   // settings the console can change
+    builder.Services.AddAuthentication().AddWincheTokens(t => (externalOnly ? t : t.TrustWincheAuth()).UseSettings());
     builder.Services.AddWincheConsole(o =>
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup

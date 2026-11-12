@@ -38,6 +38,8 @@ export interface TrustedIssuerInfo {
 }
 
 export interface AppAuthConfig {
+  /** Winche Auth is installed (its users, sign-in methods, email): false when the app only trusts other providers. */
+  wincheAuth?: boolean;
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
   emailLink: { linkUrl: string } | null;
@@ -49,10 +51,10 @@ export interface AppAuthConfig {
   anonymous: boolean;
   trustsWincheTokens: boolean;
   trustedIssuers: TrustedIssuerInfo[];
-  tokens: { issuer: string; audience: string; accessTokenMinutes: number; refreshTokenDays: number; keyRotationDays: number; keysEncrypted: boolean };
+  tokens: null | { issuer: string; audience: string; accessTokenMinutes: number; refreshTokenDays: number; keyRotationDays: number; keysEncrypted: boolean };
   keys: { kid: string; createdAt: string; retiredAt: string | null }[];
-  protection: { maxFailedSignIns: number; lockoutMinutes: number };
-  hooks: { beforeCreate: boolean; afterCreate: boolean; beforeSignIn: boolean };
+  protection: null | { maxFailedSignIns: number; lockoutMinutes: number };
+  hooks: null | { beforeCreate: boolean; afterCreate: boolean; beforeSignIn: boolean };
 }
 
 export interface EmailTemplateInfo {
@@ -105,4 +107,72 @@ export function errorMessage(e: unknown): string {
   } catch {
     return text;
   }
+}
+
+// ── Settings: trusted identity providers and token mapping ──────────────────────
+
+export interface ClaimMapping { from: string; to: string }
+
+export interface TrustedProvider {
+  name: string;
+  displayName?: string | null;
+  kind: "keycloak" | "auth0" | "entra" | "google" | "oidc" | string;
+  issuer: string;
+  authority?: string | null;
+  audiences: string[];
+  validateAudience: boolean;
+  uidClaim: string;
+  /** null: every field passes to the rules as it is. */
+  claims: ClaimMapping[] | null;
+  requireHttps: boolean;
+}
+
+export interface ProvidersSettings { trustWincheAuth: boolean; providers: TrustedProvider[] }
+
+export interface SettingsVersionInfo {
+  id: number; area: string; areaTitle: string; number: number; at: string; by: string | null; reason: string | null;
+  restoredFrom: number | null; reset: boolean; current?: boolean;
+}
+
+export interface ProvidersResponse {
+  settings: ProvidersSettings;
+  codeDefault: ProvidersSettings;
+  source: "code" | "console";
+  version: SettingsVersionInfo | null;
+  editable: boolean;
+  whyReadOnly: string | null;
+}
+
+export interface ProviderCheckResult { found: boolean; issuer: string | null; keys: number; algorithms: string[]; error: string | null }
+
+export interface TokenTestResult {
+  wouldSignIn: boolean;
+  provider: string | null;
+  checks: { outcome: "ok" | "warning" | "error"; text: string }[];
+  auth: { uid: string; token: Record<string, unknown> } | null;
+  notPassed: string[];
+}
+
+export const PROVIDER_KINDS: { value: string; label: string }[] = [
+  { value: "keycloak", label: "Keycloak" }, { value: "auth0", label: "Auth0" }, { value: "entra", label: "Microsoft Entra ID" },
+  { value: "google", label: "Google Workspace" }, { value: "oidc", label: "Other OpenID Connect" },
+];
+
+export function newProvider(): TrustedProvider {
+  return { name: "", displayName: "", kind: "keycloak", issuer: "", authority: null, audiences: [], validateAudience: true, uidClaim: "sub", claims: [], requireHttps: true };
+}
+
+/** Problems the server would also refuse, shown before saving. */
+export function providerProblems(p: TrustedProvider, others: TrustedProvider[]): string[] {
+  const problems: string[] = [];
+  if (!/^[a-z0-9][a-z0-9_-]{0,39}$/.test(p.name) || p.name === "winche") problems.push("The short name is lower-case letters, digits, - and _.");
+  else if (others.some((o) => o.name === p.name)) problems.push("Another provider has that short name.");
+  try {
+    const u = new URL(p.issuer);
+    if (u.protocol !== "https:" && p.requireHttps) problems.push("The address must use https (or untick \"require https\" for local testing).");
+  } catch {
+    problems.push("The address must be a full address, like https://auth.example.com/realms/app.");
+  }
+  if (p.validateAudience && p.audiences.filter((a) => a.trim()).length === 0) problems.push("Give the audience: the app's client id at the provider.");
+  return problems;
 }

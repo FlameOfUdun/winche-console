@@ -39,7 +39,7 @@ export function MethodsView() {
           rows={c.emailPassword ? [
             ["Minimum length", `${c.emailPassword.minLength} characters`],
             ["Verified email required", c.emailPassword.requireVerifiedEmail ? "Yes" : "No"],
-            ["Lockout", `${c.protection.maxFailedSignIns} failures → ${c.protection.lockoutMinutes} minutes`],
+            ...(c.protection ? [["Lockout", `${c.protection.maxFailedSignIns} failures → ${c.protection.lockoutMinutes} minutes`] as [string, string]] : []),
           ] : []}
           code={c.emailPassword ? `o.EmailPassword(p => p.MinLength = ${c.emailPassword.minLength});` : "o.EmailPassword();"} />
         <Method name="Email link" on={!!c.emailLink}
@@ -70,7 +70,7 @@ export function MethodsView() {
           code='o.Mfa(m => m.Issuer = "SmartAirway");' />
         <Method name="Winche tokens" on={c.trustsWincheTokens}
           about="Database, Storage and your endpoints accept the tokens Winche Auth issues."
-          rows={[["Issuer", c.tokens.issuer]]} code="AddWincheTokens(t => t.TrustWincheAuth());" />
+          rows={c.tokens ? [["Issuer", c.tokens.issuer]] : []} code="AddWincheTokens(t => t.TrustWincheAuth());" />
         {c.trustedIssuers.map((i) => (
           <Method key={i.name} name={`${i.name} (trusted issuer)`} on
             about="Another identity provider's tokens, accepted as they are. Its users are managed there, not here."

@@ -41,11 +41,9 @@ public class KeycloakModeTests(PostgresFixture fx) : IAsyncLifetime
         // the SPA's GET catch-all, so a POST to /api/auth/login has no handler (MethodNotAllowed)...
         var login = await anon.PostAsJsonAsync("/_console/api/auth/login", new { email = "x", password = "y" });
         Assert.Equal(HttpStatusCode.MethodNotAllowed, login.StatusCode);
-        // ...and a GET to /api/users falls through to the SPA (index.html, text/html) rather than a
-        // real users API (which would return application/json).
+        // ...and a GET to /api/users is a 404: unknown API addresses never fall through to the SPA's page.
         var users = await Bearer(app, ["Admin"]).GetAsync("/_console/api/users");
-        Assert.Equal(HttpStatusCode.OK, users.StatusCode);
-        Assert.Equal("text/html", users.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(HttpStatusCode.NotFound, users.StatusCode);
     }
 
     [Fact]
