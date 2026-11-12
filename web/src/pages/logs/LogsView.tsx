@@ -3,6 +3,7 @@ import { Alert, Badge, Button, Code, Group, Loader, Select, Stack, Switch, Table
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { LogEntry, LogLevel, LogScope } from "../../api/logs";
+import { LogLevelsPanel } from "./LogLevelsPanel";
 
 const LEVELS: LogLevel[] = ["Trace", "Debug", "Information", "Warning", "Error", "Critical"];
 const COLORS: Record<LogLevel, string> = {
@@ -46,6 +47,7 @@ export function LogsView({ scope }: { scope: LogScope }) {
   const [exhausted, setExhausted] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [showLevels, setShowLevels] = useState(false);
 
   const filter = useMemo(() => ({ level, category, q }), [level, category, q]);
   const first = useQuery({
@@ -102,7 +104,11 @@ export function LogsView({ scope }: { scope: LogScope }) {
         <TextInput label="Search" placeholder="Text, user or error id" w={280} value={search}
           onChange={(e) => setSearch(e.currentTarget.value)} aria-label="Search" />
         <Switch label="Live" checked={live} onChange={(e) => setLive(e.currentTarget.checked)} mb={6} />
+        <Button variant={showLevels ? "light" : "subtle"} size="xs" mb={4} onClick={() => setShowLevels((v) => !v)}>
+          Levels
+        </Button>
       </Group>
+      {showLevels && <LogLevelsPanel scope={scope} categories={categories.data ?? []} />}
       {kept && (
         <Text size="xs" c="dimmed">
           Keeps {kept.minimumLevel} and above for {kept.retentionDays} days{scope === "app" ? "" : `, from ${scope === "database" ? "Winche.Database" : "Winche.Storage"}`}.

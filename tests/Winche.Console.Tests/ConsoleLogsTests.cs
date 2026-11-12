@@ -21,7 +21,12 @@ public class ConsoleLogsTests(PostgresFixture fx) : IAsyncLifetime
         {
             await using var conn = new NpgsqlConnection(fx.ConsoleAuthConnectionString);
             await conn.OpenAsync();
-            await using var cmd = new NpgsqlCommand("DO $$ BEGIN IF to_regclass('console_logs') IS NOT NULL THEN TRUNCATE console_logs; END IF; END $$;", conn);
+            await using var cmd = new NpgsqlCommand("""
+                DO $$ BEGIN
+                  IF to_regclass('console_logs') IS NOT NULL THEN TRUNCATE console_logs; END IF;
+                  IF to_regclass('console_log_settings') IS NOT NULL THEN TRUNCATE console_log_settings; END IF;
+                END $$;
+                """, conn);
             await cmd.ExecuteNonQueryAsync();
         }
         catch (PostgresException ex) when (ex.SqlState == "3D000") { }
@@ -121,5 +126,66 @@ public class ConsoleLogsTests(PostgresFixture fx) : IAsyncLifetime
         var logs = (await Json(await client.GetAsync("/_console/api/auth/state"))).GetProperty("capabilities").GetProperty("logs");
         Assert.False(logs.GetProperty("app").GetBoolean());
         Assert.False(logs.GetProperty("database").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Levels_set_in_the_console_apply_on_every_instance_and_reset_to_the_code()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+        using var other = new ConsoleAppFactory(fx);   // a second instance of the app, same database
+        _ = other.Services;
+        var reports = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("SmartAirway.Reports.ReportEmailService");
+        var otherReports = other.Services.GetRequiredService<ILoggerFactory>().CreateLogger("SmartAirway.Reports.ReportEmailService");
+
+        var levels = await Json(await client.GetAsync("/_console/api/logs/levels"));
+        Assert.Equal("code", levels.GetProperty("source").GetString());
+        Assert.Equal("Warning", levels.GetProperty("defaultLevel").GetString());
+
+        reports.LogDebug("before: not kept");
+        var bad = await client.PutAsJsonAsync("/_console/api/logs/levels",
+            new { defaultLevel = "Warning", overrides = new[] { new { category = "SmartAirway.Reports", level = "Loud", until = (DateTimeOffset?)null } } });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        var past = await client.PutAsJsonAsync("/_console/api/logs/levels",
+            new { defaultLevel = "Warning", overrides = new[] { new { category = "X", level = "Debug", until = (DateTimeOffset?)DateTimeOffset.UtcNow.AddMinutes(-1) } } });
+        Assert.Contains("already ended", await past.Content.ReadAsStringAsync());
+
+        var put = await client.PutAsJsonAsync("/_console/api/logs/levels", new
+        {
+            defaultLevel = "Warning",
+            overrides = new[] { new { category = "SmartAirway.Reports", level = "Debug", until = (DateTimeOffset?)DateTimeOffset.UtcNow.AddHours(1) } },
+        });
+        Assert.True(put.IsSuccessStatusCode, await put.Content.ReadAsStringAsync());
+        levels = await Json(await client.GetAsync("/_console/api/logs/levels"));
+        Assert.Equal("console", levels.GetProperty("source").GetString());
+        Assert.Equal("admin@example.com", levels.GetProperty("updatedBy").GetString());
+        Assert.Equal("Debug", levels.GetProperty("overrides")[0].GetProperty("level").GetString());
+
+        // Debug from that source is kept now — on this instance at once (though the host logs Information and up)…
+        reports.LogDebug("after: kept here");
+        app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("SmartAirway.Other").LogDebug("other source: not kept");
+        // …and on the other instance once it has synced.
+        for (var i = 0; i < 50; i++)
+        {
+            otherReports.LogDebug("after: kept on the other instance {Attempt}", i);
+            var found = (await Json(await client.GetAsync("/_console/api/logs/app?q=other%20instance"))).GetProperty("entries").GetArrayLength();
+            if (found > 0) break;
+            await Task.Delay(100);
+        }
+        var messages = Messages(await Entries(client, "app?level=Debug", 2));
+        Assert.Contains("after: kept here", messages);
+        Assert.Contains(messages, m => m.StartsWith("after: kept on the other instance", StringComparison.Ordinal));
+        Assert.DoesNotContain("before: not kept", messages);
+        Assert.DoesNotContain("other source: not kept", messages);
+
+        // Reset: back to the code's levels.
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/_console/api/logs/levels")).StatusCode);
+        Assert.Equal("code", (await Json(await client.GetAsync("/_console/api/logs/levels"))).GetProperty("source").GetString());
+        reports.LogDebug("after reset: not kept");
+        reports.LogWarning("marker");
+        await Entries(client, "app?q=marker", 1);
+        Assert.DoesNotContain("after reset: not kept", Messages(await Entries(client, "app?level=Debug", 1)));
     }
 }

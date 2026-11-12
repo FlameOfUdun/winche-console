@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import { logQuery, type LogFilter, type LogPage, type LogScope } from "./logs";
+import { logQuery, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope } from "./logs";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -106,6 +106,10 @@ export const api = {
 
   logs: (scope: LogScope, filter: LogFilter) => http<LogPage>("GET", `api/logs/${scope}${logQuery(filter)}`),
   logCategories: (scope: LogScope) => http<string[]>("GET", `api/logs/${scope}/categories`),
+  logLevels: () => http<LogLevels>("GET", "api/logs/levels"),
+  saveLogLevels: (defaultLevel: LogLevel, overrides: LogLevelOverride[]) =>
+    http<{ updatedAt: string; updatedBy: string | null }>("PUT", "api/logs/levels", { defaultLevel, overrides }),
+  resetLogLevels: () => http<void>("DELETE", "api/logs/levels"),
   rulesSubsystems: () => http<RuleSubsystemStatus[]>("GET", "api/rules/subsystems"),
   rulesLive: (sys: RuleSubsystem) => http<{ rulesJson: string }>("GET", `api/rules/${sys}/live`),
   rulesVersions: (sys: RuleSubsystem) => http<RuleVersionSummary[]>("GET", `api/rules/${sys}/versions`),

@@ -27,6 +27,7 @@ internal sealed class ConsoleLogWriter(ConsoleLogQueue queue, ConsoleLogStore st
         }
 
         var batch = new List<LogRecord>(500);
+        var nextLevelSync = DateTimeOffset.MinValue;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -38,6 +39,11 @@ internal sealed class ConsoleLogWriter(ConsoleLogQueue queue, ConsoleLogStore st
                 break;
             }
             await FlushAsync(batch, CancellationToken.None);
+            if (time.GetUtcNow() >= nextLevelSync)
+            {
+                nextLevelSync = time.GetUtcNow() + store.Options.LevelSyncInterval;
+                await SyncLevelsAsync(stoppingToken);
+            }
             if (time.GetUtcNow() >= _nextPrune)
             {
                 _nextPrune = time.GetUtcNow().AddHours(1);
@@ -45,6 +51,20 @@ internal sealed class ConsoleLogWriter(ConsoleLogQueue queue, ConsoleLogStore st
             }
         }
         await FlushAsync(batch, CancellationToken.None);   // what was logged while stopping
+    }
+
+    /// <summary>Applies the levels saved in the console (another instance may have changed them), or the code's.</summary>
+    private async Task SyncLevelsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var saved = await store.GetLevelsAsync(ct);
+            queue.Levels = saved?.Settings ?? store.Options.CodeLevels;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Keep the levels in force until the store answers again.
+        }
     }
 
     private async Task FlushAsync(List<LogRecord> batch, CancellationToken ct)

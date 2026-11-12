@@ -10,6 +10,9 @@ public sealed record ConsoleLogEntry(
     long Id, DateTimeOffset At, LogLevel Level, string Category, int EventId, string Message,
     string? Exception, string? UserId, string Instance, IReadOnlyDictionary<string, string?>? Properties);
 
+/// <summary>Levels saved in the console: by whom and when.</summary>
+public sealed record SavedLevels(LogLevelSettings Settings, DateTimeOffset UpdatedAt, string? UpdatedBy);
+
 /// <summary>A log entry on its way to the store.</summary>
 internal sealed record LogRecord(
     DateTimeOffset At, LogLevel Level, string Category, int EventId, string Message, string? Exception,
@@ -58,6 +61,12 @@ internal sealed class ConsoleLogStore(string connectionString, LogsOptions optio
             );
             CREATE INDEX IF NOT EXISTS console_logs_at ON console_logs (at DESC);
             CREATE INDEX IF NOT EXISTS console_logs_category ON console_logs (category text_pattern_ops, id DESC);
+            CREATE TABLE IF NOT EXISTS console_log_settings (
+              id smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+              settings jsonb NOT NULL,
+              updated_at timestamptz NOT NULL,
+              updated_by text NULL
+            );
             """);
         await cmd.ExecuteNonQueryAsync(ct);
     }
@@ -83,6 +92,40 @@ internal sealed class ConsoleLogStore(string connectionString, LogsOptions optio
         });
         await cmd.ExecuteNonQueryAsync(ct);
     }
+
+    /// <summary>Levels saved in the console, or null (the code's apply).</summary>
+    public async Task<SavedLevels?> GetLevelsAsync(CancellationToken ct)
+    {
+        await using var cmd = _source.CreateCommand("SELECT settings::text, updated_at, updated_by FROM console_log_settings WHERE id = 1");
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) return null;
+        var settings = JsonSerializer.Deserialize<LogLevelSettings>(reader.GetString(0), LevelJson)!;
+        return new SavedLevels(settings, new DateTimeOffset(reader.GetDateTime(1), TimeSpan.Zero), reader.IsDBNull(2) ? null : reader.GetString(2));
+    }
+
+    public async Task<SavedLevels> SaveLevelsAsync(LogLevelSettings settings, string? by, CancellationToken ct)
+    {
+        await using var cmd = _source.CreateCommand("""
+            INSERT INTO console_log_settings (id, settings, updated_at, updated_by) VALUES (1, @settings::jsonb, now(), @by)
+            ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
+            RETURNING updated_at
+            """);
+        cmd.Parameters.AddWithValue("settings", JsonSerializer.Serialize(settings, LevelJson));
+        cmd.Parameters.AddWithValue("by", (object?)by ?? DBNull.Value);
+        var at = (DateTime)(await cmd.ExecuteScalarAsync(ct))!;
+        return new SavedLevels(settings, new DateTimeOffset(at, TimeSpan.Zero), by);
+    }
+
+    public async Task ResetLevelsAsync(CancellationToken ct)
+    {
+        await using var cmd = _source.CreateCommand("DELETE FROM console_log_settings WHERE id = 1");
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    internal static readonly JsonSerializerOptions LevelJson = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() },
+    };
 
     private static string Clip(string s, int max) => s.Length <= max ? s : s[..max] + "…";
 

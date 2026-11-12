@@ -8,8 +8,31 @@ namespace Winche.Console.Logs;
 /// </summary>
 public sealed class LogsOptions
 {
-    /// <summary>The lowest level kept (default <see cref="LogLevel.Warning"/>; Information while debugging).</summary>
+    /// <summary>
+    /// The lowest level kept (default <see cref="LogLevel.Warning"/>). It's the starting value: Admins can change it,
+    /// and set levels per source, in the console (which then applies on every instance until reset).
+    /// </summary>
     public LogLevel MinimumLevel { get; set; } = LogLevel.Warning;
+
+    private readonly List<LogLevelOverride> _overrides = [];
+    internal IReadOnlyList<LogLevelOverride> Overrides => _overrides;
+
+    /// <summary>
+    /// A starting level for the sources whose category starts with <paramref name="category"/> (the longest match wins),
+    /// e.g. <c>SetLevel("Microsoft", LogLevel.Warning)</c> with an Information default. Changeable in the console.
+    /// </summary>
+    public LogsOptions SetLevel(string category, LogLevel level)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(category);
+        _overrides.RemoveAll(o => o.Category == category);
+        _overrides.Add(new LogLevelOverride(category, level));
+        return this;
+    }
+
+    /// <summary>How often each instance re-reads the levels saved in the console (default 10 s).</summary>
+    public TimeSpan LevelSyncInterval { get; set; } = TimeSpan.FromSeconds(10);
+
+    internal LogLevelSettings CodeLevels => new(MinimumLevel, [.. _overrides]);
 
     /// <summary>How long entries are kept (default 7 days).</summary>
     public TimeSpan Retention { get; set; } = TimeSpan.FromDays(7);

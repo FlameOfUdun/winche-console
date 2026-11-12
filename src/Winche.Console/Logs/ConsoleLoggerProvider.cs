@@ -13,20 +13,31 @@ internal sealed class ConsoleLogQueue
 
     private readonly Channel<LogRecord> _channel;
     private readonly Func<string, bool> _keep;
+    private readonly TimeProvider _time;
+    private volatile LogLevelSettings _levels;
 
-    public ConsoleLogQueue(LogsOptions options, bool everything, IReadOnlyList<string> prefixes)
+    public ConsoleLogQueue(LogsOptions options, bool everything, IReadOnlyList<string> prefixes, TimeProvider? time = null)
     {
+        _time = time ?? TimeProvider.System;
+        _levels = options.CodeLevels;
         _channel = Channel.CreateBounded<LogRecord>(new BoundedChannelOptions(Math.Max(1, options.QueueLimit))
         {
             FullMode = BoundedChannelFullMode.DropWrite,   // never block the code that logs
             SingleReader = true,
         });
-        MinimumLevel = options.MinimumLevel;
         _keep = category => !category.StartsWith(OwnCategory, StringComparison.Ordinal)
             && (everything || prefixes.Any(p => category.StartsWith(p, StringComparison.Ordinal)));
     }
 
-    public LogLevel MinimumLevel { get; }
+    /// <summary>The levels in force (the code's, or the ones saved in the console).</summary>
+    public LogLevelSettings Levels
+    {
+        get => _levels;
+        set => _levels = value;
+    }
+
+    /// <summary>The lowest level kept for <paramref name="category"/> right now.</summary>
+    public LogLevel MinimumFor(string category) => _levels.For(category, _time.GetUtcNow());
     public ChannelReader<LogRecord> Reader => _channel.Reader;
     public bool Keeps(string category) => _keep(category);
     public void Add(LogRecord record) => _channel.Writer.TryWrite(record);
@@ -42,7 +53,7 @@ internal sealed class ConsoleLoggerProvider(ConsoleLogQueue queue) : ILoggerProv
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => kept && logLevel != LogLevel.None && logLevel >= queue.MinimumLevel;
+        public bool IsEnabled(LogLevel logLevel) => kept && logLevel != LogLevel.None && logLevel >= queue.MinimumFor(category);
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {

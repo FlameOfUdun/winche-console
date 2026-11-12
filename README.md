@@ -236,7 +236,13 @@ services.AddWincheConsole(o =>
 - **The views** filter by level, source (category prefix) and text — message, exception, user and structured
   values, so the error id from an `Internal error (3f9c…)` report finds its entry — page back, and have a live mode.
   Clicking an entry shows its exception and values. The user column is filled from a `UserId` / `User` value.
-- **Admins only** (`api/logs/{app|database|storage}`): logs can hold personal data.
+- **Levels are adjustable in the console** (the **Levels** button in any logs view): a default level and per-source
+  levels — e.g. `SmartAirway.Reports` at Debug for 1 hour while chasing a problem; it ends on its own. Saved levels
+  apply on every instance within `LevelSyncInterval` (10 s) without a restart, and *Reset* goes back to the code's
+  (`MinimumLevel`, plus `l.SetLevel("Microsoft", LogLevel.Warning)` for starting per-source levels). The console's
+  collector receives every level regardless of the host's logging filters, so Debug can reach the Logs tab without
+  changing what the app's other outputs (console, CloudWatch) get. Sub-tabs show the levels under their library.
+- **Admins only** (`api/logs/{app|database|storage}`, `api/logs/levels`): logs can hold personal data.
 - It's for "what just went wrong", next to the data — keep shipping logs to CloudWatch or similar for the long term.
 
 ## Deploying rules from the repo: `winche`

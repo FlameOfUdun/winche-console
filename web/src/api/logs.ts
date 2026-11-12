@@ -21,6 +21,18 @@ export interface LogPage {
   retentionDays: number;
 }
 
+export interface LogLevelOverride { category: string; level: LogLevel; until: string | null }
+
+export interface LogLevels {
+  defaultLevel: LogLevel;
+  overrides: LogLevelOverride[];
+  /** "code": the app's own settings; "console": saved here by an Admin (applies on every instance). */
+  source: "code" | "console";
+  updatedAt: string | null;
+  updatedBy: string | null;
+  codeDefaultLevel: LogLevel;
+}
+
 export interface LogFilter {
   level?: LogLevel | "";
   category?: string;

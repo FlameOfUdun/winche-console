@@ -85,6 +85,11 @@ public static class WincheConsoleExtensions
             services.AddSingleton(new ConsoleLogQueue(options.Logs, options.AppLogsTab, prefixes));
             services.AddSingleton(new ConsoleLogStore(options.ConnectionString, options.Logs));
             services.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider, ConsoleLoggerProvider>();
+            // The console's collector receives every level whatever the host's filters say (so a source can be set
+            // to Debug from the console without changing what reaches the app's other log outputs); it then keeps
+            // only what the levels set in code or in the console allow.
+            services.Configure<Microsoft.Extensions.Logging.LoggerFilterOptions>(o =>
+                Microsoft.Extensions.Logging.FilterLoggingBuilderExtensions.AddFilter<ConsoleLoggerProvider>(o, null, Microsoft.Extensions.Logging.LogLevel.Trace));
             services.AddHostedService<ConsoleLogWriter>();
         }
 

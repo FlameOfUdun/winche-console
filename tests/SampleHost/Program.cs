@@ -41,7 +41,11 @@ else
 
         o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); });   // Database tab + its Rules and Logs sub-tabs
         o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });     // Storage tab + its Rules and Logs sub-tabs
-        o.AddLogsTab(l => l.FlushInterval = TimeSpan.FromMilliseconds(100));   // the app's logs (tests: written quickly)
+        o.AddLogsTab(l =>   // the app's logs (tests: written and synced quickly)
+        {
+            l.FlushInterval = TimeSpan.FromMilliseconds(100);
+            l.LevelSyncInterval = TimeSpan.FromMilliseconds(200);
+        });
 
         o.AddTab("analytics", "Analytics", tab =>
         {

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using System.Security.Claims;
 using Microsoft.Extensions.Logging;
 using Winche.Console.Identity;
 using Winche.Console.Logs;
@@ -43,9 +44,67 @@ public static class ConsoleLogsEndpoints
         _ => null,
     };
 
+    public sealed record LevelOverrideRequest(string? Category, string? Level, DateTimeOffset? Until);
+    public sealed record LevelsRequest(string? DefaultLevel, IReadOnlyList<LevelOverrideRequest>? Overrides);
+
+    private static bool TryLevel(string? text, out LogLevel level)
+    {
+        level = LogLevel.Warning;
+        return text is { Length: > 0 } && !int.TryParse(text, out _) && Enum.TryParse(text, ignoreCase: true, out level) && Enum.IsDefined(level);
+    }
+
+    private static string? Actor(ClaimsPrincipal user) =>
+        user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name
+        ?? user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+
     public static IEndpointRouteBuilder MapConsoleLogsEndpoints(this IEndpointRouteBuilder app, ConsoleOptions options)
     {
         var group = app.MapGroup("/api/logs");
+
+        // The levels kept: from code (LogsOptions.MinimumLevel / SetLevel) until an Admin saves them here; saved levels
+        // apply on every instance within LogsOptions.LevelSyncInterval, and Reset goes back to the code's.
+        group.MapGet("/levels", async ([FromServices] ConsoleLogStore store, [FromServices] ConsoleLogQueue queue, [FromServices] TimeProvider time, CancellationToken ct) =>
+        {
+            var saved = await store.GetLevelsAsync(ct);
+            var settings = (saved?.Settings ?? store.Options.CodeLevels).WithoutExpired(time.GetUtcNow());
+            return Results.Json(new
+            {
+                defaultLevel = settings.DefaultLevel.ToString(),
+                overrides = settings.Overrides.Select(o => new { category = o.Category, level = o.Level.ToString(), until = o.Until }),
+                source = saved is null ? "code" : "console",
+                updatedAt = saved?.UpdatedAt,
+                updatedBy = saved?.UpdatedBy,
+                codeDefaultLevel = store.Options.MinimumLevel.ToString(),
+            });
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        group.MapPut("/levels", async (LevelsRequest body, HttpContext http, [FromServices] ConsoleLogStore store, [FromServices] ConsoleLogQueue queue,
+            [FromServices] TimeProvider time, CancellationToken ct) =>
+        {
+            var now = time.GetUtcNow();
+            if (!TryLevel(body.DefaultLevel, out var defaultLevel))
+                return Results.BadRequest(new { errors = new[] { $"Unknown level '{body.DefaultLevel}' (Trace, Debug, Information, Warning, Error, Critical, None)." } });
+            var overrides = new List<LogLevelOverride>();
+            foreach (var o in body.Overrides ?? [])
+            {
+                if (!TryLevel(o.Level, out var level))
+                    return Results.BadRequest(new { errors = new[] { $"Unknown level '{o.Level}' for {o.Category}." } });
+                overrides.Add(new LogLevelOverride((o.Category ?? "").Trim(), level, o.Until));
+            }
+            var settings = new LogLevelSettings(defaultLevel, overrides);
+            if (settings.Problems(now) is { Count: > 0 } problems) return Results.BadRequest(new { errors = problems });
+
+            var saved = await store.SaveLevelsAsync(settings, Actor(http.User), ct);
+            queue.Levels = settings;   // this instance now; the others at their next sync
+            return Results.Json(new { updatedAt = saved.UpdatedAt, updatedBy = saved.UpdatedBy });
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        group.MapDelete("/levels", async ([FromServices] ConsoleLogStore store, [FromServices] ConsoleLogQueue queue, CancellationToken ct) =>
+        {
+            await store.ResetLevelsAsync(ct);
+            queue.Levels = store.Options.CodeLevels;
+            return Results.NoContent();
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
         group.MapGet("/{scope}", async (
             string scope,
@@ -58,6 +117,7 @@ public static class ConsoleLogsEndpoints
             [FromQuery] long? after,
             [FromQuery] int? limit,
             [FromServices] ConsoleLogStore store,
+            [FromServices] ConsoleLogQueue queue,
             CancellationToken ct) =>
         {
             if (Prefix(scope, options) is not { } prefix) return Results.NotFound();
@@ -80,7 +140,7 @@ public static class ConsoleLogsEndpoints
             {
                 entries = entries.Select(e => new LogEntryDto(e.Id, e.At, e.Level.ToString(), e.Category, e.EventId, e.Message,
                     e.Exception, e.UserId, e.Instance, e.Properties)),
-                minimumLevel = store.Options.MinimumLevel.ToString(),
+                minimumLevel = queue.Levels.DefaultLevel.ToString(),
                 retentionDays = store.Options.Retention.TotalDays,
             });
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
