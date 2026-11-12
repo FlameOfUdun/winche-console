@@ -208,6 +208,20 @@ services.AddWincheConsole(o =>
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
+## History (optional)
+
+A **History** sub-tab on the Database tab shows who changed which document, when, and how — each field's old and
+new value — for one document (the clock button on a document opens it) or everything under a path:
+
+```csharp
+services.AddWincheDatabase(cfg => { /* … */ cfg.KeepHistory(TimeSpan.FromDays(30)); });   // records it
+services.AddWincheConsole(o => o.AddDatabaseTab(b => b.UseHistory()));
+```
+
+Changes are attributed to the app user who made them (their `uid`, else `sub`), to `console:<email>` for edits made
+in the console, or to no one for hooks and background jobs. Readable by whoever can read the Database tab
+(`api/database/history?path=|under=|actor=&before=`). Needs Winche.Database 11.1.0.
+
 ## Logs (optional)
 
 The console can keep the app's log entries and show them to Admins — a **Logs** sub-tab on the Database and

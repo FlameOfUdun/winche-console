@@ -7,6 +7,7 @@ import type { RuleSubsystem } from "../../api/rules";
 import { useSession } from "../../auth/session";
 import { RulesEditor } from "./RulesEditor";
 import { LogsView } from "../logs/LogsView";
+import { HistoryView } from "../history/HistoryView";
 
 /**
  * Wraps an existing browser page (Documents / Files) with routed "Rules" and "Logs" sub-tabs. The Rules tab
@@ -33,18 +34,22 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
   const eligible = isAdmin && !!subsystems.data?.some((s) => s.id === subsystem);
 
   const logsEligible = !!state?.capabilities?.logs?.[subsystem];
+  const historyEligible = subsystem === "database" && !!state?.capabilities?.history;
 
   const onRulesPath = pathname.endsWith("/rules");
   const onLogsPath = pathname.endsWith("/logs");
-  if ((onRulesPath && !eligible && !subsystems.isLoading) || (onLogsPath && !logsEligible)) return <Navigate to={basePath} replace />;
+  const onHistoryPath = pathname.endsWith("/history");
+  if ((onRulesPath && !eligible && !subsystems.isLoading) || (onLogsPath && !logsEligible) || (onHistoryPath && !historyEligible))
+    return <Navigate to={basePath} replace />;
 
-  const active = onRulesPath ? "rules" : onLogsPath ? "logs" : "primary";
+  const active = onRulesPath ? "rules" : onLogsPath ? "logs" : onHistoryPath ? "history" : "primary";
 
   return (
-    <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" ? `${basePath}/${v}` : basePath)}>
+    <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" || v === "history" ? `${basePath}/${v}` : basePath)}>
       <Tabs.List mb="sm">
         <Tabs.Tab value="primary">{primaryLabel}</Tabs.Tab>
         {eligible && <Tabs.Tab value="rules">Rules</Tabs.Tab>}
+        {historyEligible && <Tabs.Tab value="history">History</Tabs.Tab>}
         {logsEligible && <Tabs.Tab value="logs">Logs</Tabs.Tab>}
       </Tabs.List>
 
@@ -52,6 +57,11 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
       {eligible && (
         <Tabs.Panel value="rules">
           <RulesEditor subsystem={subsystem} />
+        </Tabs.Panel>
+      )}
+      {historyEligible && active === "history" && (
+        <Tabs.Panel value="history">
+          <HistoryView />
         </Tabs.Panel>
       )}
       {logsEligible && active === "logs" && (

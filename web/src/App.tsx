@@ -41,6 +41,7 @@ function GatedApp() {
           <Route path="storage" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="storage/rules" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="database/logs" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
+          <Route path="database/history" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="storage/logs" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />

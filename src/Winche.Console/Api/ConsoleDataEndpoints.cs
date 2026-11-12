@@ -7,7 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Winche.Database.Documents;
 using Winche.Database.Querying.Ast;
 using Winche.Database.Querying.Ast.Serialization;
+using System.Security.Claims;
+using System.Text.Json.Nodes;
 using Winche.Database.Runtime;
+using Winche.Database.Runtime.History;
 using Winche.Database.Runtime.Writes;
 using Winche.Database.Values;
 using Winche.Console.Identity;
@@ -22,9 +25,57 @@ public static class ConsoleDataEndpoints
 
     public sealed record QueryRequest(string Collection, int? Limit);
 
+    /// <summary>How the console's own writes are attributed: <c>console:</c> plus the user's email (else name or id).</summary>
+    internal static string ConsoleActor(ClaimsPrincipal user) =>
+        "console:" + (user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name
+                      ?? user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub") ?? "unknown");
+
+    /// <summary>
+    /// <c>api/database/history</c>: changes newest first — one document (<c>path</c>), everything under a path
+    /// (<c>under</c>), or by someone (<c>actor</c>); paged with <c>before</c>. Readable by whoever can read the Database tab.
+    /// </summary>
+    public static IEndpointRouteBuilder MapConsoleHistoryEndpoints(this IEndpointRouteBuilder app, ConsoleRole minRole)
+    {
+        app.MapGet("/api/database/history", async (
+            string? path, string? under, string? actor, long? before, int? limit,
+            [FromServices] DocumentHistory history, CancellationToken ct) =>
+        {
+            var entries = await history.QueryAsync(new HistoryQuery
+            {
+                Path = string.IsNullOrWhiteSpace(path) ? null : path.Trim(),
+                Under = string.IsNullOrWhiteSpace(under) ? null : under.Trim(),
+                Actor = string.IsNullOrWhiteSpace(actor) ? null : actor.Trim(),
+                Before = before,
+                Limit = limit ?? 50,
+            }, ct);
+            static JsonNode? Encode(Value? v) => v is null ? null : ValueSerializer.Write(v);
+            return Results.Json(new
+            {
+                entries = entries.Select(e => new
+                {
+                    seq = e.Seq,
+                    type = e.Type,
+                    path = e.Path,
+                    version = e.Version,
+                    at = e.At,
+                    actor = e.Actor,
+                    recorded = e.Fields is not null,
+                    fields = e.Fields?.Select(f => new { field = f.Field, kind = f.Kind, before = Encode(f.Before), after = Encode(f.After) }),
+                }),
+            });
+        }).RequireAuthorization(ConsoleRolePolicy.For(minRole));
+        return app;
+    }
+
     public static IEndpointRouteBuilder MapConsoleDataEndpoints(this IEndpointRouteBuilder app, ConsoleRole minRole)
     {
         var group = app.MapGroup("/api/database");
+        // Edits made here are the signed-in console user's in the document history (Winche.Database KeepHistory).
+        group.AddEndpointFilter(async (ctx, next) =>
+        {
+            using var _ = DocumentWriteActor.Use(ConsoleActor(ctx.HttpContext.User));
+            return await next(ctx);
+        });
         var readPolicy = ConsoleRolePolicy.For(minRole);
         var writePolicy = ConsoleRolePolicy.For(minRole < ConsoleRole.Member ? ConsoleRole.Member : minRole);
 

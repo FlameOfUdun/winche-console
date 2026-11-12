@@ -91,6 +91,8 @@ public sealed class ConsoleOptions
     public ConsoleOptions AddStorageTab(Action<BuiltInTabBuilder>? configure = null)
     {
         StorageTab = BuildBuiltInTab(configure, StorageTab, "Storage");
+        if (StorageTab.History)
+            throw new InvalidOperationException("UseHistory() is for the Database tab: document history comes from Winche.Database.");
         return this;
     }
 
@@ -100,7 +102,7 @@ public sealed class ConsoleOptions
             throw new InvalidOperationException($"The {name} tab is already registered.");
         var b = new BuiltInTabBuilder();
         configure?.Invoke(b);
-        return new BuiltInTabConfig { MinRole = b.MinRole, RulesEditor = b.RulesEditor, Logs = b.Logs };
+        return new BuiltInTabConfig { MinRole = b.MinRole, RulesEditor = b.RulesEditor, Logs = b.Logs, History = b.History };
     }
 
     /// <summary>What the Logs tab and the Logs sub-tabs keep: level, retention, size (see <see cref="Logs.LogsOptions"/>).</summary>

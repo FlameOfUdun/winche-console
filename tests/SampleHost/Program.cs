@@ -9,7 +9,11 @@ var builder = WebApplication.CreateBuilder(args);
 var wincheConn = builder.Configuration["Winche:ConnectionString"]
     ?? throw new InvalidOperationException("Winche:ConnectionString is required.");
 
-builder.Services.AddWincheDatabase(cfg => cfg.ConnectionString = wincheConn);
+builder.Services.AddWincheDatabase(cfg =>
+{
+    cfg.ConnectionString = wincheConn;
+    cfg.KeepHistory();   // the Database tab's History sub-tab
+});
 builder.Services.AddWincheStorage(opts => opts.ConnectionString = wincheConn);
 builder.Services.AddSingleton<IArchive, NoOpArchive>();
 
@@ -39,7 +43,7 @@ else
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup
 
-        o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); });   // Database tab + its Rules and Logs sub-tabs
+        o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); b.UseHistory(); });   // Database tab + Rules, Logs, History
         o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });     // Storage tab + its Rules and Logs sub-tabs
         o.AddLogsTab(l =>   // the app's logs (tests: written and synced quickly)
         {

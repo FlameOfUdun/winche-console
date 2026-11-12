@@ -19,6 +19,15 @@ public sealed class BuiltInTabBuilder
     /// </summary>
     public void UseLogs() => Logs = true;
 
+    internal bool History { get; private set; }
+
+    /// <summary>
+    /// Database tab only: add a <b>History</b> sub-tab showing who changed which document, when, and how (each field's
+    /// old and new value). Needs <c>KeepHistory()</c> in <c>AddWincheDatabase</c>, which records it. The console's own
+    /// edits are attributed to the signed-in console user.
+    /// </summary>
+    public void UseHistory() => History = true;
+
     /// <summary>Enable the GUI rules editor for this subsystem (adds its Rules sub-tab).</summary>
     public void UseRulesEditor(Action<RulesEditorOptions>? configure = null)
     {
@@ -34,4 +43,5 @@ internal sealed class BuiltInTabConfig
     public required ConsoleRole MinRole { get; init; }
     public RulesEditorOptions? RulesEditor { get; init; }
     public bool Logs { get; init; }
+    public bool History { get; init; }
 }

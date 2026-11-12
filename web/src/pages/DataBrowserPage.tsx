@@ -2,7 +2,8 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import {
   ActionIcon, Anchor, Box, Button, Divider, Group, Stack, Text, TextInput, Tooltip,
 } from "@mantine/core";
-import { IconChevronRight, IconDatabase, IconTrash } from "@tabler/icons-react";
+import { IconChevronRight, IconDatabase, IconHistory, IconTrash } from "@tabler/icons-react";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
@@ -103,8 +104,10 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
   onOpenSub: (cid: string) => void; onAddSub: (cid: string) => void; onDeleteSub: (collection: string) => void; onDelete: (path: string) => void;
 }) {
   const qc = useQueryClient();
-  const { user } = useSession();
+  const { user, state } = useSession();
   const canWrite = user?.role !== "Viewer";
+  const hasHistory = !!state?.capabilities?.history;
+  const navigate = useNavigate();
   // Subcollections of this document, fetched lazily via the library's collection lister, merged with
   // any locally-added (not-yet-persisted) subcollections.
   const subsQuery = useQuery({ queryKey: ["subcollections", docPath], queryFn: () => api.listCollections(docPath) });
@@ -137,6 +140,12 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
   return (
     <Column width={DOC_W}>
       <PanelHeader title={docPath.split("/").pop()}>
+        {hasHistory && (
+          <Tooltip label="History">
+            <ActionIcon size="sm" variant="subtle" aria-label="Document history"
+              onClick={() => navigate(`/database/history?path=${encodeURIComponent(docPath)}`)}><IconHistory size={16} /></ActionIcon>
+          </Tooltip>
+        )}
         {canWrite && (
           <Tooltip label="Delete document">
             <ActionIcon size="sm" variant="subtle" color="red" aria-label="Delete document" onClick={() => onDelete(docPath)}><IconTrash size={16} /></ActionIcon>

@@ -160,6 +160,14 @@ public static class WincheConsoleExtensions
                 throw new InvalidOperationException(
                     "AddDatabaseTab() requires AddWincheDatabase() — the Database tab browses the document store.");
             group.MapConsoleDataEndpoints(databaseTab.MinRole);
+            if (databaseTab.History)
+            {
+                var dbOptions = endpoints.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<Winche.Database.DependencyInjection.WincheDatabaseOptions>>();
+                if (dbOptions?.Value.History is null)
+                    throw new InvalidOperationException(
+                        "The Database tab's UseHistory() needs KeepHistory() in AddWincheDatabase — that's what records who changed what.");
+                group.MapConsoleHistoryEndpoints(databaseTab.MinRole);
+            }
         }
         if (options.StorageTab is { } storageTab)
         {
