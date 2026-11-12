@@ -39,6 +39,10 @@ export interface AppAuthConfig {
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
   emailLink: { linkUrl: string } | null;
+  identityProviders: {
+    name: string; kind: "google" | "apple" | "oidc"; displayName: string; authority: string; audiences: string[];
+    useSubjectAsUid: boolean; copiedClaims: string[]; testingOnly: boolean;
+  }[];
   anonymous: boolean;
   trustsWincheTokens: boolean;
   trustedIssuers: TrustedIssuerInfo[];
@@ -71,6 +75,12 @@ export function fillTemplate(text: string, appName: string, kind: string): strin
     .replace(/%NEW_EMAIL%/g, kind === "emailChanged" ? "anna.new@example.com" : "")
     .replace(/%DISPLAY_NAME%/g, "Anna")
     .replace(/ ,/g, ",");
+}
+
+/** "google" → "Google", from the configured providers; built-in methods by name. */
+export function providerLabel(name: string, config?: AppAuthConfig | null): string {
+  const builtIn: Record<string, string> = { password: "Password", anonymous: "Anonymous", google: "Google", apple: "Apple" };
+  return config?.identityProviders.find((p) => p.name === name)?.displayName ?? builtIn[name] ?? name;
 }
 
 export type UserStatus = "Active" | "Disabled" | "Locked out" | "Not verified" | "Guest";

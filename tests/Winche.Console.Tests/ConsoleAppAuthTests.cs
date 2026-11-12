@@ -141,6 +141,36 @@ public class ConsoleAppAuthTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Providers_show_and_can_be_unlinked()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        var signUp = await Json(await client.PostAsJsonAsync("/auth/v1/signUp", new { email = "ann@example.com", password = "correct horse battery" }));
+        var uid = signUp.GetProperty("user").GetProperty("uid").GetString()!;
+        var token = signUp.GetProperty("accessToken").GetString()!;
+        var payload = Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Encode(JsonSerializer.Serialize(new
+        {
+            iss = "https://accounts.google.com", aud = "sample.apps.googleusercontent.com", sub = "g-1", exp = DateTimeOffset.UtcNow.AddMinutes(5).ToUnixTimeSeconds(),
+        }));
+        var idToken = $"{Microsoft.IdentityModel.Tokens.Base64UrlEncoder.Encode("{\"alg\":\"none\"}")}.{payload}.";
+        using var link = new HttpRequestMessage(HttpMethod.Post, "/auth/v1/link/idp") { Content = JsonContent.Create(new { provider = "google", idToken }) };
+        link.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        await Json(await client.SendAsync(link));
+
+        var user = (await Json(await client.GetAsync($"/_console/api/app-auth/users/{uid}"))).GetProperty("user");
+        Assert.Equal(["password", "google"], user.GetProperty("providers").EnumerateArray().Select(p => p.GetString()));
+        var config = await Json(await client.GetAsync("/_console/api/app-auth/config"));
+        var google = config.GetProperty("identityProviders")[0];
+        Assert.Equal(("google", "Google", true), (google.GetProperty("name").GetString(), google.GetProperty("displayName").GetString(), google.GetProperty("testingOnly").GetBoolean()));
+
+        var after = await Json(await client.DeleteAsync($"/_console/api/app-auth/users/{uid}/providers/google"));
+        Assert.Equal(["password"], after.GetProperty("providers").EnumerateArray().Select(p => p.GetString()));
+    }
+
+    [Fact]
     public async Task Signed_out_callers_get_nothing()
     {
         using var app = new ConsoleAppFactory(fx);

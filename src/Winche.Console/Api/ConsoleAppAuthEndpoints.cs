@@ -96,6 +96,9 @@ public static class ConsoleAppAuthEndpoints
         group.MapDelete("/users/{uid}/sessions/{id:guid}", async (string uid, Guid id, IWincheAuth auth, CancellationToken ct) =>
             await auth.RevokeSessionAsync(uid, id, ct) ? Results.NoContent() : Results.NotFound());
 
+        group.MapDelete("/users/{uid}/providers/{provider}", async (string uid, string provider, IWincheAuth auth, CancellationToken ct) =>
+            Results.Json(User(await auth.UnlinkProviderAsync(uid, provider, ct))));
+
         group.MapPost("/users/{uid}/unlock", async (string uid, IWincheAuth auth, CancellationToken ct) =>
             Results.Json(User(await auth.UnlockAsync(uid, ct))));
 
@@ -163,6 +166,11 @@ public static class ConsoleAppAuthEndpoints
                     sender = es.LogLinksOnly ? null : sp.GetService<Winche.Auth.Email.IAuthEmailSender>()?.GetType().Name,
                 } : null,
                 emailLink = o.EmailLinkSignIn is { } el ? new { linkUrl = el.LinkUrl } : null,
+                identityProviders = o.IdentityProviders.Select(p => new
+                {
+                    name = p.Name, kind = p.Kind, displayName = p.DisplayName ?? p.Name, authority = p.Authority, audiences = p.Audiences,
+                    useSubjectAsUid = p.UseSubjectAsUid, copiedClaims = p.CopiedClaims, testingOnly = p.AllowUnsignedTokensForTesting,
+                }),
                 anonymous = o.AnonymousSignIn,
                 trustsWincheTokens = tokens?.TrustsWincheAuth ?? false,
                 trustedIssuers = (tokens?.TrustedIssuers ?? []).Select(i => new

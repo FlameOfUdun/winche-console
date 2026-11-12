@@ -49,6 +49,21 @@ export function MethodsView() {
         <Method name="Anonymous" on={c.anonymous}
           about="A guest user with a uid, upgraded later by linking an email and password."
           rows={[]} code="o.Anonymous();" />
+        {c.identityProviders.map((p) => (
+          <Method key={p.name} name={p.displayName} on
+            about={p.kind === "oidc"
+              ? "An OpenID Connect provider: the app signs in there and exchanges the ID token. Its users become Winche users."
+              : `The app signs in with ${p.displayName} and exchanges the ID token. Its users become Winche users.`}
+            rows={[
+              ["Audiences", p.audiences.join(", ")],
+              ...(p.kind === "oidc" ? [["Authority", p.authority] as [string, string]] : []),
+              ["uid", p.useSubjectAsUid ? "the provider's own id" : "a new Winche uid"],
+              ...(p.copiedClaims.length ? [["Claims copied", p.copiedClaims.join(", ")] as [string, string]] : []),
+              ...(p.testingOnly ? [["Unsigned tokens", "accepted (testing only)"] as [string, string]] : []),
+            ]}
+            code={p.kind === "oidc" ? `o.OpenIdConnect("${p.name}", k => { k.Authority = "…"; k.Audiences = ["…"]; });`
+              : p.kind === "google" ? 'o.Google(g => g.Audiences = ["…apps.googleusercontent.com"]);' : 'o.Apple(a => a.Audiences = ["com.example.app"]);'} />
+        ))}
         <Method name="Winche tokens" on={c.trustsWincheTokens}
           about="Database, Storage and your endpoints accept the tokens Winche Auth issues."
           rows={[["Issuer", c.tokens.issuer]]} code="AddWincheTokens(t => t.TrustWincheAuth());" />

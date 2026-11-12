@@ -120,6 +120,8 @@ export const api = {
   setAppUserClaims: (uid: string, claims: Record<string, unknown> | null) => http<AppUser>("PUT", `api/app-auth/users/${encodeURIComponent(uid)}/claims`, { claims }),
   signOutAppUser: (uid: string) => http<{ sessions: number }>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/signOut`),
   revokeAppSession: (uid: string, id: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/sessions/${id}`),
+  unlinkAppUserProvider: (uid: string, provider: string) =>
+    http<AppUser>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/providers/${encodeURIComponent(provider)}`),
   unlockAppUser: (uid: string) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/unlock`),
   deleteAppUser: (uid: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}`),
   sendAppUserPasswordReset: (uid: string) => http<void>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/sendPasswordReset`),

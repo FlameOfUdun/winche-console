@@ -4,11 +4,10 @@ import {
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { errorMessage, statusOf, type AppUser, type UserStatus } from "../../api/appAuth";
+import { errorMessage, providerLabel, statusOf, type AppUser, type UserStatus } from "../../api/appAuth";
 
 const PAGE = 50;
 const STATUS_COLOR: Record<UserStatus, string> = { Active: "teal", Disabled: "red", "Locked out": "red", "Not verified": "yellow", Guest: "violet" };
-const PROVIDER_LABEL: Record<string, string> = { password: "Password", anonymous: "Anonymous" };
 
 function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -32,6 +31,7 @@ export function UsersView() {
   useEffect(() => setPage(0), [q]);
 
   const list = useQuery({ queryKey: ["app-users", q, page], queryFn: () => api.appUsers(q, page * PAGE, PAGE) });
+  const config = useQuery({ queryKey: ["app-auth-config"], queryFn: api.appAuthConfig });
   const users = list.data?.users ?? [];
   const total = list.data?.total ?? 0;
 
@@ -64,7 +64,7 @@ export function UsersView() {
                         <Text size="xs" c="dimmed" ff="monospace">{u.uid}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Group gap={4}>{u.providers.map((p) => <Badge key={p} size="sm" variant="light" tt="none">{PROVIDER_LABEL[p] ?? p}</Badge>)}</Group>
+                        <Group gap={4}>{u.providers.map((p) => <Badge key={p} size="sm" variant="light" tt="none">{providerLabel(p, config.data)}</Badge>)}</Group>
                       </Table.Td>
                       <Table.Td><Text size="xs">{when(u.createdAt)}</Text></Table.Td>
                       <Table.Td><Text size="xs">{when(u.lastSignInAt)}</Text></Table.Td>
@@ -159,6 +159,26 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
             </Table.Td></Table.Tr>
           </Table.Tbody>
         </Table>
+
+        <Stack gap={6}>
+          <Title order={6}>Sign-in methods</Title>
+          {u.providers.length === 0 && <Text size="sm" c="dimmed">None yet: send a reset link to set a password.</Text>}
+          {u.providers.map((p) => {
+            const linked = p !== "password" && p !== "anonymous";
+            return (
+              <Group key={p} justify="space-between" wrap="nowrap" data-testid="app-user-provider"
+                style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
+                <Text size="sm">{providerLabel(p, config.data)}</Text>
+                {linked && u.providers.length > 1 && (
+                  <Button size="xs" variant="subtle" disabled={busy}
+                    onClick={() => window.confirm(`Unlink ${providerLabel(p, config.data)} from this user?`) && run(() => api.unlinkAppUserProvider(uid, p))}>
+                    Unlink
+                  </Button>
+                )}
+              </Group>
+            );
+          })}
+        </Stack>
 
         <Stack gap={6}>
           <Group justify="space-between"><Title order={6}>Custom claims</Title><Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
