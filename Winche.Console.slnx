@@ -3,6 +3,7 @@
     <Project Path="samples/Winche.Console.Sample/Winche.Console.Sample.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Winche.Cli/Winche.Cli.csproj" />
     <Project Path="src/Winche.Console/Winche.Console.csproj" />
   </Folder>
   <Folder Name="/tests/">

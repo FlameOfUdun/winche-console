@@ -40,7 +40,9 @@ jobs:
         run: dotnet build Winche.Console.slnx -c Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/Winche.Console/Winche.Console.csproj -c Release --no-build -o ./packages
+        run: |
+          dotnet pack src/Winche.Console/Winche.Console.csproj -c Release --no-build -o ./packages
+          dotnet pack src/Winche.Cli/Winche.Cli.csproj -c Release --no-build -o ./packages
 
       # Exchange the GitHub OIDC token for a short-lived NuGet.org API key.
       - name: NuGet login (trusted publishing)

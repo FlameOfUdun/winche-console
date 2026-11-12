@@ -8,8 +8,11 @@ using Winche.Console.Identity;
 
 namespace Winche.Console.Tests;
 
-/// <summary>Boots the sample host in Keycloak mode and validates bearer tokens against the in-test key.</summary>
-public sealed class KeycloakConsoleAppFactory(PostgresFixture fx) : WebApplicationFactory<Program>
+/// <summary>
+/// Boots the sample host in Keycloak mode and validates bearer tokens against the in-test key.
+/// <paramref name="withRulesEditor"/> also enables the rules editors (and their versioned store).
+/// </summary>
+public sealed class KeycloakConsoleAppFactory(PostgresFixture fx, bool withRulesEditor = false) : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
@@ -19,6 +22,7 @@ public sealed class KeycloakConsoleAppFactory(PostgresFixture fx) : WebApplicati
         builder.UseSetting("Keycloak:Server", "https://kc.test");
         builder.UseSetting("Keycloak:Realm", "test");
         builder.UseSetting("Keycloak:Resource", KeycloakTokens.Audience);
+        if (withRulesEditor) builder.UseSetting("Console:ConnectionString", fx.ConsoleAuthConnectionString);
 
         builder.ConfigureTestServices(services =>
         {
