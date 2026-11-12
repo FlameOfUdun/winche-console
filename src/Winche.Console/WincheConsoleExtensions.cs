@@ -193,7 +193,7 @@ public static class WincheConsoleExtensions
         }
 
         // Database and Storage → Settings, when the packages use settings (o.UseSettings()).
-        if (endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => Api.ConsoleSettingsEndpoints.Areas.ContainsKey(a.Name)))
+        if (endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => Api.ConsoleSettingsEndpoints.Areas.Contains(a.Name)))
         {
             group.MapConsoleSettingsEndpoints();
             if (isService?.IsService(typeof(Winche.Storage.Locations.StorageMoves)) == true) group.MapConsoleStorageLocationEndpoints();

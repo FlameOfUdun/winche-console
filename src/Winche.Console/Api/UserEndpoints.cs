@@ -96,7 +96,7 @@ public static class UserEndpoints
             if (string.IsNullOrWhiteSpace(body.NewPassword))
             {
                 // Email mode: send the user a reset link (requires the email adapter).
-                var sender = sp.GetService<IConsoleEmailSender>();
+                var sender = ConsoleEmail.Sender(sp);
                 if (sender is null) return Results.BadRequest(new { error = "Provide a new password (email is not configured)." });
                 var resetToken = await users.GeneratePasswordResetTokenAsync(user);
                 var link = ConsoleLinks.ResetPasswordLink(http, prefix.Value, user.Email!, resetToken);

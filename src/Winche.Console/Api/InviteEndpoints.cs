@@ -37,8 +37,8 @@ public static class InviteEndpoints
             if (!ConsoleRoles.All.Contains(body.Role)) return Results.BadRequest(new { error = "Invalid role." });
             if (body.ExpiresInHours is < 1 or > 720) return Results.BadRequest(new { error = "Expiry must be 1–720 hours." });
 
-            var sender = sp.GetService<IConsoleEmailSender>();
-            if (sender is null) return Results.BadRequest(new { error = "Invites require an email sender." });
+            var sender = ConsoleEmail.Sender(sp);
+            if (sender is null) return Results.BadRequest(new { error = ConsoleEmail.Missing(sp, "Invites") });
 
             var email = body.Email.Trim().ToLowerInvariant();
             if (await users.FindByEmailAsync(email) is not null)
@@ -80,8 +80,8 @@ public static class InviteEndpoints
             var invite = await db.Invites.FindAsync(id);
             if (invite is null) return Results.NotFound();
             if (invite.AcceptedAt is not null) return Results.Conflict(new { error = "Invite already accepted." });
-            var sender = sp.GetService<IConsoleEmailSender>();
-            if (sender is null) return Results.BadRequest(new { error = "Invites require an email sender." });
+            var sender = ConsoleEmail.Sender(sp);
+            if (sender is null) return Results.BadRequest(new { error = ConsoleEmail.Missing(sp, "Invites") });
 
             var now = DateTimeOffset.UtcNow;
             var lifetime = invite.ExpiresAt - invite.CreatedAt;

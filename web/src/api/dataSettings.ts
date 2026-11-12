@@ -1,5 +1,11 @@
 import type { SettingsVersionInfo } from "./appAuth";
 
+export type DataArea = "database" | "database.live" | "storage";
+
+export interface LiveConnectionSettings {
+  maxConnectionsPerUser: number; maxSubscriptionsPerConnection: number; requestsPerSecond: number; requestBurst: number; maxMessageKb: number;
+}
+
 /** A settings area as the console reads it. */
 export interface AreaSettings<T> {
   settings: T;

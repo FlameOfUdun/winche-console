@@ -2,12 +2,46 @@ import { useState } from "react";
 import { Badge, Button, Group, NumberInput, Paper, SegmentedControl, Stack, Switch, Table, Text, TextInput } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { fieldsText, parseFields, sameIndex, type DatabaseSettings, type IndexSettings } from "../../api/dataSettings";
+import { fieldsText, parseFields, sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
 import { when } from "../authentication/UsersView";
 import { AreaSettingsView, num, Section } from "./AreaSettings";
 
 /** Database → Settings: indexes (with the slow queries' suggestions), expiry, history, limits and logging. */
 export function DatabaseSettingsView() {
+  return (
+    <Stack gap="xl">
+      <DatabaseArea />
+      <LiveConnections />
+    </Stack>
+  );
+}
+
+/** Limits on live (WebSocket) connections: new connections get changes. */
+function LiveConnections() {
+  return (
+    <AreaSettingsView<LiveConnectionSettings> area="database.live" optional title="Live connections"
+      about="Limits for apps listening to documents over WebSockets. Connections already open keep their limits until they reconnect.">
+      {(d, set, editable) => (
+        <Section title="Limits">
+          <Group wrap="wrap">
+            <NumberInput label="Connections per user" description="0: no limit" w={200} min={0} max={1000} disabled={!editable} value={d.maxConnectionsPerUser}
+              onChange={(v) => set({ ...d, maxConnectionsPerUser: num(v) })} />
+            <NumberInput label="Listeners per connection" description="0: no limit" w={200} min={0} max={10000} disabled={!editable} value={d.maxSubscriptionsPerConnection}
+              onChange={(v) => set({ ...d, maxSubscriptionsPerConnection: num(v) })} />
+            <NumberInput label="Requests per second" w={200} min={1} disabled={!editable} value={d.requestsPerSecond}
+              onChange={(v) => set({ ...d, requestsPerSecond: num(v) })} />
+            <NumberInput label="Burst" description="Requests allowed at once" w={200} min={1} disabled={!editable} value={d.requestBurst}
+              onChange={(v) => set({ ...d, requestBurst: num(v) })} />
+            <NumberInput label="Largest message (KB)" w={200} min={1} max={16384} disabled={!editable} value={d.maxMessageKb}
+              onChange={(v) => set({ ...d, maxMessageKb: num(v) })} />
+          </Group>
+        </Section>
+      )}
+    </AreaSettingsView>
+  );
+}
+
+function DatabaseArea() {
   return (
     <AreaSettingsView<DatabaseSettings> area="database" title="Database settings"
       about="Indexes, expiry and limits. Indexes are built in the background without blocking writes.">

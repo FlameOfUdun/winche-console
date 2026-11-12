@@ -52,7 +52,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock(useSession).mockReturnValue({ user: { role: "Admin" }, state: { capabilities: { settings: { database: true } } }, refresh: vi.fn() });
   mock(api.rulesSubsystems).mockResolvedValue([]);
-  mock(api.dataSettings).mockImplementation((a: string) => Promise.resolve(area(a === "database" ? db : storage)));
+  mock(api.dataSettings).mockImplementation((a: string) =>
+    a === "database.live" ? Promise.reject(Object.assign(new Error("Not Found"), { status: 404 })) : Promise.resolve(area(a === "database" ? db : storage)));
   mock(api.dataSettingsHistory).mockResolvedValue({ versions: [], editable: true });
   mock(api.indexSuggestions).mockResolvedValue({ suggestions: [] });
   mock(api.saveDataSettings).mockResolvedValue({ number: 1 });
@@ -166,4 +167,18 @@ test("moving files: after the switch, finish is held until a pass completes with
   await userEvent.type(screen.getByLabelText("Reason for this step"), "Done");
   expect(screen.getByRole("button", { name: "Finish" })).toBeDisabled();
   expect(screen.queryByRole("button", { name: "Cancel the move" })).toBeNull();
+});
+
+test("live-connection limits show when the app has them", async () => {
+  const live = { maxConnectionsPerUser: 10, maxSubscriptionsPerConnection: 100, requestsPerSecond: 50, requestBurst: 100, maxMessageKb: 1024 };
+  mock(api.dataSettings).mockImplementation((a: string) => Promise.resolve(area(a === "database.live" ? live : db)));
+  renderIt(<DatabaseSettingsView />);
+  const perUser = await screen.findByLabelText(/Connections per user/);
+  await userEvent.clear(perUser);
+  await userEvent.type(perUser, "3");
+  const bars = screen.getAllByLabelText("Reason for the change");
+  await userEvent.type(bars[bars.length - 1], "Fewer tabs per user");
+  const saves = screen.getAllByRole("button", { name: "Save changes" });
+  await userEvent.click(saves[saves.length - 1]);
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database.live", { ...live, maxConnectionsPerUser: 3 }, "Fewer tabs per user"));
 });

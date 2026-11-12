@@ -3,7 +3,7 @@ import { Alert, Badge, Button, Group, Loader, Paper, Stack, Table, Text, TextInp
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
-import type { AreaSettings } from "../../api/dataSettings";
+import type { AreaSettings, DataArea } from "../../api/dataSettings";
 import { when } from "../authentication/UsersView";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -15,8 +15,10 @@ export const num = (v: string | number) => (v === "" ? ("" as unknown as number)
  * Database / Storage → Settings: loads an area, keeps a draft, and saves it with a reason. The body edits the draft;
  * changes apply to every server within seconds and are kept in the history below.
  */
-export function AreaSettingsView<T>({ area, title, about, children }: {
-  area: "database" | "storage";
+export function AreaSettingsView<T>({ area, title, about, children, optional = false }: {
+  /** Hide (rather than show an error) when the app doesn't have this area. */
+  optional?: boolean;
+  area: DataArea;
   title: string;
   about: string;
   children: (draft: T, set: (next: T) => void, editable: boolean) => ReactNode;
@@ -35,6 +37,7 @@ export function AreaSettingsView<T>({ area, title, about, children }: {
   const dirty = useMemo(() => !!saved.data && !!draft && JSON.stringify(saved.data.settings) !== JSON.stringify(draft), [saved.data, draft]);
 
   if (saved.isLoading || (saved.data && !draft)) return <Loader size="sm" />;
+  if (optional && saved.isError && (saved.error as { status?: number })?.status === 404) return null;   // this app doesn't have the area
   if (saved.isError || !saved.data || !draft) return <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>;
   const d: AreaSettings<T> = saved.data;
 
@@ -90,7 +93,7 @@ export function AreaSettingsView<T>({ area, title, about, children }: {
   );
 }
 
-function AreaHistory({ area, editable }: { area: "database" | "storage"; editable: boolean }) {
+function AreaHistory({ area, editable }: { area: DataArea; editable: boolean }) {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["data-settings-history", area], queryFn: () => api.dataSettingsHistory(area) });
   const [restoring, setRestoring] = useState<{ id: number; number: number } | null>(null);

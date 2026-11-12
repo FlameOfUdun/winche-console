@@ -72,6 +72,15 @@ public sealed class ConsoleOptions
     }
 
     /// <summary>Register an already-constructed singleton <see cref="IConsoleEmailSender"/> instance.</summary>
+    /// <summary>
+    /// Sends console emails (invites, password resets) through Winche Auth's SMTP server, set up in the console under
+    /// Authentication → Settings → Email. Until it's set up, invites and resets say so. Needs AddWincheAuth.
+    /// </summary>
+    public ConsoleOptions UseWincheAuthEmail() =>
+        UseEmailSender(sp => new Email.WincheAuthConsoleEmail(
+            (Winche.Auth.WincheAuthOptions)(sp.GetService(typeof(Winche.Auth.WincheAuthOptions))
+                ?? throw new InvalidOperationException("UseWincheAuthEmail() needs AddWincheAuth(…).")), sp));
+
     public ConsoleOptions UseEmailSender(IConsoleEmailSender instance)
     {
         ArgumentNullException.ThrowIfNull(instance);

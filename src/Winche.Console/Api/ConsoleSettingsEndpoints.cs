@@ -20,10 +20,11 @@ namespace Winche.Console.Api;
 public static class ConsoleSettingsEndpoints
 {
     /// <summary>The areas these screens may change (auth's have their own endpoints).</summary>
-    public static readonly IReadOnlyDictionary<string, Type> Areas = new Dictionary<string, Type>
+    public static readonly IReadOnlySet<string> Areas = new HashSet<string>
     {
-        [Winche.Database.Settings.DatabaseSettings.Area] = typeof(Winche.Database.Settings.DatabaseSettings),
-        [Winche.Storage.Settings.StorageSettings.Area] = typeof(Winche.Storage.Settings.StorageSettings),
+        Winche.Database.Settings.DatabaseSettings.Area,
+        "database.live",   // Winche.Database.AspNetCore.WebSockets: live-connection limits
+        Winche.Storage.Settings.StorageSettings.Area,
     };
 
     public sealed record SaveRequest(JsonElement? Settings, string? Reason);
@@ -31,12 +32,12 @@ public static class ConsoleSettingsEndpoints
     /// <summary>Which subsystems have settings the console can change, for an admin.</summary>
     internal static object Capabilities(IServiceProvider sp, ConsoleRole? role) => new
     {
-        database = role == ConsoleRole.Admin && Area(sp, Winche.Database.Settings.DatabaseSettings.Area) is not null,
+        database = role == ConsoleRole.Admin && (Area(sp, Winche.Database.Settings.DatabaseSettings.Area) ?? Area(sp, "database.live")) is not null,
         storage = role == ConsoleRole.Admin && Area(sp, Winche.Storage.Settings.StorageSettings.Area) is not null,
     };
 
     private static SettingsArea? Area(IServiceProvider sp, string name) =>
-        Areas.ContainsKey(name) ? sp.GetServices<SettingsArea>().FirstOrDefault(a => a.Name == name) : null;
+        Areas.Contains(name) ? sp.GetServices<SettingsArea>().FirstOrDefault(a => a.Name == name) : null;
 
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
 

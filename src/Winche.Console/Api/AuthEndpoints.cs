@@ -37,7 +37,7 @@ public static class AuthEndpoints
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>
-        sp.GetService<IConsoleEmailSender>() is not null && options.AllowSelfServicePasswordReset;
+        ConsoleEmail.Sender(sp) is not null && options.AllowSelfServicePasswordReset;
 
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
@@ -113,7 +113,7 @@ public static class AuthEndpoints
         auth.MapPost("/forgot-password", async (ForgotPasswordRequest body, UserManager<ConsoleUser> users,
             IServiceProvider sp, ConsoleOptions options, ConsolePrefix prefix, HttpContext http) =>
         {
-            var sender = sp.GetService<IConsoleEmailSender>();
+            var sender = ConsoleEmail.Sender(sp);
             if (sender is null || !options.AllowSelfServicePasswordReset) return Results.NotFound();
 
             var user = string.IsNullOrWhiteSpace(body.Email) ? null : await users.FindByEmailAsync(body.Email);
@@ -130,7 +130,7 @@ public static class AuthEndpoints
         // configured (invites also flow through this endpoint).
         auth.MapPost("/reset-password", async (ResetPasswordBody body, UserManager<ConsoleUser> users, IServiceProvider sp) =>
         {
-            if (sp.GetService<IConsoleEmailSender>() is null) return Results.NotFound();
+            if (sp.GetService<IConsoleEmailSender>() is null) return Results.NotFound();   // registered (an invite link may outlive SMTP changes)
             var user = string.IsNullOrWhiteSpace(body.Email) ? null : await users.FindByEmailAsync(body.Email);
             if (user is null) return Results.BadRequest(new { error = "Invalid or expired token." });
             var result = await users.ResetPasswordAsync(user, body.Token ?? "", body.NewPassword ?? "");
