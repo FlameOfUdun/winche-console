@@ -40,7 +40,7 @@ export function UsersView() {
       <Group gap="sm" align="flex-end" wrap="wrap">
         <TextInput label="Search users" placeholder="Email, name or uid" w={320} value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
         <div style={{ flex: 1 }} />
-        <Button onClick={() => setAdding(true)}>Add user</Button>
+        {(config.data?.directory?.capabilities.create ?? true) && <Button onClick={() => setAdding(true)}>Add user</Button>}
       </Group>
 
       {list.isError && <Alert color="red">Couldn't load the users: {errorMessage(list.error)}</Alert>}
@@ -127,6 +127,9 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
   if (detail.isLoading) return <Paper withBorder p="md" style={{ flex: "1 1 340px" }}><Loader size="sm" /></Paper>;
   if (!detail.data) return null;
   const { user: u, sessions, mfa } = detail.data;
+  const caps = config.data?.directory?.capabilities;
+  const keycloak = config.data?.directory?.kind === "keycloak";
+  const can = (c: keyof NonNullable<typeof caps>) => !caps || !!caps[c];
   const status = statusOf(u);
   const name = u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid);
 
@@ -172,7 +175,7 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
               <Group key={p} justify="space-between" wrap="nowrap" data-testid="app-user-provider"
                 style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
                 <Text size="sm">{providerLabel(p, config.data)}</Text>
-                {linked && u.providers.length > 1 && (
+                {linked && can("unlinkProviders") && u.providers.length > 1 && (
                   <Button size="xs" variant="subtle" disabled={busy}
                     onClick={() => window.confirm(`Unlink ${providerLabel(p, config.data)} from this user?`) && run(() => api.unlinkAppUserProvider(uid, p))}>
                     Unlink
@@ -183,12 +186,19 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
           })}
         </Stack>
 
-        {(u.mfaEnabled || config.data?.mfa) && (
+        {u.groups && u.groups.length > 0 && (
+          <Stack gap={6}>
+            <Title order={6}>Groups</Title>
+            <Group gap={4}>{u.groups.map((g) => <Badge key={g} variant="light" tt="none">{g}</Badge>)}</Group>
+          </Stack>
+        )}
+
+        {(u.mfaEnabled || config.data?.mfa || keycloak) && (
           <Stack gap={6}>
             <Title order={6}>Two-step sign-in</Title>
             {u.mfaEnabled ? (
               <Group justify="space-between" wrap="nowrap" gap="xs" data-testid="app-user-mfa">
-                <Text size="sm">On: authenticator app · {mfa?.recoveryCodesLeft ?? 0} recovery code{mfa?.recoveryCodesLeft === 1 ? "" : "s"} left</Text>
+                <Text size="sm">On: authenticator app{mfa?.recoveryCodesLeft != null ? ` · ${mfa.recoveryCodesLeft} recovery code${mfa.recoveryCodesLeft === 1 ? "" : "s"} left` : ""}</Text>
                 <Button size="xs" variant="subtle" color="red" disabled={busy}
                   onClick={() => window.confirm("Turn off two-step sign-in for this user? Do this only if you've confirmed who they are (a lost phone).") &&
                     run(() => api.resetAppUserMfa(uid), "Two-step sign-in is off: they sign in with just their first step until they add an app again.")}>
@@ -196,16 +206,17 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
                 </Button>
               </Group>
             ) : (
-              <Text size="sm" c="dimmed">Off. The user turns it on from the app.</Text>
+              <Text size="sm" c="dimmed">Off. {keycloak ? "Users set it up in Keycloak." : "The user turns it on from the app."}</Text>
             )}
           </Stack>
         )}
 
         <Stack gap={6}>
-          <Group justify="space-between"><Title order={6}>Custom claims</Title><Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
+          <Group justify="space-between"><Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
+            <Text size="xs" c="dimmed">{keycloak ? "reach tokens through Keycloak's mappers" : "rules: request.auth.token.*"}</Text></Group>
           <Textarea autosize minRows={3} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "clinician" }'
             value={claims} onChange={(e) => setClaims(e.currentTarget.value)} />
-          <Text size="xs" c="dimmed">In the user's next token: when they next refresh or sign in.</Text>
+          <Text size="xs" c="dimmed">{keycloak ? "Saved on the user in Keycloak." : "In the user's next token: when they next refresh or sign in."}</Text>
           <Button size="xs" variant="default" w="fit-content" loading={busy} onClick={saveClaims}>Save claims</Button>
         </Stack>
 
@@ -228,10 +239,10 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
         {notice && <Alert color="teal">{notice}</Alert>}
         {u.email && (
           <Group gap="xs">
-            {config.data?.email && config.data.emailPassword && (
+            {can("passwordReset") && (keycloak || (config.data?.email && config.data.emailPassword)) && (
               <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.sendAppUserPasswordReset(uid), `A reset link is on its way to ${u.email}.`)}>Send password reset</Button>
             )}
-            {config.data?.email && !u.emailVerified && (
+            {can("verify") && (keycloak || config.data?.email) && !u.emailVerified && (
               <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.sendAppUserVerification(uid), `A verify link is on its way to ${u.email}.`)}>Send verify email</Button>
             )}
             <Button size="xs" variant="subtle" disabled={busy} onClick={() => run(() => api.setAppUserVerified(uid, !u.emailVerified))}>
@@ -241,7 +252,7 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
         )}
         <Group gap="xs">
           <Button size="xs" variant="default" disabled={busy || sessions.length === 0} onClick={() => run(() => api.signOutAppUser(uid))}>Sign out everywhere</Button>
-          {status === "Locked out" && <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.unlockAppUser(uid))}>Unlock</Button>}
+          {status === "Locked out" && can("unlock") && <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.unlockAppUser(uid))}>Unlock</Button>}
           <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.setAppUserDisabled(uid, !u.disabled))}>
             {u.disabled ? "Enable user" : "Disable user"}
           </Button>

@@ -8,7 +8,10 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Winche.Auth.AspNetCore;
 using Winche.Config;
+using Microsoft.AspNetCore.Identity;
 using Winche.Console.Identity;
+using Winche.Console.Options;
+using Winche.Console.Users;
 
 namespace Winche.Console.Api;
 
@@ -23,6 +26,26 @@ public static class ConsoleAuthSettingsEndpoints
     public sealed record CheckProviderRequest(string? Issuer, string? Authority, bool? RequireHttps);
     public sealed record TestTokenRequest(string? Token, JsonElement? Settings);
     public sealed record ReasonRequest(string? Reason);
+    public sealed record SaveDirectoryRequest(JsonElement? Settings, string? ClientSecret, string? Reason);
+    public sealed record TestDirectoryRequest(JsonElement? Settings, string? ClientSecret);
+
+    /// <summary>Null when the console admin may change sensitive settings; otherwise the refusal.</summary>
+    private static async Task<IResult?> RequireTwoFactorAsync(HttpContext http)
+    {
+        var options = http.RequestServices.GetRequiredService<ConsoleOptions>();
+        if (!options.RequireTwoFactorForSettings || options.Provider != ConsoleAuthProvider.Identity) return null;
+        var users = http.RequestServices.GetService<UserManager<ConsoleUser>>();
+        if (users is not null && await users.GetUserAsync(http.User) is { TwoFactorEnabled: true }) return null;
+        return Results.Json(new
+        {
+            error = new
+            {
+                code = "TWO_FACTOR_REQUIRED",
+                message = "Turn on two-step sign-in for your console account (your account menu) before changing these settings.",
+                errors = Array.Empty<string>(),
+            },
+        }, statusCode: 403);
+    }
 
     private static string? Who(ClaimsPrincipal user) =>
         user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
@@ -36,9 +59,65 @@ public static class ConsoleAuthSettingsEndpoints
     private static IResult Problem(string message, IReadOnlyList<string>? errors = null) =>
         Results.Json(new { error = new { code = "INVALID_SETTINGS", message, errors = errors ?? [] } }, statusCode: 400);
 
-    public static IEndpointRouteBuilder MapConsoleAuthSettingsEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapConsoleAuthSettingsEndpoints(this IEndpointRouteBuilder app, bool tokens = true)
     {
         var group = app.MapGroup("/api/app-auth/settings").RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        // Which directory the Users tab manages, and the Keycloak connection (its secret write-only).
+        group.MapGet("/directory", async (UserDirectories directories, IServiceProvider sp, CancellationToken ct) =>
+        {
+            var store = sp.GetService<SettingsStore>();
+            var area = sp.GetRequiredService<SettingsArea<UserDirectorySettings>>();
+            var secrets = sp.GetService<SecretStore>();
+            var secret = secrets is null ? null : await secrets.InfoAsync(UserDirectories.SecretName, ct);
+            return Results.Json(new
+            {
+                settings = area.Current,
+                source = area.Source == SettingsSource.Saved ? "console" : "code",
+                version = area.Version is { } v ? Version(v, store) : null,
+                editable = store is not null,
+                whyReadOnly = store is null ? "The app needs AddWincheConfig(…) to save settings." : null,
+                effectiveKind = directories.EffectiveKind,
+                wincheAuthInstalled = directories.WincheAuthInstalled,
+                secret = secret is null ? null : new { setAt = secret.SetAt, setBy = secret.SetBy },
+                secretsAvailable = secrets?.Available ?? false,
+            }, SettingsArea.Json);
+        });
+
+        group.MapPut("/directory", async (SaveDirectoryRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
+        {
+            if (await RequireTwoFactorAsync(http) is { } refused) return refused;
+            if (sp.GetService<SettingsStore>() is not { } store) return Problem("The app needs AddWincheConfig(…) to save settings.");
+            if (body.Settings is not { ValueKind: JsonValueKind.Object } doc) return Problem("Send the settings to save.");
+            if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're making this change: it goes in the history.");
+            UserDirectorySettings settings;
+            try { settings = doc.Deserialize<UserDirectorySettings>(SettingsArea.Json)!; }
+            catch (JsonException ex) { return Problem($"The settings don't have the expected shape: {ex.Message}"); }
+            if (settings.Problems() is { Count: > 0 } problems) return Problem("These settings can't be saved.", problems);
+            if (!string.IsNullOrEmpty(body.ClientSecret))
+            {
+                var secrets = sp.GetRequiredService<SecretStore>();
+                if (!secrets.Available) return Problem("Secrets need the project's master key: set WincheConfigOptions.MasterKey.");
+                await secrets.SetAsync(UserDirectories.SecretName, body.ClientSecret, Who(http.User), ct);
+            }
+            try { return Results.Json(Version(await store.SaveAsync(UserDirectories.Area, JsonNode.Parse(doc.GetRawText())!, Who(http.User), body.Reason, ct), store)); }
+            catch (SettingsValidationException ex) { return Problem("These settings can't be saved.", ex.Errors); }
+        });
+
+        // Sign in as the service account and see what it may do — with the draft settings and secret, before saving.
+        group.MapPost("/directory/test", async (TestDirectoryRequest body, UserDirectories directories, CancellationToken ct) =>
+        {
+            KeycloakDirectorySettings? keycloak;
+            try { keycloak = body.Settings is { ValueKind: JsonValueKind.Object } s ? s.Deserialize<UserDirectorySettings>(SettingsArea.Json)?.Keycloak : null; }
+            catch (JsonException ex) { return Problem($"The settings don't have the expected shape: {ex.Message}"); }
+            if (keycloak is null) return Problem("Fill in the Keycloak connection.");
+            if (new UserDirectorySettings { Kind = "keycloak", Keycloak = keycloak }.Problems() is { Count: > 0 } problems) return Problem("Fix these first.", problems);
+            var draft = await directories.DraftAsync(keycloak, string.IsNullOrEmpty(body.ClientSecret) ? null : body.ClientSecret, ct);
+            var r = await draft.TestAsync(ct);
+            return Results.Json(new { connected = r.Connected, error = r.Error, users = r.Users, permissions = r.Permissions.Select(p => new { role = p.Role, granted = p.Granted, @for = p.For }) });
+        });
+
+        if (!tokens) return MapHistory(group);
 
         // The providers in force, where they come from, and whether the console may change them.
         group.MapGet("/providers", (WincheTokenProviders providers, IServiceProvider sp) =>
@@ -59,6 +138,7 @@ public static class ConsoleAuthSettingsEndpoints
 
         group.MapPut("/providers", async (SaveProvidersRequest body, HttpContext http, WincheTokenProviders providers, IServiceProvider sp, CancellationToken ct) =>
         {
+            if (await RequireTwoFactorAsync(http) is { } refused) return refused;
             var store = sp.GetService<SettingsStore>();
             if (providers.Area is null || store is null) return Problem("These settings are set in the app's code and can't be changed here.");
             if (body.Settings is not { ValueKind: JsonValueKind.Object } doc) return Problem("Send the settings to save.");
@@ -99,14 +179,20 @@ public static class ConsoleAuthSettingsEndpoints
             });
         });
 
+        return MapHistory(group);
+    }
+
+    private static IEndpointRouteBuilder MapHistory(RouteGroupBuilder group)
+    {
         // Every saved change to the settings the console manages.
         group.MapGet("/history", async ([FromQuery] string? area, IServiceProvider sp, CancellationToken ct) =>
         {
-            if (sp.GetService<SettingsStore>() is not { } store) return Results.Json(new { versions = Array.Empty<object>() });
+            if (sp.GetService<SettingsStore>() is not { } store) return Results.Json(new { versions = Array.Empty<object>(), editable = false });
             var versions = await store.HistoryAsync(area, 200, ct);
             var current = store.Areas.Where(a => a.Version is not null).Select(a => a.Version!.Id).ToHashSet();
             return Results.Json(new
             {
+                editable = true,
                 versions = versions.Select(v => new
                 {
                     id = v.Id, area = v.Area, areaTitle = store.Area(v.Area)?.Title ?? v.Area, number = v.Number, at = v.At, by = v.By,
@@ -117,6 +203,7 @@ public static class ConsoleAuthSettingsEndpoints
 
         group.MapPost("/history/{id:long}/restore", async (long id, ReasonRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
         {
+            if (await RequireTwoFactorAsync(http) is { } refused) return refused;
             if (sp.GetService<SettingsStore>() is not { } store) return Problem("Settings aren't saved in this app.");
             if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're restoring it: it goes in the history.");
             try { return Results.Json(Version(await store.RestoreAsync(id, Who(http.User), body.Reason, ct), store)); }
@@ -126,12 +213,13 @@ public static class ConsoleAuthSettingsEndpoints
 
         group.MapPost("/{area}/reset", async (string area, ReasonRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
         {
+            if (await RequireTwoFactorAsync(http) is { } refused) return refused;
             if (sp.GetService<SettingsStore>() is not { } store) return Problem("Settings aren't saved in this app.");
             if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're resetting: it goes in the history.");
             try { return Results.Json(Version(await store.ResetAsync(area, Who(http.User), body.Reason, ct), store)); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
         });
 
-        return app;
+        return group;
     }
 }

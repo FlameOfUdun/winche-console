@@ -1,6 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
+import type { DirectoryResponse, DirectoryTestResult, UserDirectorySettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
 import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
@@ -138,9 +139,14 @@ export const api = {
     http<ProviderCheckResult>("POST", "api/app-auth/settings/providers/check", { issuer, authority, requireHttps }),
   testAuthToken: (token: string, settings?: ProvidersSettings) => http<TokenTestResult>("POST", "api/app-auth/settings/providers/test", { token, settings }),
   settingsHistory: (area?: string) =>
-    http<{ versions: SettingsVersionInfo[] }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
+    http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
   restoreSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/history/${id}/restore`, { reason }),
   resetSettings: (area: string, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/${encodeURIComponent(area)}/reset`, { reason }),
+  userDirectory: () => http<DirectoryResponse>("GET", "api/app-auth/settings/directory"),
+  saveUserDirectory: (settings: UserDirectorySettings, clientSecret: string | null, reason: string) =>
+    http<SettingsVersionInfo>("PUT", "api/app-auth/settings/directory", { settings, clientSecret, reason }),
+  testUserDirectory: (settings: UserDirectorySettings, clientSecret: string | null) =>
+    http<DirectoryTestResult>("POST", "api/app-auth/settings/directory/test", { settings, clientSecret }),
   appAuthConfig: () => http<AppAuthConfig>("GET", "api/app-auth/config"),
   rotateAppAuthKeys: () => http<void>("POST", "api/app-auth/keys/rotate"),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),

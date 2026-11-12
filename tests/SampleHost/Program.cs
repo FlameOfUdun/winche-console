@@ -59,12 +59,19 @@ else
     });
     builder.Services.AddSingleton<RecordingEmailSender>();
     builder.Services.AddSingleton<Winche.Auth.Email.IAuthEmailSender>(sp => sp.GetRequiredService<RecordingEmailSender>());
-    builder.Services.AddWincheConfig(c => c.ConnectionString = wincheConn);   // settings the console can change
+    builder.Services.AddWincheConfig(c =>   // settings the console can change, and its encrypted secrets
+    {
+        c.ConnectionString = wincheConn;
+        c.MasterKey = "sample-host-master-key-for-tests-only-0123456789";
+        c.PollInterval = TimeSpan.FromMilliseconds(500);
+    });
     builder.Services.AddAuthentication().AddWincheTokens(t => (externalOnly ? t : t.TrustWincheAuth()).UseSettings());
     builder.Services.AddWincheConsole(o =>
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup
         o.AddAuthenticationTab();
+        // Tests turn this on to check it; the rest change settings without enrolling an authenticator.
+        o.RequireTwoFactorForSettings = string.Equals(builder.Configuration["Sample:RequireTwoFactor"], "true", StringComparison.OrdinalIgnoreCase);
 
         o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); b.UseHistory(); });   // Database tab + Rules, Logs, History
         o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });     // Storage tab + its Rules and Logs sub-tabs

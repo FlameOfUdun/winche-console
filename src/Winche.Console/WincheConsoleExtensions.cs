@@ -42,6 +42,14 @@ public static class WincheConsoleExtensions
             services.TryAddScoped(providerType);
 
         services.TryAddSingleton(TimeProvider.System);
+        if (options.AuthenticationTab)
+        {
+            // Which directory the Users tab manages (Winche Auth, Keycloak): a setting the console can change.
+            Winche.Config.ServiceCollectionExtensions.AddWincheSettingsArea(services, Users.UserDirectories.Area, "User directory",
+                new Users.UserDirectorySettings(), s => s.Problems());
+            services.AddSingleton<Users.UserDirectories>();
+            services.AddHostedService<Users.KeycloakSignInEvents>();
+        }
         if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
         {
             // The versioned rules store reuses the console's connection string (a dedicated table, never
@@ -190,11 +198,8 @@ public static class WincheConsoleExtensions
         {
             var wincheAuth = isService?.IsService(typeof(Winche.Auth.IWincheAuth)) == true;
             var tokens = isService?.IsService(typeof(Winche.Auth.AspNetCore.WincheTokenProviders)) == true;
-            if (!wincheAuth && !tokens)
-                throw new InvalidOperationException(
-                    "AddAuthenticationTab() requires AddWincheAuth() (Winche.Auth users) or AddAuthentication().AddWincheTokens(…) (trusted providers).");
             group.MapConsoleAppAuthEndpoints(wincheAuth);
-            if (tokens) group.MapConsoleAuthSettingsEndpoints();
+            group.MapConsoleAuthSettingsEndpoints(tokens);
         }
 
         var tabRegistry = endpoints.ServiceProvider.GetRequiredService<TabRegistry>();

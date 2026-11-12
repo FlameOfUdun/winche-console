@@ -9,10 +9,10 @@ import {
   type TrustedProvider,
 } from "../../api/appAuth";
 import { AuthSettingsView } from "./AuthSettingsView";
+import { DirectorySection } from "./DirectorySection";
 import { when } from "./UsersView";
 
-type Section = "providers" | "mapping" | "history" | "keys";
-const AREA = "auth.identityProviders";
+type Section = "providers" | "mapping" | "directory" | "history" | "keys";
 const kindLabel = (k: string) => PROVIDER_KINDS.find((x) => x.value === k)?.label ?? k;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -20,10 +20,10 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
  * Authentication → Settings: trusted identity providers and how their tokens map to request.auth (one draft, saved
  * together with a reason), the change history, and Winche Auth's token settings when it's installed.
  */
-export function SettingsPanel({ wincheAuth }: { wincheAuth: boolean }) {
+export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheAuth: boolean; trustedProviders?: boolean }) {
   const qc = useQueryClient();
-  const saved = useQuery({ queryKey: ["auth-providers"], queryFn: api.authProviders });
-  const [section, setSection] = useState<Section>("providers");
+  const saved = useQuery({ queryKey: ["auth-providers"], queryFn: api.authProviders, enabled: trustedProviders });
+  const [section, setSection] = useState<Section>(trustedProviders ? "providers" : "directory");
   const [draft, setDraft] = useState<ProvidersSettings | null>(null);
   const [mappingFor, setMappingFor] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -57,14 +57,16 @@ export function SettingsPanel({ wincheAuth }: { wincheAuth: boolean }) {
   };
 
   const sections: { id: Section; label: string; hint: string }[] = [
-    { id: "providers", label: "Identity providers", hint: draft ? `${draft.providers.length} provider${draft.providers.length === 1 ? "" : "s"}` : "" },
-    { id: "mapping", label: "Token mapping", hint: "what the rules see" },
+    ...(trustedProviders ? [
+      { id: "providers" as Section, label: "Identity providers", hint: draft ? `${draft.providers.length} provider${draft.providers.length === 1 ? "" : "s"}` : "" },
+      { id: "mapping" as Section, label: "Token mapping", hint: "what the rules see" },
+    ] : []),
+    { id: "directory", label: "User directory", hint: "whose users the Users tab shows" },
     { id: "history", label: "Change history", hint: "who changed what" },
     ...(wincheAuth ? [{ id: "keys" as Section, label: "Tokens and keys", hint: "Winche Auth" }] : []),
   ];
 
-  if (saved.isLoading || !draft) return <Loader size="sm" />;
-  if (saved.isError || !saved.data) return <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>;
+  const needsProviders = section === "providers" || section === "mapping";
 
   return (
     <Group align="flex-start" gap="lg" wrap="wrap">
@@ -80,23 +82,26 @@ export function SettingsPanel({ wincheAuth }: { wincheAuth: boolean }) {
       </Stack>
 
       <Stack gap="md" style={{ flex: "999 1 600px", minWidth: 0 }}>
-        {section !== "history" && section !== "keys" && (
+        {needsProviders && saved.isLoading && <Loader size="sm" />}
+        {needsProviders && saved.isError && <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>}
+        {needsProviders && saved.data && draft && (
           <Text size="xs" c="dimmed" data-testid="settings-source">
             {saved.data.source === "console" && saved.data.version
               ? `Saved in the console: version ${saved.data.version.number}, ${when(saved.data.version.at)}${saved.data.version.by ? ` by ${saved.data.version.by}` : ""}${saved.data.version.reason ? ` — ${saved.data.version.reason}` : ""}.`
               : "These are the starting values from the app's code."}
           </Text>
         )}
-        {!editable && section !== "keys" && <Alert color="gray">Read-only. {saved.data.whyReadOnly}</Alert>}
+        {needsProviders && saved.data && !editable && <Alert color="gray">Read-only. {saved.data.whyReadOnly}</Alert>}
 
-        {section === "providers" && (
+        {section === "providers" && draft && (
           <ProvidersSection draft={draft} setDraft={setDraft} editable={editable}
             onMapping={(name) => { setMappingFor(name); setSection("mapping"); }} />
         )}
-        {section === "mapping" && (
+        {section === "mapping" && draft && (
           <MappingSection draft={draft} setDraft={setDraft} editable={editable} selected={mappingFor} onSelect={setMappingFor} />
         )}
-        {section === "history" && <HistorySection editable={editable} />}
+        {section === "directory" && <DirectorySection wincheAuth={wincheAuth} />}
+        {section === "history" && <HistorySection />}
         {section === "keys" && <AuthSettingsView />}
 
         {(section === "providers" || section === "mapping") && editable && (dirty || error || notice) && (
@@ -407,10 +412,11 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
 
 // ── Change history ────────────────────────────────────────────────────────────
 
-function HistorySection({ editable }: { editable: boolean }) {
+function HistorySection() {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["settings-history"], queryFn: () => api.settingsHistory() });
-  const [acting, setActing] = useState<{ kind: "restore"; id: number; number: number } | { kind: "reset" } | null>(null);
+  const [acting, setActing] = useState<{ kind: "restore"; id: number; number: number } | { kind: "reset"; area: string; title: string } | null>(null);
+  const editable = !!history.data?.editable;
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -421,10 +427,10 @@ function HistorySection({ editable }: { editable: boolean }) {
     setError(null);
     try {
       if (acting.kind === "restore") await api.restoreSettings(acting.id, reason.trim());
-      else await api.resetSettings(AREA, reason.trim());
+      else await api.resetSettings(acting.area, reason.trim());
       setActing(null);
       setReason("");
-      for (const key of ["settings-history", "auth-providers", "app-auth-config"]) await qc.invalidateQueries({ queryKey: [key] });
+      for (const key of ["settings-history", "auth-providers", "app-auth-config", "user-directory", "app-users"]) await qc.invalidateQueries({ queryKey: [key] });
     } catch (e) {
       setError(errorWithList(e));
     } finally {
@@ -462,7 +468,13 @@ function HistorySection({ editable }: { editable: boolean }) {
                   <Table.Td><Text size="xs">{v.reason ?? "—"}</Text></Table.Td>
                   <Table.Td ta="right">
                     {v.current ? (
-                      <Badge color="teal" variant="light" tt="none">In use</Badge>
+                      <Group gap={6} justify="flex-end" wrap="nowrap">
+                        <Badge color="teal" variant="light" tt="none">In use</Badge>
+                        {editable && !v.reset && (
+                          <Button size="xs" variant="subtle" color="red" aria-label={`Reset ${v.areaTitle}`}
+                            onClick={() => { setActing({ kind: "reset", area: v.area, title: v.areaTitle }); setError(null); }}>Reset</Button>
+                        )}
+                      </Group>
                     ) : editable && !v.reset ? (
                       <Button size="xs" variant="default" onClick={() => { setActing({ kind: "restore", id: v.id, number: v.number }); setError(null); }}>Restore</Button>
                     ) : null}
@@ -473,16 +485,11 @@ function HistorySection({ editable }: { editable: boolean }) {
           </Table>
         </Paper>
       )}
-      {editable && (
-        <Group gap="xs">
-          <Button size="xs" variant="subtle" color="red" onClick={() => { setActing({ kind: "reset" }); setError(null); }}>Reset to the app's code values</Button>
-        </Group>
-      )}
       {acting && (
         <Paper withBorder p="sm" style={{ borderColor: "var(--mantine-color-blue-5)" }}>
           <Stack gap="xs">
             <Text size="sm">
-              {acting.kind === "restore" ? `Restore version ${acting.number} as a new change?` : "Go back to the values in the app's code? Every console change stays in the history."}
+              {acting.kind === "restore" ? `Restore version ${acting.number} as a new change?` : `Put ${acting.title} back to the values in the app's code? Every console change stays in the history.`}
             </Text>
             <Group gap="xs" wrap="wrap">
               <TextInput placeholder="Why?" aria-label="Reason" style={{ flex: "1 1 260px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />

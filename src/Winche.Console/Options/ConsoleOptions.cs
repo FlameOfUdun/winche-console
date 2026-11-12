@@ -33,6 +33,13 @@ public sealed class ConsoleOptions
     public bool AllowSelfServicePasswordReset { get; set; } = true;
 
     /// <summary>
+    /// Console admins must have two-step sign-in on to change sensitive settings — trusted providers, token mapping,
+    /// the user directory and its secret (default true). Applies with the console's own sign-in; with Keycloak sign-in,
+    /// require it in Keycloak.
+    /// </summary>
+    public bool RequireTwoFactorForSettings { get; set; } = true;
+
+    /// <summary>
     /// Buffered email-sender registration; applied against the host's service collection by
     /// AddWincheConsole. Null when the consumer never calls UseEmailSender (email features stay off).
     /// </summary>

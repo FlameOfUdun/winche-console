@@ -19,6 +19,7 @@ vi.mock("../../../api/client", async (orig) => {
       signOutAppUser: vi.fn(), authProviders: vi.fn(), saveAuthProviders: vi.fn(), checkAuthProvider: vi.fn(), testAuthToken: vi.fn(),
       settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
+      userDirectory: vi.fn(), saveUserDirectory: vi.fn(), testUserDirectory: vi.fn(),
     },
   };
 });
@@ -33,7 +34,10 @@ const user = (over: Partial<AppUser> = {}): AppUser => ({
   isAnonymous: false, disabled: false, providers: ["password"], customClaims: { role: "clinician" }, createdAt: "2026-11-03T10:00:00Z",
   lastSignInAt: "2026-11-12T15:41:00Z", lockedOutUntil: null, ...over,
 });
+const wincheCaps = { create: true, claims: true, claimsLabel: "Custom claims", sessions: true, unlock: true, resetMfa: true, unlinkProviders: true,
+  passwordReset: true, verify: true, delete: true, disable: true, groups: false };
 const config: AppAuthConfig = {
+  directory: { kind: "wincheAuth", label: "Winche Auth", capabilities: wincheCaps }, trustedProviders: true,
   emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
   email: { appName: "SmartAirway", actionUrl: "https://api.example.com/auth/v1/action", sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, logLinksOnly: false, sender: "SesEmailSender" },
   emailLink: null,
@@ -63,7 +67,7 @@ beforeEach(() => {
   mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "SmartAirway/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
   mock(api.appAuthConfig).mockResolvedValue(config);
   mock(api.authProviders).mockResolvedValue(providersResponse());
-  mock(api.settingsHistory).mockResolvedValue({ versions: [] });
+  mock(api.settingsHistory).mockResolvedValue({ editable: true, versions: [] });
 });
 
 const keycloak = {
@@ -177,7 +181,7 @@ test("email templates: edit with a live preview, save, test and reset", async ()
 });
 
 test("Keycloak-only apps: settings first; providers, mapping with the token test, saved with a reason", async () => {
-  mock(api.appAuthConfig).mockResolvedValue({ ...config, wincheAuth: false, tokens: null, protection: null, hooks: null, emailPassword: null, email: null, mfa: null, anonymous: false, identityProviders: [] });
+  mock(api.appAuthConfig).mockResolvedValue({ ...config, wincheAuth: false, directory: null, tokens: null, protection: null, hooks: null, emailPassword: null, email: null, mfa: null, anonymous: false, identityProviders: [] });
   mock(api.checkAuthProvider).mockResolvedValue({ found: true, issuer: "https://auth-staging.trucorp.com/realms/smartairway", keys: 2, algorithms: ["RS256"], error: null });
   mock(api.testAuthToken).mockResolvedValue({
     wouldSignIn: true, provider: "keycloak",
@@ -229,7 +233,7 @@ test("Keycloak-only apps: settings first; providers, mapping with the token test
 });
 
 test("change history: restore and reset ask why", async () => {
-  mock(api.settingsHistory).mockResolvedValue({ versions: [
+  mock(api.settingsHistory).mockResolvedValue({ editable: true, versions: [
     { id: 9, area: "auth.identityProviders", areaTitle: "Identity providers", number: 2, at: "2026-11-12T16:05:00Z", by: "admin@trucorp.com", reason: "Clinic rules", restoredFrom: null, reset: false, current: true },
     { id: 8, area: "auth.identityProviders", areaTitle: "Identity providers", number: 1, at: "2026-11-02T17:15:00Z", by: "dev@trucorp.com", reason: "Trust Keycloak", restoredFrom: null, reset: false, current: false },
   ] });
@@ -244,6 +248,76 @@ test("change history: restore and reset ask why", async () => {
   await userEvent.type(screen.getByLabelText("Reason"), "That one was right");
   await userEvent.click(screen.getAllByText("Restore").at(-1)!);
   await waitFor(() => expect(mock(api.restoreSettings)).toHaveBeenCalledWith(8, "That one was right"));
+
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Reset Identity providers" }));
+  expect(screen.getByText(/Put Identity providers back to the values in the app's code/)).toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Reason"), "Start over");
+  await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+  await waitFor(() => expect(mock(api.resetSettings)).toHaveBeenCalledWith("auth.identityProviders", "Start over"));
+});
+
+const directoryResponse = (over: object = {}) => ({
+  settings: { kind: "auto", keycloak: null }, source: "code", version: null, editable: true, whyReadOnly: null, effectiveKind: "wincheAuth",
+  wincheAuthInstalled: true, secret: null, secretsAvailable: true, ...over,
+});
+
+test("user directory: connect Keycloak, test the service account, save with the secret", async () => {
+  mock(api.userDirectory).mockResolvedValue(directoryResponse());
+  mock(api.testUserDirectory).mockResolvedValue({ connected: true, error: null, users: 992, permissions: [
+    { role: "view-users", granted: true, for: "list and open users" },
+    { role: "view-events", granted: false, for: "show sign-ins and failures in Logs" },
+  ] });
+  mock(api.saveUserDirectory).mockResolvedValue({ number: 1 });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /User directory/ }));
+  await userEvent.click(await screen.findByText("Keycloak"));
+  expect(screen.getByRole("button", { name: "Test connection" })).toBeDisabled();
+  await userEvent.type(screen.getByLabelText("Keycloak address"), "https://auth.trucorp.com");
+  await userEvent.type(screen.getByLabelText("Realm"), "smartairway");
+  await userEvent.type(screen.getByLabelText("Client id"), "winche-console");
+  await userEvent.type(screen.getByLabelText(/Client secret/), "s3cret");
+  await userEvent.click(screen.getByRole("button", { name: "Test connection" }));
+  const result = await screen.findByTestId("directory-test");
+  expect(within(result).getByText(/The realm has 992 users\. Some roles are missing/)).toBeInTheDocument();
+  expect(within(result).getByText("view-events")).toBeInTheDocument();
+  const draft = { kind: "keycloak", keycloak: { serverUrl: "https://auth.trucorp.com", realm: "smartairway", clientId: "winche-console", signInEvents: true } };
+  expect(mock(api.testUserDirectory)).toHaveBeenCalledWith(draft, "s3cret");
+
+  await userEvent.type(within(screen.getByTestId("directory-save-bar")).getByLabelText("Reason for the change"), "Manage SmartAirway users here");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(mock(api.saveUserDirectory)).toHaveBeenCalledWith(draft, "s3cret", "Manage SmartAirway users here"));
+});
+
+test("user directory: a saved secret is never shown, only replaced", async () => {
+  mock(api.userDirectory).mockResolvedValue(directoryResponse({
+    settings: { kind: "keycloak", keycloak: { serverUrl: "https://auth.trucorp.com", realm: "smartairway", clientId: "winche-console", signInEvents: true } },
+    effectiveKind: "keycloak", secret: { setAt: "2026-11-12T16:00:00Z", setBy: "admin@trucorp.com" },
+  }));
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /User directory/ }));
+  const secret = await screen.findByTestId("secret-set");
+  expect(within(secret).getByText(/saved encrypted, never shown/)).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Client secret/)).toBeNull();
+  await userEvent.click(within(secret).getByText("Replace"));
+  expect(screen.getByLabelText(/Client secret/)).toHaveValue("");
+});
+
+test("Keycloak users: groups and attributes; only what Keycloak supports is offered", async () => {
+  mock(api.appAuthConfig).mockResolvedValue({ ...config, wincheAuth: false, directory: { kind: "keycloak", label: "Keycloak",
+    capabilities: { ...wincheCaps, claimsLabel: "Attributes", unlinkProviders: false, groups: true } } });
+  const ana = user({ uid: "u-ana", email: "dr.costa@example.com", displayName: "Ana Costa", providers: ["keycloak"], customClaims: { org: "st-marys" },
+    groups: ["/clinicians"], username: "dr.costa@example.com", mfaEnabled: true });
+  mock(api.appUsers).mockResolvedValue({ users: [ana], total: 1 });
+  mock(api.appUser).mockResolvedValue({ user: ana, sessions: [], mfa: { recoveryCodesLeft: null } });
+  renderPage();
+  await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
+  expect(await screen.findByText("/clinicians")).toBeInTheDocument();
+  expect(screen.getByText("Attributes")).toBeInTheDocument();
+  expect(screen.getByText("On: authenticator app")).toBeInTheDocument();
+  expect(screen.getByText("Send password reset")).toBeInTheDocument();   // Keycloak sends it, whatever Winche Auth's email setup
+  expect(screen.queryByText("Email templates")).toBeNull();
 });
 
 test("read-only when the app's code doesn't let the console change them", async () => {

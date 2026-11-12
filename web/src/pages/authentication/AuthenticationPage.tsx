@@ -14,8 +14,9 @@ export function AuthenticationPage() {
   const { state } = useSession();
   const config = useQuery({ queryKey: ["app-auth-config"], queryFn: api.appAuthConfig });
   const wincheAuth = config.data?.wincheAuth !== false;
+  const hasUsers = !config.data || !!config.data.directory;
   const [chosen, setTab] = useState<string | null>(null);
-  const tab = chosen ?? (wincheAuth ? "users" : "settings");
+  const tab = chosen ?? (hasUsers ? "users" : "settings");
   return (
     <Stack gap="sm">
       <Group justify="space-between" align="flex-end" wrap="wrap">
@@ -31,15 +32,15 @@ export function AuthenticationPage() {
       </Group>
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List mb="sm">
-          {wincheAuth && <Tabs.Tab value="users">Users</Tabs.Tab>}
+          {hasUsers && <Tabs.Tab value="users">Users</Tabs.Tab>}
           <Tabs.Tab value="methods">Sign-in methods</Tabs.Tab>
           {wincheAuth && <Tabs.Tab value="emails">Email templates</Tabs.Tab>}
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
         </Tabs.List>
-        {wincheAuth && <Tabs.Panel value="users"><UsersView /></Tabs.Panel>}
+        {hasUsers && <Tabs.Panel value="users"><UsersView /></Tabs.Panel>}
         <Tabs.Panel value="methods"><MethodsView /></Tabs.Panel>
         {wincheAuth && <Tabs.Panel value="emails"><EmailTemplatesView /></Tabs.Panel>}
-        <Tabs.Panel value="settings"><SettingsPanel wincheAuth={wincheAuth} /></Tabs.Panel>
+        <Tabs.Panel value="settings"><SettingsPanel wincheAuth={wincheAuth} trustedProviders={config.data?.trustedProviders !== false} /></Tabs.Panel>
       </Tabs>
     </Stack>
   );

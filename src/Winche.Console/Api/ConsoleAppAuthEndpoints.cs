@@ -11,6 +11,7 @@ using Winche.Auth.Tokens;
 using Winche.Console.Identity;
 using Winche.Console.Options;
 using Winche.Console.Tabs;
+using Winche.Console.Users;
 
 namespace Winche.Console.Api;
 
@@ -31,11 +32,11 @@ public static class ConsoleAppAuthEndpoints
 
     internal static bool Capability(ConsoleOptions options, ConsoleRole? role) => options.AuthenticationTab && role == ConsoleRole.Admin;
 
-    private static object User(WincheUserInfo u) => new
+    private static object User(DirectoryUser u) => new
     {
         uid = u.Uid, email = u.Email, emailVerified = u.EmailVerified, displayName = u.DisplayName, photoUrl = u.PhotoUrl,
         isAnonymous = u.IsAnonymous, disabled = u.Disabled, mfaEnabled = u.MfaEnabled, providers = u.Providers, customClaims = u.CustomClaims,
-        createdAt = u.CreatedAt, lastSignInAt = u.LastSignInAt, lockedOutUntil = u.LockedOutUntil,
+        createdAt = u.CreatedAt, lastSignInAt = u.LastSignInAt, lockedOutUntil = u.LockedOutUntil, groups = u.Groups, username = u.Username,
     };
 
     private static IResult Error(AuthException ex) => Results.Json(new { error = new { code = ex.Code, message = ex.Message } },
@@ -52,12 +53,23 @@ public static class ConsoleAppAuthEndpoints
         _ => null,
     };
 
+    private static async Task<object?> DirectoryInfoAsync(IServiceProvider sp, CancellationToken ct)
+    {
+        var directories = sp.GetRequiredService<UserDirectories>();
+        if (directories.EffectiveKind == "none") return null;
+        await using var scope = sp.CreateAsyncScope();
+        var dir = await directories.CurrentAsync(scope.ServiceProvider, ct);
+        return dir is null ? null : new { kind = dir.Kind, label = dir.Label, capabilities = dir.Capabilities };
+    }
+
     public static IEndpointRouteBuilder MapConsoleAppAuthEndpoints(this IEndpointRouteBuilder app, bool wincheAuth = true)
     {
         var group = app.MapGroup("/api/app-auth").RequireAuthorization(ConsoleRoles.AdminPolicy).AddEndpointFilter(async (ctx, next) =>
         {
             try { return await next(ctx); }
             catch (AuthException ex) { return Error(ex); }
+            catch (DirectoryNotSupportedException ex) { return Results.Json(new { error = new { code = "NOT_SUPPORTED", message = ex.Message } }, statusCode: 400); }
+            catch (DirectoryException ex) { return Results.Json(new { error = new { code = "DIRECTORY", message = ex.Message } }, statusCode: ex.Status); }
         });
 
         // How users sign in and how tokens are made, as set in code (and, for providers, the console).
@@ -69,6 +81,8 @@ public static class ConsoleAppAuthEndpoints
             return Results.Json(new
             {
                 wincheAuth = o is not null,
+                directory = await DirectoryInfoAsync(sp, ct),
+                trustedProviders = sp.GetService<WincheTokenProviders>() is not null,
                 emailPassword = o?.EmailPasswordSignIn is { } ep ? new { minLength = ep.MinLength, requireVerifiedEmail = ep.RequireVerifiedEmail } : null,
                 email = o?.EmailSending is { } es ? new
                 {
@@ -113,75 +127,89 @@ public static class ConsoleAppAuthEndpoints
             });
         });
 
-        if (!wincheAuth) return app;
-
-        group.MapGet("/users", async ([FromQuery] string? search, [FromQuery] int? offset, [FromQuery] int? limit, IWincheAuth auth, CancellationToken ct) =>
+        // The app's users, from the directory in force (Winche Auth or Keycloak).
+        static async Task<IResult> WithDirectory(HttpContext http, UserDirectories directories, Func<IUserDirectory, Task<IResult>> body)
         {
-            var page = await auth.ListUsersAsync(search, offset ?? 0, Math.Clamp(limit ?? 50, 1, 200), ct);
-            return Results.Json(new { users = page.Users.Select(User), total = page.Total });
-        });
+            var dir = await directories.CurrentAsync(http.RequestServices, http.RequestAborted);
+            return dir is null
+                ? Results.Json(new { error = new { code = "NO_DIRECTORY", message = "No user directory is set: choose one in Settings → User directory." } }, statusCode: 404)
+                : await body(dir);
+        }
 
-        group.MapPost("/users", async (CreateUserRequest body, IWincheAuth auth, CancellationToken ct) =>
+        group.MapGet("/users", ([FromQuery] string? search, [FromQuery] int? offset, [FromQuery] int? limit, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d =>
+            {
+                var (users, total) = await d.ListAsync(search, offset ?? 0, Math.Clamp(limit ?? 50, 1, 200), http.RequestAborted);
+                return Results.Json(new { users = users.Select(User), total });
+            }));
+
+        group.MapPost("/users", (CreateUserRequest body, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
         {
             var email = string.IsNullOrWhiteSpace(body.Email) ? null : body.Email;
             var password = string.IsNullOrEmpty(body.Password) ? null : body.Password;
-            return Results.Json(User(await auth.CreateUserAsync(email, password, body.DisplayName, ct)));
-        });
+            return Results.Json(User(await d.CreateAsync(email, password, body.DisplayName, http.RequestAborted)));
+        }));
 
-        group.MapGet("/users/{uid}", async (string uid, IWincheAuth auth, CancellationToken ct) =>
-            await auth.GetUserAsync(uid, ct) is { } u
+        group.MapGet("/users/{uid}", (string uid, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
+            await d.GetAsync(uid, http.RequestAborted) is { } detail
                 ? Results.Json(new
                 {
-                    user = User(u),
-                    sessions = await auth.ListSessionsAsync(uid, ct),
-                    mfa = u.MfaEnabled ? new { recoveryCodesLeft = (await auth.GetMfaStatusAsync(uid, ct)).RecoveryCodesLeft } : null,
+                    user = User(detail.User),
+                    sessions = detail.Sessions,
+                    mfa = detail.User.MfaEnabled ? new { recoveryCodesLeft = detail.RecoveryCodesLeft } : null,
                 })
-                : Results.NotFound());
+                : Results.NotFound()));
 
-        group.MapPost("/users/{uid}/disabled", async (string uid, DisabledRequest body, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(User(await auth.SetDisabledAsync(uid, body.Disabled, ct))));
+        group.MapPost("/users/{uid}/disabled", (string uid, DisabledRequest body, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(User(await d.SetDisabledAsync(uid, body.Disabled, http.RequestAborted)))));
 
-        group.MapPut("/users/{uid}/claims", async (string uid, ClaimsRequest body, IWincheAuth auth, CancellationToken ct) =>
+        group.MapPut("/users/{uid}/claims", (string uid, ClaimsRequest body, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
         {
             IReadOnlyDictionary<string, object?>? claims = null;
             if (body.Claims is { ValueKind: JsonValueKind.Object } o) claims = (Dictionary<string, object?>)Plain(o)!;
             else if (body.Claims is { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) })
                 return Results.BadRequest(new { error = new { code = AuthErrorCodes.InvalidClaims, message = "Custom claims must be a JSON object." } });
-            return Results.Json(User(await auth.SetCustomClaimsAsync(uid, claims, ct)));
-        });
+            return Results.Json(User(await d.SetClaimsAsync(uid, claims, http.RequestAborted)));
+        }));
 
-        group.MapPost("/users/{uid}/signOut", async (string uid, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(new { sessions = await auth.RevokeSessionsAsync(uid, ct) }));
+        group.MapPost("/users/{uid}/signOut", (string uid, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(new { sessions = await d.SignOutEverywhereAsync(uid, http.RequestAborted) })));
 
-        group.MapDelete("/users/{uid}/sessions/{id:guid}", async (string uid, Guid id, IWincheAuth auth, CancellationToken ct) =>
-            await auth.RevokeSessionAsync(uid, id, ct) ? Results.NoContent() : Results.NotFound());
+        group.MapDelete("/users/{uid}/sessions/{id}", (string uid, string id, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => await d.RevokeSessionAsync(uid, id, http.RequestAborted) ? Results.NoContent() : Results.NotFound()));
 
-        group.MapDelete("/users/{uid}/providers/{provider}", async (string uid, string provider, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(User(await auth.UnlinkProviderAsync(uid, provider, ct))));
+        group.MapDelete("/users/{uid}/providers/{provider}", (string uid, string provider, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(User(await d.UnlinkProviderAsync(uid, provider, http.RequestAborted)))));
 
         // For someone who lost their authenticator app.
-        group.MapDelete("/users/{uid}/mfa", async (string uid, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(User(await auth.ResetMfaAsync(uid, ct))));
+        group.MapDelete("/users/{uid}/mfa", (string uid, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(User(await d.ResetMfaAsync(uid, http.RequestAborted)))));
 
-        group.MapPost("/users/{uid}/unlock", async (string uid, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(User(await auth.UnlockAsync(uid, ct))));
+        group.MapPost("/users/{uid}/unlock", (string uid, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(User(await d.UnlockAsync(uid, http.RequestAborted)))));
 
-        group.MapPost("/users/{uid}/sendPasswordReset", async (string uid, IWincheAuth auth, CancellationToken ct) =>
+        group.MapPost("/users/{uid}/sendPasswordReset", (string uid, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
         {
-            var user = await auth.GetUserAsync(uid, ct);
-            if (user?.Email is not { } email) return Results.BadRequest(new { error = new { code = AuthErrorCodes.InvalidArgument, message = "This user has no email address." } });
-            await auth.SendPasswordResetAsync(email, AuthRequestInfo.Server, ct);
+            await d.SendPasswordResetAsync(uid, http.RequestAborted);
             return Results.NoContent();
-        });
+        }));
 
-        group.MapPost("/users/{uid}/sendVerification", async (string uid, IWincheAuth auth, CancellationToken ct) =>
+        group.MapPost("/users/{uid}/sendVerification", (string uid, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
         {
-            await auth.SendEmailVerificationAsync(uid, ct);
+            await d.SendVerificationAsync(uid, http.RequestAborted);
             return Results.NoContent();
-        });
+        }));
 
-        group.MapPost("/users/{uid}/verified", async (string uid, VerifiedRequest body, IWincheAuth auth, CancellationToken ct) =>
-            Results.Json(User(await auth.SetEmailVerifiedAsync(uid, body.Verified, ct))));
+        group.MapPost("/users/{uid}/verified", (string uid, VerifiedRequest body, HttpContext http, UserDirectories dirs) =>
+            WithDirectory(http, dirs, async d => Results.Json(User(await d.SetEmailVerifiedAsync(uid, body.Verified, http.RequestAborted)))));
+
+        group.MapDelete("/users/{uid}", (string uid, HttpContext http, UserDirectories dirs) => WithDirectory(http, dirs, async d =>
+        {
+            await d.DeleteAsync(uid, http.RequestAborted);
+            return Results.NoContent();
+        }));
+
+        if (!wincheAuth) return app;
 
         // The messages Winche Auth sends: built-in defaults, changeable here.
         group.MapGet("/email-templates", async (IWincheAuth auth, CancellationToken ct) =>
@@ -205,12 +233,6 @@ public static class ConsoleAppAuthEndpoints
                 return Results.BadRequest(new { error = new { code = AuthErrorCodes.InvalidArgument, message = "Your console account has no email to send to." } });
             await auth.SendTestEmailAsync(kind, to, ct);
             return Results.Json(new { sentTo = to });
-        });
-
-        group.MapDelete("/users/{uid}", async (string uid, IWincheAuth auth, CancellationToken ct) =>
-        {
-            await auth.DeleteUserAsync(uid, ct);
-            return Results.NoContent();
         });
 
         group.MapPost("/keys/rotate", async (SigningKeyStore keys, CancellationToken ct) =>

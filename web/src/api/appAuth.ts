@@ -16,6 +16,35 @@ export interface AppUser {
   lastSignInAt: string | null;
   /** Set while locked out after failed sign-ins. */
   lockedOutUntil: string | null;
+  /** Keycloak: the user's groups and username. */
+  groups?: string[] | null;
+  username?: string | null;
+}
+
+export interface DirectoryCapabilities {
+  create: boolean; claims: boolean; claimsLabel: string; sessions: boolean; unlock: boolean; resetMfa: boolean; unlinkProviders: boolean;
+  passwordReset: boolean; verify: boolean; delete: boolean; disable: boolean; groups: boolean;
+}
+
+export interface UserDirectorySettings {
+  kind: "auto" | "wincheAuth" | "keycloak" | "none";
+  keycloak: { serverUrl: string; realm: string; clientId: string; signInEvents: boolean } | null;
+}
+
+export interface DirectoryResponse {
+  settings: UserDirectorySettings;
+  source: "code" | "console";
+  version: SettingsVersionInfo | null;
+  editable: boolean;
+  whyReadOnly: string | null;
+  effectiveKind: "wincheAuth" | "keycloak" | "none";
+  wincheAuthInstalled: boolean;
+  secret: { setAt: string; setBy: string | null } | null;
+  secretsAvailable: boolean;
+}
+
+export interface DirectoryTestResult {
+  connected: boolean; error: string | null; users: number | null; permissions: { role: string; granted: boolean; for: string }[];
 }
 
 export interface AppSession {
@@ -40,6 +69,10 @@ export interface TrustedIssuerInfo {
 export interface AppAuthConfig {
   /** Winche Auth is installed (its users, sign-in methods, email): false when the app only trusts other providers. */
   wincheAuth?: boolean;
+  /** Where the Users tab's users live, and what it can do there; null when there's no directory. */
+  /** The app checks tokens with AddWincheTokens (identity providers and token mapping can be set). */
+  trustedProviders?: boolean;
+  directory?: { kind: "wincheAuth" | "keycloak"; label: string; capabilities: DirectoryCapabilities } | null;
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
   emailLink: { linkUrl: string } | null;
