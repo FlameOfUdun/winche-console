@@ -1,6 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
+import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { ArchiveLocation, AreaSettings, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
@@ -145,6 +146,14 @@ export const api = {
   dataSettingsHistory: (area: "database" | "storage") =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
+  hooks: () => http<HooksPageData>("GET", "api/hooks"),
+  saveHooks: (hooks: Hook[], reason: string) => http<SettingsVersionInfo>("PUT", "api/hooks", { settings: { hooks }, reason }),
+  testHook: (hook: Hook) => http<HookTestResult>("POST", "api/hooks/test", { hook }),
+  hookSecret: (id: string) => http<{ secret: string }>("GET", `api/hooks/${encodeURIComponent(id)}/secret`),
+  rotateHookSecret: (id: string) => http<{ secret: string }>("POST", `api/hooks/${encodeURIComponent(id)}/secret/rotate`),
+  hookDeliveries: (hookId?: string, status?: string) =>
+    http<{ deliveries: HookDelivery[] }>("GET", `api/hooks/deliveries?${new URLSearchParams({ ...(hookId ? { hookId } : {}), ...(status ? { status } : {}) })}`),
+  retryHookDelivery: (id: string) => http<void>("POST", `api/hooks/deliveries/${id}/retry`),
   storageLocation: () => http<StorageLocationState>("GET", "api/settings/storage/location"),
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "api/settings/storage/location/test", { location, secretKey }),

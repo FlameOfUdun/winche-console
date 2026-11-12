@@ -68,6 +68,7 @@ public static class AuthConfigEndpoints
                     history = options.DatabaseTab is { History: true } ht && consoleRole >= ht.MinRole,
                     authentication = ConsoleAppAuthEndpoints.Capability(options, consoleRole),
                     settings = ConsoleSettingsEndpoints.Capabilities(http.RequestServices, consoleRole),
+                    hooks = ConsoleHooksEndpoints.Capability(http.RequestServices, consoleRole),
                 },
                 user = new
                 {

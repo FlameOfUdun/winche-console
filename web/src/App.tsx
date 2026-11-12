@@ -1,3 +1,4 @@
+import { HooksPage } from "./pages/hooks/HooksPage";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
 import { KeycloakCallback } from "./auth/KeycloakCallback";
@@ -48,6 +49,7 @@ function GatedApp() {
           <Route path="storage/settings" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
           <Route path="authentication" element={caps?.authentication ? <AuthenticationPage /> : <Navigate to={home} replace />} />
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
+          <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
           <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
           <Route path=":tabId" element={<TabPage />} />
         </Route>

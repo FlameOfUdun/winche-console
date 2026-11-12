@@ -199,6 +199,9 @@ public static class WincheConsoleExtensions
             if (isService?.IsService(typeof(Winche.Storage.Locations.StorageMoves)) == true) group.MapConsoleStorageLocationEndpoints();
         }
 
+        // Hooks, when the app uses Winche.Webhooks (AddWincheHooks).
+        if (isService?.IsService(typeof(Winche.Webhooks.HookCatalog)) == true) group.MapConsoleHooksEndpoints();
+
         if (options.AnyLogs)
         {
             group.MapConsoleLogsEndpoints(options);
