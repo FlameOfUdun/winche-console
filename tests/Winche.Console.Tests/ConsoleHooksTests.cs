@@ -73,7 +73,7 @@ public class ConsoleHooksTests(PostgresFixture fx) : IAsyncLifetime
         Assert.True(state.GetProperty("capabilities").GetProperty("hooks").GetBoolean());
         var page = await Json(await client.GetAsync("/_console/api/hooks"));
         Assert.Equal(["database", "storage", "auth"], page.GetProperty("sources").EnumerateArray().Select(s => s.GetProperty("name").GetString()));
-        Assert.Equal(["database.deleteDocuments", "storage.deleteFiles", "auth.setClaims"], page.GetProperty("actions").EnumerateArray().Select(a => a.GetProperty("name").GetString()));
+        Assert.Equal(["database.deleteDocuments", "functions.run", "storage.deleteFiles", "auth.setClaims"], page.GetProperty("actions").EnumerateArray().Select(a => a.GetProperty("name").GetString()));
 
         var webhook = new
         {

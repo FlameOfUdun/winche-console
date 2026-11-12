@@ -1,3 +1,4 @@
+import { FunctionsPage } from "./pages/functions/FunctionsPage";
 import { HooksPage } from "./pages/hooks/HooksPage";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
@@ -50,6 +51,7 @@ function GatedApp() {
           <Route path="authentication" element={caps?.authentication ? <AuthenticationPage /> : <Navigate to={home} replace />} />
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
+          <Route path="functions" element={caps?.functions ? <FunctionsPage /> : <Navigate to={home} replace />} />
           <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
           <Route path=":tabId" element={<TabPage />} />
         </Route>

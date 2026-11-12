@@ -69,6 +69,7 @@ public static class AuthConfigEndpoints
                     authentication = ConsoleAppAuthEndpoints.Capability(options, consoleRole),
                     settings = ConsoleSettingsEndpoints.Capabilities(http.RequestServices, consoleRole),
                     hooks = ConsoleHooksEndpoints.Capability(http.RequestServices, consoleRole),
+                    functions = ConsoleFunctionsEndpoints.Capability(http.RequestServices, consoleRole),
                 },
                 user = new
                 {

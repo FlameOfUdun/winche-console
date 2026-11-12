@@ -5,7 +5,7 @@ import {
 } from "@mantine/core";
 import {
   IconChevronRight, IconDatabase, IconFolder, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
-  IconLogout, IconShield, IconUser, IconUserCog, IconListDetails, IconUsers, IconWebhook,
+  IconLogout, IconShield, IconUser, IconUserCog, IconListDetails, IconUsers, IconWebhook, IconLambda,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
@@ -25,7 +25,7 @@ export function AppLayout() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook };
+  const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook, functions: IconLambda };
   const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon] }));
   const manifest = useTabsManifest();
   const customTabs = (manifest.data?.tabs ?? []).map((t) => ({ to: `/${t.id}`, label: t.label, icon: tabIcon(t.icon) }));

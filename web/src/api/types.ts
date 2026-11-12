@@ -40,6 +40,8 @@ export interface Capabilities {
   settings?: { database?: boolean; storage?: boolean };
   /** The Hooks page (admins, when the app uses Winche.Webhooks). */
   hooks?: boolean;
+  /** The Functions page (admins, when the app uses Winche.Functions). */
+  functions?: boolean;
   /** The Authentication tab: the app's users (Winche Auth). Admins only. */
   authentication?: boolean;
   invites: boolean;

@@ -22,6 +22,13 @@ builder.Services.AddWincheDatabase(cfg =>
     cfg.UseHooks(h => Winche.Webhooks.Database.DatabaseHooksExtensions.AddWincheHooks(h));   // the Hooks page
 });
 Winche.Webhooks.ServiceCollectionExtensions.AddWincheHooks(builder.Services, o => o.ConnectionString = wincheConn);
+// Functions (Deno from WINCHE_DENO, else PATH): the Functions page.
+Winche.Functions.ServiceCollectionExtensions.AddWincheFunctions(builder.Services, o =>
+{
+    o.ConnectionString = wincheConn;
+    o.DenoPath = Environment.GetEnvironmentVariable("WINCHE_DENO") is { Length: > 0 } deno ? deno : null;
+});
+Winche.Functions.Database.DatabaseFunctionsExtensions.AddWincheFunctionsForDatabase(builder.Services);
 builder.Services.AddWincheStorage(opts =>
 {
     opts.ConnectionString = wincheConn;
@@ -138,6 +145,7 @@ await app.InitializeWincheStorageAsync();
 if (app.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(Winche.Auth.IWincheAuth)) == true)
     app.MapWincheAuth();   // the app's sign-in API (/auth/v1)
 
+Winche.Functions.FunctionsEndpoints.MapWincheFunctions(app);   // callables and CLI deploys
 app.MapWincheConsole("/_console");
 
 app.Run();

@@ -52,7 +52,7 @@ public static class ConsoleHooksEndpoints
                 editable = store is not null && (secrets?.Available ?? false),
                 whyReadOnly = store is null ? "The app needs AddWincheConfig(…) to save hooks."
                     : secrets?.Available != true ? "Webhook signing secrets need the project's master key (WincheConfigOptions.MasterKey)." : null,
-                sources = catalog.Sources,
+                sources = catalog.Sources.Where(s => !s.Internal),
                 actions = catalog.Actions.Select(a => new { name = a.Name, title = a.Title, description = a.Description, sources = a.Sources, options = a.Options }),
                 counts = await outbox.CountsAsync(ct),
             }, SettingsArea.Json);

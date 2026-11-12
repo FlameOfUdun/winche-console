@@ -201,6 +201,8 @@ public static class WincheConsoleExtensions
 
         // Hooks, when the app uses Winche.Webhooks (AddWincheHooks).
         if (isService?.IsService(typeof(Winche.Webhooks.HookCatalog)) == true) group.MapConsoleHooksEndpoints();
+        // Functions, when the app uses Winche.Functions (AddWincheFunctions).
+        if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 
         if (options.AnyLogs)
         {

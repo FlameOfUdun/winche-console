@@ -2,6 +2,7 @@ import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserIt
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
+import type { FunctionsPageData, FunctionRun, FunctionVersion } from "./functions";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
@@ -146,6 +147,13 @@ export const api = {
   dataSettingsHistory: (area: DataArea) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
+  functions: () => http<FunctionsPageData>("GET", "api/functions"),
+  functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "api/functions/versions"),
+  functionVersion: (v: number) => http<{ version: FunctionVersion; files: Record<string, string> }>("GET", `api/functions/versions/${v}`),
+  deployFunctions: (files: Record<string, string>, note: string) => http<FunctionVersion>("POST", "api/functions/deploy", { files, note }),
+  rollBackFunctions: (v: number, note: string | null) => http<FunctionVersion>("POST", `api/functions/versions/${v}/rollback`, { note }),
+  runFunction: (name: string, data: unknown, asUid: string | null) => http<FunctionRun>("POST", "api/functions/run", { name, data, asUid }),
+  newDeployKey: () => http<{ key: string }>("POST", "api/functions/deploy-key"),
   hooks: () => http<HooksPageData>("GET", "api/hooks"),
   saveHooks: (hooks: Hook[], reason: string) => http<SettingsVersionInfo>("PUT", "api/hooks", { settings: { hooks }, reason }),
   testHook: (hook: Hook) => http<HookTestResult>("POST", "api/hooks/test", { hook }),

@@ -34,6 +34,7 @@ public static class AuthEndpoints
         authentication = ConsoleAppAuthEndpoints.Capability(options, role),
         settings = ConsoleSettingsEndpoints.Capabilities(sp, role),
         hooks = ConsoleHooksEndpoints.Capability(sp, role),
+        functions = ConsoleFunctionsEndpoints.Capability(sp, role),
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>

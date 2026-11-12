@@ -20,7 +20,7 @@ const SEVERITY: Record<LogLevel, { label: string; color: string }> = {
 };
 const RESOURCES: { value: LogResource | ""; label: string }[] = [
   { value: "", label: "All resources" }, { value: "database", label: "Database" }, { value: "storage", label: "Storage" },
-  { value: "auth", label: "Auth" }, { value: "app", label: "App" }, { value: "console", label: "Console" },
+  { value: "auth", label: "Auth" }, { value: "functions", label: "Functions" }, { value: "app", label: "App" }, { value: "console", label: "Console" },
 ];
 
 function useDebounced<T>(value: T, ms: number): T {
