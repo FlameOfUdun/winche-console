@@ -24,7 +24,7 @@ public static class AuthEndpoints
 
     // manageUsers/invites/etc. describe the Identity provider (role-gated client-side); database/storage are
     // per-user (tab enabled AND the user's role meets its MinRole).
-    private static object CapabilitiesFor(ConsoleRole? role, ConsoleOptions options) => new
+    private static object CapabilitiesFor(ConsoleRole? role, ConsoleOptions options, IServiceProvider sp) => new
     {
         manageUsers = true, invites = true, twoFactor = true, changePassword = true, editProfile = true,
         database = options.DatabaseTab is { } dt && role is { } r && r >= dt.MinRole,
@@ -32,6 +32,7 @@ public static class AuthEndpoints
         logs = ConsoleLogsEndpoints.Capabilities(options, role),
         history = options.DatabaseTab is { History: true } ht && role is { } r3 && r3 >= ht.MinRole,
         authentication = ConsoleAppAuthEndpoints.Capability(options, role),
+        settings = ConsoleSettingsEndpoints.Capabilities(sp, role),
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>
@@ -51,11 +52,11 @@ public static class AuthEndpoints
             var authResult = await http.AuthenticateAsync(IdentityConstants.ApplicationScheme);
             var principal = authResult.Succeeded ? authResult.Principal : null;
             if (principal is null)
-                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options), initialized, selfServiceResetEnabled, user = (object?)null });
+                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options, sp), initialized, selfServiceResetEnabled, user = (object?)null });
 
             var user = await users.GetUserAsync(principal);
             if (user is null)
-                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options), initialized, selfServiceResetEnabled, user = (object?)null });
+                return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options, sp), initialized, selfServiceResetEnabled, user = (object?)null });
             var role = (await users.GetRolesAsync(user)).FirstOrDefault();
             var consoleRole = role switch
             {
@@ -66,7 +67,7 @@ public static class AuthEndpoints
             return Results.Json(new
             {
                 provider = "identity",
-                capabilities = CapabilitiesFor(consoleRole, options),
+                capabilities = CapabilitiesFor(consoleRole, options, sp),
                 initialized,
                 selfServiceResetEnabled,
                 user = new

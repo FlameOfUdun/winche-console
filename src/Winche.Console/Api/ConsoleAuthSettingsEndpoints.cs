@@ -32,7 +32,7 @@ public static class ConsoleAuthSettingsEndpoints
     public sealed record TestEmailRequest(JsonElement? Settings, string? SmtpPassword, string? To);
 
     /// <summary>Null when the console admin may change sensitive settings; otherwise the refusal.</summary>
-    private static async Task<IResult?> RequireTwoFactorAsync(HttpContext http)
+    internal static async Task<IResult?> RequireTwoFactorAsync(HttpContext http)
     {
         var options = http.RequestServices.GetRequiredService<ConsoleOptions>();
         if (!options.RequireTwoFactorForSettings || options.Provider != ConsoleAuthProvider.Identity) return null;
@@ -259,7 +259,7 @@ public static class ConsoleAuthSettingsEndpoints
         return MapHistory(group);
     }
 
-    private static IEndpointRouteBuilder MapHistory(RouteGroupBuilder group)
+    internal static IEndpointRouteBuilder MapHistory(RouteGroupBuilder group)
     {
         // Every saved change to the settings the console manages.
         group.MapGet("/history", async ([FromQuery] string? area, IServiceProvider sp, CancellationToken ct) =>

@@ -50,6 +50,8 @@ public static class WincheConsoleExtensions
             services.AddSingleton<Users.UserDirectories>();
             services.AddHostedService<Users.KeycloakSignInEvents>();
         }
+        if (options.DatabaseTab is not null)
+            services.AddSingleton(sp => new Api.IndexSuggestions(sp.GetRequiredService<Winche.Database.Querying.CollectionIndexResolver>()));
         if (options.DatabaseRulesEditor is not null || options.StorageRulesEditor is not null)
         {
             // The versioned rules store reuses the console's connection string (a dedicated table, never
@@ -171,7 +173,8 @@ public static class WincheConsoleExtensions
             if (databaseTab.History)
             {
                 var dbOptions = endpoints.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<Winche.Database.DependencyInjection.WincheDatabaseOptions>>();
-                if (dbOptions?.Value.History is null)
+                var historyFromSettings = endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => a.Name == Winche.Database.Settings.DatabaseSettings.Area);
+                if (dbOptions?.Value.History is null && !historyFromSettings)
                     throw new InvalidOperationException(
                         "The Database tab's UseHistory() needs KeepHistory() in AddWincheDatabase — that's what records who changed what.");
                 group.MapConsoleHistoryEndpoints(databaseTab.MinRole);
@@ -188,6 +191,10 @@ public static class WincheConsoleExtensions
         {
             group.MapConsoleRulesEndpoints();
         }
+
+        // Database and Storage → Settings, when the packages use settings (o.UseSettings()).
+        if (endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => Api.ConsoleSettingsEndpoints.Areas.ContainsKey(a.Name)))
+            group.MapConsoleSettingsEndpoints();
 
         if (options.AnyLogs)
         {

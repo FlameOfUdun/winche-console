@@ -17,8 +17,15 @@ builder.Services.AddWincheDatabase(cfg =>
     cfg.ConnectionString = wincheConn;
     cfg.KeepHistory();   // the Database tab's History sub-tab
     cfg.LogRequests(r => r.SuccessSampleRate = 1.0);   // the Logs Explorer: every request
+    cfg.UseIndexes(ib => ib.Add("patients", [new("ward")]));
+    cfg.UseSettings();   // Database → Settings
 });
-builder.Services.AddWincheStorage(opts => opts.ConnectionString = wincheConn);
+builder.Services.AddWincheStorage(opts =>
+{
+    opts.ConnectionString = wincheConn;
+    opts.MaxFileSizeBytes = 10 * 1048576;
+    opts.UseSettings();   // Storage → Settings
+});
 builder.Services.AddSingleton<IArchive, NoOpArchive>();
 
 if (string.Equals(builder.Configuration["Console:Provider"], "Keycloak", StringComparison.OrdinalIgnoreCase))

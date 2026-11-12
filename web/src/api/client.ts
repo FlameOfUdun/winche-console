@@ -1,6 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
+import type { AreaSettings, IndexSuggestion } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
@@ -138,6 +139,13 @@ export const api = {
   checkAuthProvider: (issuer: string, authority: string | null, requireHttps: boolean) =>
     http<ProviderCheckResult>("POST", "api/app-auth/settings/providers/check", { issuer, authority, requireHttps }),
   testAuthToken: (token: string, settings?: ProvidersSettings) => http<TokenTestResult>("POST", "api/app-auth/settings/providers/test", { token, settings }),
+  dataSettings: <T,>(area: "database" | "storage") => http<AreaSettings<T>>("GET", `api/settings/${area}`),
+  saveDataSettings: <T,>(area: "database" | "storage", settings: T, reason: string) =>
+    http<SettingsVersionInfo>("PUT", `api/settings/${area}`, { settings, reason }),
+  dataSettingsHistory: (area: "database" | "storage") =>
+    http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
+  restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
+  indexSuggestions: () => http<{ suggestions: IndexSuggestion[] }>("GET", "api/settings/database/suggestions"),
   settingsHistory: (area?: string) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
   restoreSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/history/${id}/restore`, { reason }),
