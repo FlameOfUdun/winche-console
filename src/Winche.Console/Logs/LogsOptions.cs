@@ -14,7 +14,12 @@ public sealed class LogsOptions
     /// </summary>
     public LogLevel MinimumLevel { get; set; } = LogLevel.Warning;
 
-    private readonly List<LogLevelOverride> _overrides = [];
+    // Request entries (Winche.Database / Winche.Storage LogRequests) are sampled at Information: keep them by default.
+    private readonly List<LogLevelOverride> _overrides =
+    [
+        new("Winche.Database.Requests", LogLevel.Information),
+        new("Winche.Storage.Requests", LogLevel.Information),
+    ];
     internal IReadOnlyList<LogLevelOverride> Overrides => _overrides;
 
     /// <summary>

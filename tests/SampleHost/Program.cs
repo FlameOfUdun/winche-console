@@ -12,7 +12,8 @@ var wincheConn = builder.Configuration["Winche:ConnectionString"]
 builder.Services.AddWincheDatabase(cfg =>
 {
     cfg.ConnectionString = wincheConn;
-    cfg.KeepHistory();   // the Database tab's History sub-tab
+    cfg.KeepHistory();
+    cfg.LogRequests(r => r.SuccessSampleRate = 1.0);   // the Logs Explorer: every request   // the Database tab's History sub-tab
 });
 builder.Services.AddWincheStorage(opts => opts.ConnectionString = wincheConn);
 builder.Services.AddSingleton<IArchive, NoOpArchive>();

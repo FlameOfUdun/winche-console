@@ -22,7 +22,66 @@ public static class ConsoleLogsEndpoints
 
     public sealed record LogEntryDto(
         long Id, DateTimeOffset At, string Level, string Category, int EventId, string Message,
-        string? Exception, string? UserId, string Instance, IReadOnlyDictionary<string, string?>? Properties);
+        string? Exception, string? UserId, string Instance, IReadOnlyDictionary<string, string?>? Properties,
+        string Resource, string? Operation, string? Principal, string? Path, string? Outcome, long? LatencyMs);
+
+    public sealed record SaveQuerySpec(string? Resource, string? MinimumLevel, List<LogFieldFilter>? Filters, string? Search);
+    public sealed record SaveQueryRequest(string? Name, SaveQuerySpec? Query);
+
+    /// <summary>Built in, read-only: shown above the saved ones.</summary>
+    internal static readonly SavedLogQuery[] BuiltInQueries =
+    [
+        new("builtin:denied", "Denied requests", new(null, LogLevel.Trace, [new("outcome", "denied")], null), null, null),
+        new("builtin:errors", "Errors", new(null, LogLevel.Error, [], null), null, null),
+        new("builtin:database", "Database requests", new("database", LogLevel.Trace, [new("category", "Winche.Database.Requests")], null), null, null),
+        new("builtin:storage", "Storage requests", new("storage", LogLevel.Trace, [new("category", "Winche.Storage.Requests")], null), null, null),
+    ];
+
+    /// <summary>Field filters from the query string: <c>f=principal:u2</c> (equals) or <c>f=outcome!:ok</c> (not equal), repeated.</summary>
+    private static bool TryFilters(string[]? raw, out List<LogFieldFilter> filters, out string? error)
+    {
+        filters = [];
+        error = null;
+        foreach (var f in raw ?? [])
+        {
+            var colon = f.IndexOf(':');
+            if (colon <= 0) { error = $"Bad filter '{f}' (field:value or field!:value)."; return false; }
+            var field = f[..colon];
+            var not = field.EndsWith('!');
+            if (not) field = field[..^1];
+            if (!ConsoleLogStore.FilterFields.ContainsKey(field))
+            {
+                error = $"Unknown field '{field}' ({string.Join(", ", ConsoleLogStore.FilterFields.Keys)}).";
+                return false;
+            }
+            filters.Add(new LogFieldFilter(field, f[(colon + 1)..], not));
+        }
+        return true;
+    }
+
+    /// <summary>The query from the shared parameters, or the problem with them.</summary>
+    private static IResult? TryQuery(string scope, ConsoleOptions options, string? level, string? category, string? q, string? resource,
+        string[]? f, DateTimeOffset? from, DateTimeOffset? to, out LogQuery query)
+    {
+        query = new LogQuery();
+        if (Prefix(scope, options) is not { } prefix) return Results.NotFound();
+        var minimum = LogLevel.Trace;
+        if (level is { Length: > 0 } && !Enum.TryParse(level, ignoreCase: true, out minimum))
+            return Results.BadRequest(new { error = $"Unknown level '{level}' (Trace, Debug, Information, Warning, Error, Critical)." });
+        if (!TryFilters(f, out var filters, out var error)) return Results.BadRequest(new { error });
+        query = new LogQuery
+        {
+            Scope = prefix.Length == 0 ? null : prefix,
+            MinimumLevel = minimum,
+            Category = category,
+            Search = q,
+            Resource = resource,
+            Filters = filters,
+            From = from,
+            To = to,
+        };
+        return null;
+    }
 
     /// <summary>Which log views the caller may open (none unless Admin).</summary>
     internal static object Capabilities(ConsoleOptions options, ConsoleRole? role)
@@ -106,11 +165,59 @@ public static class ConsoleLogsEndpoints
             return Results.NoContent();
         }).RequireAuthorization(ConsoleRoles.AdminPolicy);
 
+        // Saved queries (shared by the console's admins), after the built-in ones.
+        group.MapGet("/queries", async ([FromServices] ConsoleLogStore store, CancellationToken ct) =>
+            Results.Json(new { queries = BuiltInQueries.Concat(await store.SavedQueriesAsync(ct)) }, ConsoleLogStore.LevelJson))
+            .RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        group.MapPost("/queries", async (SaveQueryRequest body, HttpContext http, [FromServices] ConsoleLogStore store, CancellationToken ct) =>
+        {
+            var name = body.Name?.Trim();
+            if (string.IsNullOrEmpty(name) || name.Length > 100) return Results.BadRequest(new { error = "A name (up to 100 characters) is required." });
+            if (body.Query is not { } spec) return Results.BadRequest(new { error = "A query is required." });
+            var level = LogLevel.Trace;
+            if (spec.MinimumLevel is { Length: > 0 } && !TryLevel(spec.MinimumLevel, out level))
+                return Results.BadRequest(new { error = $"Unknown level '{spec.MinimumLevel}'." });
+            var filters = spec.Filters ?? [];
+            if (filters.FirstOrDefault(x => x.Field is null || !ConsoleLogStore.FilterFields.ContainsKey(x.Field) || x.Value is null) is { } bad)
+                return Results.BadRequest(new { error = $"Bad filter on '{bad.Field}'." });
+            var resource = spec.Resource is { Length: > 0 } r ? r : null;
+            var search = spec.Search is { Length: > 0 } q ? q : null;
+            return Results.Json(await store.SaveQueryAsync(name, new SavedQuerySpec(resource, level, filters, search), Actor(http.User), ct),
+                ConsoleLogStore.LevelJson);
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        group.MapDelete("/queries/{id}", async (string id, [FromServices] ConsoleLogStore store, CancellationToken ct) =>
+            Guid.TryParse(id, out var guid) && await store.DeleteQueryAsync(guid, ct) ? Results.NoContent() : Results.NotFound())
+            .RequireAuthorization(ConsoleRoles.AdminPolicy);
+
+        // Entries per time bucket (info / warning / error) and the total, for the Explorer's histogram.
+        group.MapGet("/{scope}/histogram", async (
+            string scope, [FromQuery] string? level, [FromQuery] string? category, [FromQuery] string? q, [FromQuery] string? resource,
+            [FromQuery] string[]? f, [FromQuery] DateTimeOffset? from, [FromQuery] DateTimeOffset? to, [FromQuery] int? buckets,
+            [FromServices] ConsoleLogStore store, [FromServices] TimeProvider time, CancellationToken ct) =>
+        {
+            if (TryQuery(scope, options, level, category, q, resource, f, from, to, out var query) is { } problem) return problem;
+            var now = time.GetUtcNow();
+            query = query with { From = query.From ?? now.AddHours(-1), To = query.To ?? now };
+            if (query.From >= query.To) return Results.BadRequest(new { error = "from must be before to." });
+            var counts = await store.HistogramAsync(query, Math.Clamp(buckets ?? 60, 1, 500), ct);
+            return Results.Json(new
+            {
+                from = query.From,
+                to = query.To,
+                total = counts.Sum(c => c.Info + c.Warning + c.Error),
+                buckets = counts.Select(c => new { start = c.Start, info = c.Info, warning = c.Warning, error = c.Error }),
+            });
+        }).RequireAuthorization(ConsoleRoles.AdminPolicy);
+
         group.MapGet("/{scope}", async (
             string scope,
             [FromQuery] string? level,
             [FromQuery] string? category,
             [FromQuery] string? q,
+            [FromQuery] string? resource,
+            [FromQuery] string[]? f,
             [FromQuery] DateTimeOffset? from,
             [FromQuery] DateTimeOffset? to,
             [FromQuery] long? before,
@@ -120,26 +227,12 @@ public static class ConsoleLogsEndpoints
             [FromServices] ConsoleLogQueue queue,
             CancellationToken ct) =>
         {
-            if (Prefix(scope, options) is not { } prefix) return Results.NotFound();
-            var minimum = LogLevel.Trace;
-            if (level is { Length: > 0 } && !Enum.TryParse(level, ignoreCase: true, out minimum))
-                return Results.BadRequest(new { error = $"Unknown level '{level}' (Trace, Debug, Information, Warning, Error, Critical)." });
-            var entries = await store.QueryAsync(new LogQuery
-            {
-                Scope = prefix.Length == 0 ? null : prefix,
-                MinimumLevel = minimum,
-                Category = category,
-                Search = q,
-                From = from,
-                To = to,
-                Before = before,
-                After = after,
-                Limit = limit ?? 100,
-            }, ct);
+            if (TryQuery(scope, options, level, category, q, resource, f, from, to, out var query) is { } problem) return problem;
+            var entries = await store.QueryAsync(query with { Before = before, After = after, Limit = limit ?? 100 }, ct);
             return Results.Json(new
             {
                 entries = entries.Select(e => new LogEntryDto(e.Id, e.At, e.Level.ToString(), e.Category, e.EventId, e.Message,
-                    e.Exception, e.UserId, e.Instance, e.Properties)),
+                    e.Exception, e.UserId, e.Instance, e.Properties, e.Resource, e.Operation, e.Principal, e.Path, e.Outcome, e.LatencyMs)),
                 minimumLevel = queue.Levels.DefaultLevel.ToString(),
                 retentionDays = store.Options.Retention.TotalDays,
             });

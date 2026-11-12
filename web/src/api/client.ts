@@ -2,7 +2,7 @@ import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserIt
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
-import { logQuery, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope } from "./logs";
+import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -107,6 +107,10 @@ export const api = {
 
   logs: (scope: LogScope, filter: LogFilter) => http<LogPage>("GET", `api/logs/${scope}${logQuery(filter)}`),
   logCategories: (scope: LogScope) => http<string[]>("GET", `api/logs/${scope}/categories`),
+  logHistogram: (scope: LogScope, filter: LogFilter) => http<Histogram>("GET", `api/logs/${scope}/histogram${logQuery(filter)}`),
+  logQueries: () => http<{ queries: SavedQuery[] }>("GET", "api/logs/queries"),
+  saveLogQuery: (name: string, query: SavedQuerySpec) => http<SavedQuery>("POST", "api/logs/queries", { name, query }),
+  deleteLogQuery: (id: string) => http<void>("DELETE", `api/logs/queries/${encodeURIComponent(id)}`),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),
   logLevels: () => http<LogLevels>("GET", "api/logs/levels"),
   saveLogLevels: (defaultLevel: LogLevel, overrides: LogLevelOverride[]) =>

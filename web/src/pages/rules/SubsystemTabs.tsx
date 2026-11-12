@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import type { RuleSubsystem } from "../../api/rules";
 import { useSession } from "../../auth/session";
 import { RulesEditor } from "./RulesEditor";
-import { LogsView } from "../logs/LogsView";
+import { ScopedLogs } from "../logs/ScopedLogs";
 import { HistoryView } from "../history/HistoryView";
 
 /**
@@ -66,7 +66,7 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
       )}
       {logsEligible && active === "logs" && (
         <Tabs.Panel value="logs">
-          <LogsView scope={subsystem} />
+          <ScopedLogs scope={subsystem} />
         </Tabs.Panel>
       )}
     </Tabs>

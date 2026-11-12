@@ -25,6 +25,7 @@ public class ConsoleLogsTests(PostgresFixture fx) : IAsyncLifetime
                 DO $$ BEGIN
                   IF to_regclass('console_logs') IS NOT NULL THEN TRUNCATE console_logs; END IF;
                   IF to_regclass('console_log_settings') IS NOT NULL THEN TRUNCATE console_log_settings; END IF;
+                  IF to_regclass('console_log_queries') IS NOT NULL THEN TRUNCATE console_log_queries; END IF;
                 END $$;
                 """, conn);
             await cmd.ExecuteNonQueryAsync();
@@ -104,6 +105,64 @@ public class ConsoleLogsTests(PostgresFixture fx) : IAsyncLifetime
         var state = await Json(await client.GetAsync("/_console/api/auth/state"));
         var logs = state.GetProperty("capabilities").GetProperty("logs");
         Assert.True(logs.GetProperty("app").GetBoolean() && logs.GetProperty("database").GetBoolean() && logs.GetProperty("storage").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Request_entries_are_structured_and_filterable_with_a_histogram_and_saved_queries()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        // As Winche.Database / Winche.Storage LogRequests write them: structured values plus a sentence.
+        var factory = app.Services.GetRequiredService<ILoggerFactory>();
+        var requests = factory.CreateLogger("Winche.Database.Requests");
+        requests.LogWarning("{Principal} was denied {Operation} on {Path}: {Outcome} in {LatencyMs} ms", "u2", "database.get", "users/u1", "denied", 4L);
+        requests.LogInformation("{Principal} did {Operation} on {Path}: {Outcome} in {LatencyMs} ms", "u1", "database.get", "users/u1", "ok", 3L);
+        factory.CreateLogger("Winche.Storage.Requests").LogWarning("{Principal} was denied {Operation} on {Path}: {Outcome}", "u2", "storage.delete", "uploads/u1/a.png", "denied");
+        factory.CreateLogger("SmartAirway.Reports").LogError("Report email failed");
+
+        var all = await Entries(client, "app", 4);
+        var denied = all.Single(e => e.GetProperty("operation").GetString() == "database.get" && e.GetProperty("principal").GetString() == "u2");
+        Assert.Equal(("database", "users/u1", "denied", 4L),
+            (denied.GetProperty("resource").GetString(), denied.GetProperty("path").GetString(), denied.GetProperty("outcome").GetString(), denied.GetProperty("latencyMs").GetInt64()));
+        Assert.Equal("app", all.Single(e => e.GetProperty("category").GetString() == "SmartAirway.Reports").GetProperty("resource").GetString());
+
+        // Resource and field filters (equals / not equals), combined.
+        Assert.Equal(2, (await Entries(client, "app?resource=database", 2)).Length);
+        Assert.Equal(2, (await Entries(client, "app?f=outcome:denied", 2)).Length);
+        var notDenied = await Entries(client, "app?f=principal:u2&f=resource!:storage", 1);
+        Assert.Equal("database.get", Assert.Single(notDenied).GetProperty("operation").GetString());
+        Assert.Equal(2, (await Entries(client, "app?f=outcome!:denied", 2)).Length);   // null outcome counts as "not denied"
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/_console/api/logs/app?f=password:x")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.GetAsync("/_console/api/logs/app?f=nocolon")).StatusCode);
+
+        // Histogram: every entry lands in a bucket, split by severity.
+        var hist = await Json(await client.GetAsync("/_console/api/logs/app/histogram?buckets=10"));
+        Assert.Equal(4, hist.GetProperty("total").GetInt64());
+        var buckets = hist.GetProperty("buckets").EnumerateArray().ToArray();
+        Assert.Equal(10, buckets.Length);
+        Assert.Equal((1L, 2L, 1L), (buckets.Sum(b => b.GetProperty("info").GetInt64()), buckets.Sum(b => b.GetProperty("warning").GetInt64()), buckets.Sum(b => b.GetProperty("error").GetInt64())));
+        Assert.Equal(2, (await Json(await client.GetAsync("/_console/api/logs/app/histogram?f=outcome:denied"))).GetProperty("total").GetInt64());
+
+        // Saved queries: built-in ones first, then saved ones (shared), deletable.
+        var saved = await Json(await client.PostAsJsonAsync("/_console/api/logs/queries", new
+        {
+            name = "u2's denials",
+            query = new { resource = "database", minimumLevel = "Warning", filters = new[] { new { field = "principal", value = "u2", not = false } }, search = (string?)null },
+        }));
+        var id = saved.GetProperty("id").GetString()!;
+        var list = (await Json(await client.GetAsync("/_console/api/logs/queries"))).GetProperty("queries").EnumerateArray().ToArray();
+        Assert.Equal("Denied requests", list[0].GetProperty("name").GetString());
+        Assert.Equal(JsonValueKind.Null, list[0].GetProperty("createdBy").ValueKind);
+        var mine = list.Single(q => q.GetProperty("id").GetString() == id);
+        Assert.Equal("Warning", mine.GetProperty("query").GetProperty("minimumLevel").GetString());
+        Assert.Equal("u2", mine.GetProperty("query").GetProperty("filters")[0].GetProperty("value").GetString());
+        Assert.False(string.IsNullOrEmpty(mine.GetProperty("createdBy").GetString()));
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/logs/queries", new { name = "", query = new { } })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/_console/api/logs/queries/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync("/_console/api/logs/queries/builtin:denied")).StatusCode);
     }
 
     [Fact]

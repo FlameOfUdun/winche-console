@@ -224,9 +224,20 @@ in the console, or to no one for hooks and background jobs. Readable by whoever 
 
 ## Logs (optional)
 
-The console can keep the app's log entries and show them to Admins — a **Logs** sub-tab on the Database and
-Storage tabs for that library's entries, and a top-level **Logs** tab for everything (the app's own code and the
-framework too):
+The console can keep the app's log entries and show them to Admins in a **Logs Explorer** — a **Logs** sub-tab on the
+Database and Storage tabs for that library's entries, and a top-level **Logs** tab for everything (the app's own code
+and the framework too):
+
+- **Structured request entries.** With `LogRequests()` on Winche.Database (11.1.0) / Winche.Storage (9.1.0), every
+  app request through the access rules is an entry with its resource, operation, who (principal), path, outcome and
+  latency, and a plain sentence: *"u2 was denied reading users/u1: no rule allows it."* Denied and slow requests are
+  always kept; successful ones are sampled (10% by default). The console's own browsing isn't logged — its edits are
+  in the History sub-tab.
+- **The explorer:** search, resource, time range, severity, a histogram of entries over time (info / warning / error),
+  live tail, and entries that open to their fields — **Show matching** / **Hide matching** on any of them adds a filter
+  (`api/logs/{scope}?f=principal:u2&f=outcome!:ok`). The equivalent query line is shown above the results.
+- **Saved queries** (a tab beside the explorer): save the current query for every admin of the console; built-in ones
+  for denied requests, errors and each library's requests. Each shows how many entries it matched in the last 24 hours.
 
 ```csharp
 services.AddWincheConsole(o =>
