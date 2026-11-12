@@ -187,7 +187,8 @@ services.AddWincheConsole(o =>
   match users/{uid} {
     allow read: if request.auth.uid == uid;
     allow create: if request.auth.uid == uid
-      && request.resource.data.keys().hasOnly(['name', 'email']);
+      && request.resource.data has only ['name', 'email'];
+    allow update: if request.auth.uid == uid && changes only ['name'];
   }
   ```
 

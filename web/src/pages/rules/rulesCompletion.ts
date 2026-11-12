@@ -73,6 +73,19 @@ const GLOBALS: Suggestion[] = [
   { label: "null", type: "keyword" },
 ];
 
+/** The word operators (readable forms: each is shorthand for a method chain). */
+export const OPERATORS: Suggestion[] = [
+  { label: "in", insert: "in ", type: "keyword", detail: "membership", info: "`x in list` — the list contains x; `key in map` — the map has that key" },
+  { label: "not in", insert: "not in ", type: "keyword", detail: "not a member", info: "`x not in list` — the same as `!(x in list)`" },
+  { label: "is", insert: "is ", type: "keyword", detail: "type check", info: "`x is string` (string int float number bool null map list timestamp bytes path)" },
+  { label: "has only", insert: "has only []", type: "keyword", detail: "map → bool", info: "`request.resource.data has only ['name', 'email']` — the map has no keys but these (same as `.keys().hasOnly([...])`)" },
+  { label: "has all", insert: "has all []", type: "keyword", detail: "map → bool", info: "`m has all ['name']` — the map has every one of these keys (`.keys().hasAll([...])`)" },
+  { label: "has any", insert: "has any []", type: "keyword", detail: "map → bool", info: "`request.auth.token has any ['admin']` — the map has at least one of these keys (`.keys().hasAny([...])`)" },
+  { label: "changes only", insert: "changes only []", type: "keyword", detail: "update → bool", info: "`changes only ['name']` — the update changes no fields but these (`request.resource.data.diff(resource.data).affectedKeys().hasOnly([...])`)" },
+  { label: "changes any", insert: "changes any []", type: "keyword", detail: "update → bool", info: "`changes any ['role', 'ownerId']` — the update changes at least one of these fields (`….affectedKeys().hasAny([...])`)" },
+  { label: "changes all", insert: "changes all []", type: "keyword", detail: "update → bool", info: "`changes all ['a', 'b']` — the update changes every one of these fields (`….affectedKeys().hasAll([...])`)" },
+];
+
 const TYPES = ["string", "int", "float", "number", "bool", "null", "map", "list", "timestamp", "bytes", "path"]
   .map((t): Suggestion => ({ label: t, type: "type" }));
 
@@ -215,7 +228,7 @@ export function suggest(ctx: CursorContext, fields: FieldInfo[], subsystem: Rule
 
   if (ctx.receiver === null) {
     const captures = ctx.captures.map((c): Suggestion => ({ label: c, type: "variable", detail: "path capture" }));
-    return [...captures, ...GLOBALS, { label: "in", type: "keyword" }, { label: "is", insert: "is ", type: "keyword" }];
+    return [...captures, ...GLOBALS, ...OPERATORS];
   }
 
   const p = parts(ctx.receiver);

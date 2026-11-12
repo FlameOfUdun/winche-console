@@ -31,6 +31,9 @@ const rulesLanguage = StreamLanguage.define<{ inPath: boolean }>({
     if (word) {
       const w = word[0];
       if (w === "match") { state.inPath = true; return "keyword"; }
+      // The readable forms: `not in`, `has only|all|any`, `changes only|all|any` (the words alone are names).
+      if (w === "not" && stream.match(/^\s+in\b/)) return "keyword";
+      if ((w === "has" || w === "changes") && stream.match(/^\s+(only|all|any)\b/)) return "keyword";
       if (KEYWORDS.has(w)) return "keyword";
       if (ATOMS.has(w)) return "atom";
       if (ROOTS.has(w)) return "variableName.special";

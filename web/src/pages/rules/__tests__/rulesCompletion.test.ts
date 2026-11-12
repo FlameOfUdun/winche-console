@@ -79,3 +79,9 @@ test("storage resources have file fields", () => {
   expect(labels("match files/{f=**} {\n  allow create: if request.resource.|", "storage", files)).toEqual(expect.arrayContaining(["mimeType", "metadata", "size"]));
   expect(labels("match files/{f=**} {\n  allow create: if request.resource.|", "storage", files)).not.toContain("data");
 });
+
+test("offers the word operators, readable forms included, in a condition", () => {
+  const text = "match users/{uid} {\n  allow update: if request.auth.uid == uid && ";
+  const labels = suggest(analyze(text, text.length), [], "database").map((s) => s.label);
+  for (const op of ["in", "not in", "is", "has only", "has any", "changes only", "changes any"]) expect(labels).toContain(op);
+});
