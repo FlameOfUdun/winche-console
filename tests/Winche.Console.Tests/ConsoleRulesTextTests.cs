@@ -52,6 +52,33 @@ public class ConsoleRulesTextTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Parse_knows_functions_and_paths_and_formats_them_back()
+    {
+        var (app, client) = await AdminAsync();
+        using var _ = app;
+        const string text = """
+            function isOwner(uid) {
+              return request.auth.uid == uid;
+            }
+
+            match users/{uid} {
+              allow get: if isOwner(uid) || get(/admins/$(request.auth.uid)).active == true;
+              allow update: if isOwner(uid) && changes only ['name'] && typo();
+            }
+
+            """;
+
+        var body = await Json(await client.PostAsJsonAsync("/_console/api/rules/text/parse", new { text }));
+        Assert.True(body.GetProperty("ok").GetBoolean());
+        var warning = Assert.Single(body.GetProperty("warnings").EnumerateArray());   // the file's own function isn't one
+        Assert.Contains("'typo'", warning.GetString());
+
+        var formatted = await Json(await client.PostAsJsonAsync("/_console/api/rules/text/format",
+            new { rulesJson = body.GetProperty("rulesJson").GetString() }));
+        Assert.Equal(text.Replace("\r\n", "\n"), formatted.GetProperty("text").GetString());
+    }
+
+    [Fact]
     public async Task Parse_reports_where_the_file_is_wrong()
     {
         var (app, client) = await AdminAsync();

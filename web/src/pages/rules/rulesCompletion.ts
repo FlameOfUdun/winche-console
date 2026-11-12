@@ -21,7 +21,7 @@ export interface CursorContext {
   patterns: string[];
   /** Path captures in scope ({uid}, {rest=**}). */
   captures: string[];
-  where: "top" | "block" | "operations" | "beforeIf" | "condition";
+  where: "top" | "block" | "function" | "operations" | "beforeIf" | "condition";
   /** In a condition, the dotted expression before a trailing '.', e.g. "request.resource.data" (null when no dot). */
   receiver: string | null;
   /** The word being typed (replaced by the suggestion). */
@@ -63,11 +63,11 @@ const METHODS: Suggestion[] = [
 const GLOBALS: Suggestion[] = [
   { label: "request", type: "variable", detail: "the request", info: "request.auth, request.resource, request.time, request.method" },
   { label: "resource", type: "variable", detail: "the existing document", info: "Its fields (resource.name or resource.data.name) and id, path, version…" },
-  { label: "exists", insert: "exists()", type: "function", detail: "path → bool", info: "Whether a document exists: exists(path('users/' + uid))" },
-  { label: "get", insert: "get()", type: "function", detail: "path → document", info: "Read another document" },
+  { label: "exists", insert: "exists()", type: "function", detail: "path → bool", info: "Whether a document exists: exists(/projects/$(projectId)/members/$(request.auth.uid))" },
+  { label: "get", insert: "get()", type: "function", detail: "path → document", info: "Read another document: get(/users/$(request.auth.uid)).role — each $( ) is one path segment" },
   { label: "size", insert: "size()", type: "function", detail: "string/list/map → int" },
   { label: "timestamp", insert: "timestamp('')", type: "function", detail: "ISO-8601 → timestamp" },
-  { label: "path", insert: "path('')", type: "function", detail: "string → path" },
+  { label: "path", insert: "path('')", type: "function", detail: "parts → path", info: "path('users', uid) — a path from its parts; the same as /users/$(uid)" },
   { label: "true", type: "keyword" },
   { label: "false", type: "keyword" },
   { label: "null", type: "keyword" },
@@ -144,6 +144,17 @@ function join(parent: string | undefined, path: string): string {
   return `${parent.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
+/** The functions a rules file defines: `function name(a, b) {` anywhere in it. */
+export function definedFunctions(text: string): { name: string; params: string[] }[] {
+  const out: { name: string; params: string[] }[] = [];
+  for (const m of blank(text).matchAll(/\bfunction\s+([A-Za-z_]\w*)\s*\(([^)]*)\)/g))
+    out.push({ name: m[1], params: m[2].split(",").map((p) => p.trim()).filter(Boolean) });
+  return out;
+}
+
+/** Marks a function body on the block stack (not a match path). */
+const FUNCTION_BODY = "\u0000function";
+
 export function analyze(text: string, pos: number): CursorContext {
   const before = blank(text.slice(0, pos));
   // Block structure: match <path> { … } nests patterns; other braces (maps) just nest.
@@ -155,9 +166,16 @@ export function analyze(text: string, pos: number): CursorContext {
     const m = /^match\s+(\S+)\s*\{/.exec(before.slice(i));
     if (m && (i === 0 || !/[\w.]/.test(before[i - 1]))) {
       const path = m[1];
-      const parent = [...stack].reverse().find((p): p is string => p !== null);
+      const parent = [...stack].reverse().find((p): p is string => p !== null && p !== FUNCTION_BODY);
       stack.push(join(parent, path));
       i += m[0].length;
+      statementStart = i;
+      continue;
+    }
+    const fn = /^function\s+[A-Za-z_]\w*\s*\([^)]*\)\s*\{/.exec(before.slice(i));
+    if (fn && (i === 0 || !/[\w.]/.test(before[i - 1]))) {
+      stack.push(FUNCTION_BODY);
+      i += fn[0].length;
       statementStart = i;
       continue;
     }
@@ -167,7 +185,7 @@ export function analyze(text: string, pos: number): CursorContext {
     else if (c === ";") statementStart = i + 1;
     i++;
   }
-  const patterns = stack.filter((p): p is string => p !== null);
+  const patterns = stack.filter((p): p is string => p !== null && p !== FUNCTION_BODY);
   const captures = [...new Set(patterns.flatMap((p) => [...p.matchAll(/\{([A-Za-z_]\w*)(?:=\*\*)?\}/g)].map((x) => x[1])))];
 
   const statement = before.slice(statementStart);
@@ -176,8 +194,9 @@ export function analyze(text: string, pos: number): CursorContext {
   const from = pos - word.length;
 
   let where: CursorContext["where"];
-  if (patterns.length === 0 && stack.length === 0) where = "top";
-  else if (/\bif\b/.test(statement)) where = "condition";
+  if (stack.length === 0) where = "top";
+  else if (/\bif\b/.test(statement) || /\breturn\b/.test(statement) || /\blet\s+\w+\s*=/.test(statement)) where = "condition";
+  else if (stack[stack.length - 1] === FUNCTION_BODY) where = "function";
   else if (/^\s*allow\b/.test(statement) && statement.includes(":")) where = "beforeIf";
   else if (/^\s*allow\b/.test(statement)) where = /^\s*allow\s+\w*$/.test(statement) || /,\s*\w*$/.test(statement) ? "operations" : "block";
   else where = "block";
@@ -214,12 +233,24 @@ function fieldsUnder(fields: FieldInfo[], prefix: string): Suggestion[] {
  * Suggestions at the cursor. `fields` are those of the documents the innermost match covers (empty when
  * unknown), `subsystem` picks the shape of `resource`.
  */
-export function suggest(ctx: CursorContext, fields: FieldInfo[], subsystem: RuleSubsystem): Suggestion[] {
-  if (ctx.where === "top") return [{ label: "match", insert: "match ", type: "keyword", info: "match users/{uid} { … }" }];
+const FUNCTION_KEYWORD: Suggestion = {
+  label: "function", insert: "function ", type: "keyword", detail: "define a function",
+  info: "function isOwner(uid) { return request.auth.uid == uid; } — call it from any condition where it's visible",
+};
+
+export function suggest(ctx: CursorContext, fields: FieldInfo[], subsystem: RuleSubsystem, functions: { name: string; params: string[] }[] = []): Suggestion[] {
+  if (ctx.where === "top") return [{ label: "match", insert: "match ", type: "keyword", info: "match users/{uid} { … }" }, FUNCTION_KEYWORD];
   if (ctx.where === "block") {
     return [
       { label: "allow", insert: "allow ", type: "keyword", info: "allow read: if …;" },
       { label: "match", insert: "match ", type: "keyword", info: "A nested match extends this path" },
+      FUNCTION_KEYWORD,
+    ];
+  }
+  if (ctx.where === "function") {
+    return [
+      { label: "let", insert: "let ", type: "keyword", detail: "a named value", info: "let name = value; — usable in the lines after it" },
+      { label: "return", insert: "return ", type: "keyword", detail: "the result", info: "return condition; — what the function gives (the last line)" },
     ];
   }
   if (ctx.where === "operations") return OPERATIONS;
@@ -228,7 +259,10 @@ export function suggest(ctx: CursorContext, fields: FieldInfo[], subsystem: Rule
 
   if (ctx.receiver === null) {
     const captures = ctx.captures.map((c): Suggestion => ({ label: c, type: "variable", detail: "path capture" }));
-    return [...captures, ...GLOBALS, ...OPERATORS];
+    const own = functions.map((f): Suggestion => ({
+      label: f.name, insert: `${f.name}()`, type: "function", detail: `(${f.params.join(", ")})`, info: "A function defined in this file",
+    }));
+    return [...captures, ...own, ...GLOBALS, ...OPERATORS];
   }
 
   const p = parts(ctx.receiver);

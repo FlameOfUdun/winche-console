@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { analyze, suggest, type FieldInfo } from "../rulesCompletion";
+import { analyze, definedFunctions, suggest, type FieldInfo } from "../rulesCompletion";
 
 const FIELDS: FieldInfo[] = [
   { path: "name", types: ["string"] },
@@ -35,12 +35,12 @@ test("a closed block is out of scope; braces in paths, strings and comments don'
 });
 
 test("statements: match at the top, allow/match in a block, operations, then if", () => {
-  expect(labels("|")).toEqual(["match"]);
-  expect(labels("match users/{uid} {\n  |")).toEqual(["allow", "match"]);
+  expect(labels("|")).toEqual(["match", "function"]);
+  expect(labels("match users/{uid} {\n  |")).toEqual(["allow", "match", "function"]);
   expect(labels("match users/{uid} {\n  allow |")).toContain("read");
   expect(labels("match users/{uid} {\n  allow read, cr|")).toContain("create");
   expect(labels("match users/{uid} {\n  allow read: |")).toEqual(["if"]);
-  expect(labels("match users/{uid} {\n  allow read: if true;\n  |")).toEqual(["allow", "match"]);
+  expect(labels("match users/{uid} {\n  allow read: if true;\n  |")).toEqual(["allow", "match", "function"]);
 });
 
 test("in a condition: captures, request, resource and functions", () => {
@@ -84,4 +84,25 @@ test("offers the word operators, readable forms included, in a condition", () =>
   const text = "match users/{uid} {\n  allow update: if request.auth.uid == uid && ";
   const labels = suggest(analyze(text, text.length), [], "database").map((s) => s.label);
   for (const op of ["in", "not in", "is", "has only", "has any", "changes only", "changes any"]) expect(labels).toContain(op);
+});
+
+test("knows the file's functions, and function bodies are conditions", () => {
+  const text = "function isOwner(uid) {\n  return request.auth.uid == uid;\n}\nfunction staff() { let r = request.auth.token.role; return r in ['a']; }\nmatch users/{uid} {\n  allow get: if ";
+  const fns = definedFunctions(text);
+  expect(fns).toEqual([{ name: "isOwner", params: ["uid"] }, { name: "staff", params: [] }]);
+  const labels = suggest(analyze(text, text.length), [], "database", fns).map((s) => s.label);
+  expect(labels).toContain("isOwner");
+  expect(labels).toContain("staff");
+  const body = "function f(x) {\n  return request.";
+  expect(analyze(body, body.length).where).toBe("condition");
+  expect(suggest(analyze(body, body.length), [], "database").map((s) => s.label)).toContain("auth");
+  const let_ = "function f(x) {\n  let a = req";
+  expect(analyze(let_, let_.length).where).toBe("condition");
+  expect(suggest(analyze("", 0), [], "database").map((s) => s.label)).toEqual(["match", "function"]);
+  const inFn = "match a/{b} {\n  function f() {\n    ";
+  expect(suggest(analyze(inFn, inFn.length), [], "database").map((s) => s.label)).toEqual(["let", "return"]);
+  const afterFn = "match a/{b} {\n  function f() { return true; }\n  ";
+  expect(suggest(analyze(afterFn, afterFn.length), [], "database").map((s) => s.label)).toEqual(["allow", "match", "function"]);
+  const captures = "match users/{uid} {\n  function f() {\n    return ";
+  expect(analyze(captures, captures.length).captures).toEqual(["uid"]);
 });

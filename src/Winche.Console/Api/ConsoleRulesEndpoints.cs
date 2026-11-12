@@ -415,42 +415,8 @@ public static class ConsoleRulesEndpoints
         _ => false,
     };
 
-    private static IEnumerable<string> UnknownFunctions(RuleSet ruleSet)
-    {
-        var names = new SortedSet<string>(StringComparer.Ordinal);
-        void Block(MatchBlock b)
-        {
-            foreach (var a in b.Allow) names.UnionWith(UnknownFunctions(a.Condition));
-            foreach (var m in b.Matches) Block(m);
-        }
-        foreach (var m in ruleSet.Matches) Block(m);
-        return names;
-    }
-
-    private static IEnumerable<string> UnknownFunctions(RuleExpression e)
-    {
-        var names = new SortedSet<string>(StringComparer.Ordinal);
-        void Walk(RuleExpression x)
-        {
-            switch (x)
-            {
-                case CallExpression c:
-                    if (!RuleFunctions.Names.Contains(c.Name)) names.Add(c.Name);
-                    foreach (var a in c.Args) Walk(a);
-                    break;
-                case MemberExpression m: Walk(m.Target); break;
-                case IndexExpression ix: Walk(ix.Target); Walk(ix.Index); break;
-                case CompareExpression cmp: Walk(cmp.Left); Walk(cmp.Right); break;
-                case AndExpression a: foreach (var o in a.Operands) Walk(o); break;
-                case OrExpression o: foreach (var p in o.Operands) Walk(p); break;
-                case NotExpression n: Walk(n.Operand); break;
-                case InExpression i: Walk(i.Item); Walk(i.Collection); break;
-                case ConditionalExpression cond: Walk(cond.Condition); Walk(cond.Then); Walk(cond.Else); break;
-            }
-        }
-        Walk(e);
-        return names;
-    }
+    // Calls to functions that are neither built in nor defined in the file (where they're called).
+    private static IEnumerable<string> UnknownFunctions(RuleSet ruleSet) => RuleSetValidation.UnknownFunctions(ruleSet);
 
     // A file as storage rules see it (Winche.Storage FileToResource).
     private static readonly SampledField[] StorageFields =

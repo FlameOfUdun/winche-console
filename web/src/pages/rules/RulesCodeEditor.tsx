@@ -8,9 +8,9 @@ import { HighlightStyle, StreamLanguage, bracketMatching, indentOnInput, syntaxH
 import { lintGutter, setDiagnostics } from "@codemirror/lint";
 import { tags } from "@lezer/highlight";
 import type { RuleSubsystem, RulesSyntaxError } from "../../api/rules";
-import { analyze, suggest, type FieldInfo, type Suggestion } from "./rulesCompletion";
+import { analyze, definedFunctions, suggest, type FieldInfo, type Suggestion } from "./rulesCompletion";
 
-const KEYWORDS = new Set(["match", "allow", "if", "in", "is", "read", "write", "get", "list", "create", "update", "delete"]);
+const KEYWORDS = new Set(["match", "allow", "if", "in", "is", "read", "write", "get", "list", "create", "update", "delete", "function", "let", "return"]);
 const ATOMS = new Set(["true", "false", "null"]);
 const ROOTS = new Set(["request", "resource"]);
 
@@ -26,6 +26,9 @@ const rulesLanguage = StreamLanguage.define<{ inPath: boolean }>({
     }
     if (stream.match(/^'(?:[^'\\]|\\.)*'?/) || stream.match(/^"(?:[^"\\]|\\.)*"?/)) return "string";
     if (stream.match(/^-?\d+(\.\d+)?([eE][+-]?\d+)?/)) return "number";
+    // A path literal, /users/$( … ): the segments are coloured as a path; $( … ) contents as code.
+    if (stream.match(/^\/(?!\/)[A-Za-z0-9_.~@%+/-]*/)) return "string.special";
+    if (stream.match("$(")) return "operator";
     if (stream.match(/^`[^`]*`?/)) return "propertyName";
     const word = stream.match(/^[A-Za-z_]\w*/) as RegExpMatchArray | null;
     if (word) {
@@ -67,7 +70,7 @@ function apply(s: Suggestion): Completion["apply"] {
     let cursor = text.length;
     if (text.includes("[]")) cursor = text.indexOf("[]") + 1;
     else if (text.includes("''")) cursor = text.indexOf("''") + 1;
-    else if (text.endsWith("()") && TAKES_ARGUMENTS.has(s.label) && s.type === "function") cursor = text.length - 1;
+    else if (text.endsWith("()") && s.type === "function" && (TAKES_ARGUMENTS.has(s.label) || (s.detail !== undefined && s.detail !== "()"))) cursor = text.length - 1;
     else if (text.endsWith("()") && s.label === "diff") cursor = text.length - 1;
     view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + cursor } });
   };
@@ -117,7 +120,7 @@ export const RulesCodeEditor = forwardRef<RulesCodeEditorHandle, {
       if (pattern && ctx.where === "condition") {
         try { fields = await props.current.fieldsFor(pattern); } catch { /* suggestions without fields */ }
       }
-      const options = suggest(ctx, fields, props.current.subsystem);
+      const options = suggest(ctx, fields, props.current.subsystem, definedFunctions(text));
       if (options.length === 0) return null;
       return {
         from: ctx.from,
