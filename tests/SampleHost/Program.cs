@@ -56,6 +56,7 @@ else
         a.Email(e => e.AppName = "Sample");
         a.Mfa();
         a.Google(g => { g.Audiences = ["sample.apps.googleusercontent.com"]; g.AllowUnsignedTokensForTesting = true; });
+        a.UseSettings();
     });
     builder.Services.AddSingleton<RecordingEmailSender>();
     builder.Services.AddSingleton<Winche.Auth.Email.IAuthEmailSender>(sp => sp.GetRequiredService<RecordingEmailSender>());

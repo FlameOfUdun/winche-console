@@ -20,6 +20,7 @@ vi.mock("../../../api/client", async (orig) => {
       settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
       userDirectory: vi.fn(), saveUserDirectory: vi.fn(), testUserDirectory: vi.fn(),
+      signInSettings: vi.fn(), saveSignInSettings: vi.fn(), testSignInEmail: vi.fn(),
     },
   };
 });
@@ -68,12 +69,24 @@ beforeEach(() => {
   mock(api.appAuthConfig).mockResolvedValue(config);
   mock(api.authProviders).mockResolvedValue(providersResponse());
   mock(api.settingsHistory).mockResolvedValue({ editable: true, versions: [] });
+  mock(api.signInSettings).mockResolvedValue(signInResponse());
 });
 
 const keycloak = {
   name: "keycloak", displayName: "TruCorp Keycloak", kind: "keycloak", issuer: "https://auth.trucorp.com/realms/smartairway", authority: null,
   audiences: ["smartairway-api"], validateAudience: true, uidClaim: "sub", claims: [{ from: "realm_access.roles", to: "roles" }], requireHttps: true,
 };
+const signInSettings = {
+  emailPassword: { enabled: true, minLength: 10, requireVerifiedEmail: false }, anonymous: true, emailLink: { enabled: false, linkUrl: "" },
+  twoStep: { enabled: true, issuer: "SmartAirway", recoveryCodes: 10 },
+  providers: [{ name: "google", kind: "google" as const, displayName: "Google", authority: "https://accounts.google.com", audiences: ["x.apps.googleusercontent.com"], useSubjectAsUid: false, copiedClaims: [] }],
+  sessions: { accessTokenMinutes: 15, refreshTokenDays: 60 }, lockout: { maxFailedSignIns: 5, lockoutMinutes: 15 },
+  email: { enabled: true, appName: "SmartAirway", actionUrl: null, sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, verifyLinkHours: 24, resetLinkHours: 1, sender: "app" as const, smtp: null },
+};
+const signInResponse = (over: object = {}) => ({
+  available: true, settings: signInSettings, codeDefault: signInSettings, source: "code", version: null, editable: true, whyReadOnly: null,
+  smtpPassword: null, secretsAvailable: true, appSender: false, ...over,
+});
 const providersResponse = (over: object = {}) => ({
   settings: { trustWincheAuth: false, providers: [keycloak] }, codeDefault: { trustWincheAuth: false, providers: [] },
   source: "console", version: { id: 7, area: "auth.identityProviders", areaTitle: "Identity providers", number: 3, at: "2026-11-12T16:05:00Z", by: "admin@trucorp.com", reason: "Clinic rules", restoredFrom: null, reset: false },
@@ -324,7 +337,65 @@ test("read-only when the app's code doesn't let the console change them", async 
   mock(api.authProviders).mockResolvedValue(providersResponse({ editable: false, source: "code", version: null, whyReadOnly: "The app's code sets these." }));
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /Identity providers/ }));
   expect(await screen.findByText(/Read-only\. The app's code sets these\./)).toBeInTheDocument();
   expect(screen.queryByText("Add provider")).toBeNull();
   expect(screen.getByText("These are the starting values from the app's code.")).toBeInTheDocument();
+});
+
+test("sign-in settings: methods and lifetimes change in the console, saved together with a reason", async () => {
+  mock(api.saveSignInSettings).mockResolvedValue({ number: 1 });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  expect(await screen.findByText("These are the starting values from the app's code.")).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("Users can start as guests"));
+  await userEvent.click(screen.getByRole("tab", { name: /Sessions and security/ }));
+  const minutes = screen.getByLabelText("Access tokens last (minutes)");
+  await userEvent.clear(minutes);
+  await userEvent.type(minutes, "5");
+  await userEvent.type(screen.getByLabelText("Reason for the change"), "Tighter sessions, no guests");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(mock(api.saveSignInSettings)).toHaveBeenCalledWith(
+    { ...signInSettings, anonymous: false, sessions: { accessTokenMinutes: 5, refreshTokenDays: 60 } }, null, "Tighter sessions, no guests"));
+});
+
+test("sign-in settings: SMTP with a write-only password and a test email", async () => {
+  mock(api.testSignInEmail).mockResolvedValue({ sentTo: "me@trucorp.com" });
+  mock(api.saveSignInSettings).mockResolvedValue({ number: 2 });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /how messages are sent/ }));
+  expect(screen.getByText(/The app's code has no email sender/)).toBeInTheDocument();
+  await userEvent.click(screen.getByText("SMTP server"));
+  await userEvent.type(screen.getByLabelText("Server"), "smtp.example.com");
+  await userEvent.type(screen.getByLabelText("Username"), "mailer");
+  await userEvent.type(screen.getByLabelText(/^Password/), "pw");
+  await userEvent.type(screen.getByLabelText("From address"), "no-reply@trucorp.com");
+  await userEvent.click(screen.getByRole("button", { name: "Send test email" }));
+  expect(await screen.findByTestId("smtp-test")).toHaveTextContent("Sent to me@trucorp.com");
+  const smtp = { host: "smtp.example.com", port: 587, security: "startTls", username: "mailer", fromAddress: "no-reply@trucorp.com", fromName: null };
+  expect(mock(api.testSignInEmail)).toHaveBeenCalledWith(expect.objectContaining({ email: expect.objectContaining({ sender: "smtp", smtp }) }), "pw", null);
+  await userEvent.type(screen.getByLabelText("Reason for the change"), "Our own mail server");
+  await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+  await waitFor(() => expect(mock(api.saveSignInSettings)).toHaveBeenCalledWith(
+    expect.objectContaining({ email: expect.objectContaining({ sender: "smtp", smtp }) }), "pw", "Our own mail server"));
+});
+
+test("sign-in settings: a saved SMTP password is never shown", async () => {
+  mock(api.signInSettings).mockResolvedValue(signInResponse({
+    settings: { ...signInSettings, email: { ...signInSettings.email, sender: "smtp", smtp: { host: "smtp.example.com", port: 587, security: "startTls", username: "mailer", fromAddress: "no-reply@trucorp.com", fromName: null } } },
+    smtpPassword: { setAt: "2026-11-12T16:00:00Z", setBy: "admin@trucorp.com" },
+  }));
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /how messages are sent/ }));
+  expect(screen.getByTestId("smtp-password-set")).toHaveTextContent("never shown");
+  expect(screen.queryByLabelText(/^Password/)).toBeNull();
+});
+
+test("sign-in settings: apps without UseSettings() say how to turn it on", async () => {
+  mock(api.signInSettings).mockResolvedValue({ available: false, whyReadOnly: "The app's code sets these: add o.UseSettings() to AddWincheAuth(…) to change them here." });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
+  expect(await screen.findByText(/add o.UseSettings\(\)/)).toBeInTheDocument();
 });

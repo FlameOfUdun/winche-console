@@ -5,14 +5,16 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import {
-  errorMessage, newProvider, PROVIDER_KINDS, providerProblems, type ProviderCheckResult, type ProvidersSettings, type TokenTestResult,
+  errorMessage, errorWithList, newProvider, PROVIDER_KINDS, providerProblems, type ProviderCheckResult, type ProvidersSettings, type TokenTestResult,
   type TrustedProvider,
 } from "../../api/appAuth";
 import { AuthSettingsView } from "./AuthSettingsView";
 import { DirectorySection } from "./DirectorySection";
+import { SignInSettings, useSignInDraft, type SignInPart } from "./SignInSettings";
 import { when } from "./UsersView";
 
-type Section = "providers" | "mapping" | "directory" | "history" | "keys";
+type Section = "providers" | "mapping" | "directory" | "history" | "keys" | SignInPart;
+const SIGN_IN: Section[] = ["methods", "security", "email"];
 const kindLabel = (k: string) => PROVIDER_KINDS.find((x) => x.value === k)?.label ?? k;
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 
@@ -23,7 +25,8 @@ const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheAuth: boolean; trustedProviders?: boolean }) {
   const qc = useQueryClient();
   const saved = useQuery({ queryKey: ["auth-providers"], queryFn: api.authProviders, enabled: trustedProviders });
-  const [section, setSection] = useState<Section>(trustedProviders ? "providers" : "directory");
+  const [section, setSection] = useState<Section>(wincheAuth ? "methods" : trustedProviders ? "providers" : "directory");
+  const signIn = useSignInDraft();
   const [draft, setDraft] = useState<ProvidersSettings | null>(null);
   const [mappingFor, setMappingFor] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -57,6 +60,11 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
   };
 
   const sections: { id: Section; label: string; hint: string }[] = [
+    ...(wincheAuth ? [
+      { id: "methods" as Section, label: "Sign-in methods", hint: "Winche Auth" },
+      { id: "security" as Section, label: "Sessions and security", hint: "lifetimes, lockout, two-step" },
+      { id: "email" as Section, label: "Email", hint: "how messages are sent" },
+    ] : []),
     ...(trustedProviders ? [
       { id: "providers" as Section, label: "Identity providers", hint: draft ? `${draft.providers.length} provider${draft.providers.length === 1 ? "" : "s"}` : "" },
       { id: "mapping" as Section, label: "Token mapping", hint: "what the rules see" },
@@ -101,6 +109,7 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
           <MappingSection draft={draft} setDraft={setDraft} editable={editable} selected={mappingFor} onSelect={setMappingFor} />
         )}
         {section === "directory" && <DirectorySection wincheAuth={wincheAuth} />}
+        {SIGN_IN.includes(section) && <SignInSettings part={section as SignInPart} state={signIn} />}
         {section === "history" && <HistorySection />}
         {section === "keys" && <AuthSettingsView />}
 
@@ -125,16 +134,6 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
   );
 }
 
-function errorWithList(e: unknown): string {
-  const text = (e as Error)?.message ?? String(e);
-  try {
-    const body = JSON.parse(text);
-    const list: string[] = body?.error?.errors ?? [];
-    return [body?.error?.message ?? text, ...list.map((x) => `• ${x}`)].join("\n");
-  } catch {
-    return text;
-  }
-}
 
 // ── Identity providers ────────────────────────────────────────────────────────
 

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Button, Group, Loader, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { errorMessage, type DirectoryTestResult, type UserDirectorySettings } from "../../api/appAuth";
+import { errorMessage, errorWithList, type DirectoryTestResult, type UserDirectorySettings } from "../../api/appAuth";
 import { when } from "./UsersView";
 
 const EMPTY_KEYCLOAK = { serverUrl: "", realm: "", clientId: "", signInEvents: true };
@@ -64,8 +64,7 @@ export function DirectorySection({ wincheAuth }: { wincheAuth: boolean }) {
       setNotice(`Saved as version ${v.number}. The Users tab now follows it.`);
       for (const key of ["user-directory", "settings-history", "app-auth-config", "app-users"]) await qc.invalidateQueries({ queryKey: [key] });
     } catch (e) {
-      const err = e as { message?: string; errors?: string[] };
-      setError([errorMessage(e), ...(err.errors ?? [])].join("\n"));
+      setError(errorWithList(e));
     } finally {
       setBusy(false);
     }

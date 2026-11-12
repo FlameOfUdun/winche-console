@@ -83,6 +83,7 @@ public static class ConsoleAppAuthEndpoints
                 wincheAuth = o is not null,
                 directory = await DirectoryInfoAsync(sp, ct),
                 trustedProviders = sp.GetService<WincheTokenProviders>() is not null,
+                signInSettings = sp.GetService<Winche.Config.SettingsArea<Winche.Auth.Settings.WincheAuthSettings>>() is not null,
                 emailPassword = o?.EmailPasswordSignIn is { } ep ? new { minLength = ep.MinLength, requireVerifiedEmail = ep.RequireVerifiedEmail } : null,
                 email = o?.EmailSending is { } es ? new
                 {

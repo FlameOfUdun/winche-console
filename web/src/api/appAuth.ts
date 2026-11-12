@@ -43,6 +43,37 @@ export interface DirectoryResponse {
   secretsAvailable: boolean;
 }
 
+export interface SignInProviderSettings {
+  name: string; kind: "google" | "apple" | "oidc"; displayName: string | null; authority: string | null; audiences: string[];
+  useSubjectAsUid: boolean; copiedClaims: string[];
+}
+
+export interface SmtpSettings {
+  host: string; port: number; security: "startTls" | "tls" | "none"; username: string | null; fromAddress: string; fromName: string | null;
+}
+
+/** Winche Auth's settings area auth.signIn. */
+export interface WincheAuthSettings {
+  emailPassword: { enabled: boolean; minLength: number; requireVerifiedEmail: boolean };
+  anonymous: boolean;
+  emailLink: { enabled: boolean; linkUrl: string };
+  twoStep: { enabled: boolean; issuer: string | null; recoveryCodes: number };
+  providers: SignInProviderSettings[];
+  sessions: { accessTokenMinutes: number; refreshTokenDays: number };
+  lockout: { maxFailedSignIns: number; lockoutMinutes: number };
+  email: {
+    enabled: boolean; appName: string; actionUrl: string | null; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number;
+    verifyLinkHours: number; resetLinkHours: number; sender: "app" | "smtp" | "logLinks"; smtp: SmtpSettings | null;
+  };
+}
+
+export type SignInSettingsResponse =
+  | { available: false; whyReadOnly: string }
+  | {
+      available: true; settings: WincheAuthSettings; codeDefault: WincheAuthSettings; source: "code" | "console"; version: SettingsVersionInfo | null;
+      editable: boolean; whyReadOnly: string | null; smtpPassword: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; appSender: boolean;
+    };
+
 export interface DirectoryTestResult {
   connected: boolean; error: string | null; users: number | null; permissions: { role: string; granted: boolean; for: string }[];
 }
@@ -72,6 +103,8 @@ export interface AppAuthConfig {
   /** Where the Users tab's users live, and what it can do there; null when there's no directory. */
   /** The app checks tokens with AddWincheTokens (identity providers and token mapping can be set). */
   trustedProviders?: boolean;
+  /** Winche Auth's settings can be changed in Settings (o.UseSettings()). */
+  signInSettings?: boolean;
   directory?: { kind: "wincheAuth" | "keycloak"; label: string; capabilities: DirectoryCapabilities } | null;
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
@@ -132,6 +165,18 @@ export function statusOf(u: AppUser, now = Date.now()): UserStatus {
 }
 
 /** "Couldn't …: <the server's message>" from an ApiError's JSON body, else its text. */
+/** The message and, on separate lines, each reason the server listed. */
+export function errorWithList(e: unknown): string {
+  const text = (e as Error)?.message ?? String(e);
+  try {
+    const body = JSON.parse(text);
+    const list: string[] = body?.error?.errors ?? [];
+    return [body?.error?.message ?? text, ...list.map((x) => `• ${x}`)].join("\n");
+  } catch {
+    return text;
+  }
+}
+
 export function errorMessage(e: unknown): string {
   const text = (e as Error)?.message ?? String(e);
   try {

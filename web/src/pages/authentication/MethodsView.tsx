@@ -32,7 +32,9 @@ export function MethodsView() {
   const c = config.data;
   return (
     <Stack gap="sm">
-      <Text size="sm" c="dimmed">Set in code with <Code>AddWincheAuth(o =&gt; …)</Code> and <Code>AddWincheTokens(t =&gt; …)</Code>; shown here so you can see what's on.</Text>
+      {c.signInSettings
+        ? <Text size="sm" c="dimmed">What's in force now. Change it in Settings → Sign-in methods, Sessions and security, and Email.</Text>
+        : <Text size="sm" c="dimmed">Set in code with <Code>AddWincheAuth(o =&gt; …)</Code> and <Code>AddWincheTokens(t =&gt; …)</Code>; shown here so you can see what's on.</Text>}
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         <Method name="Email and password" on={!!c.emailPassword}
           about="Sign up and sign in with an email address and a password."

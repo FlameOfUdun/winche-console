@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import type { DirectoryResponse, DirectoryTestResult, UserDirectorySettings } from "./appAuth";
+import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
 import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
@@ -142,6 +142,11 @@ export const api = {
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),
   restoreSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/history/${id}/restore`, { reason }),
   resetSettings: (area: string, reason: string) => http<SettingsVersionInfo>("POST", `api/app-auth/settings/${encodeURIComponent(area)}/reset`, { reason }),
+  signInSettings: () => http<SignInSettingsResponse>("GET", "api/app-auth/settings/signin"),
+  saveSignInSettings: (settings: WincheAuthSettings, smtpPassword: string | null, reason: string) =>
+    http<SettingsVersionInfo>("PUT", "api/app-auth/settings/signin", { settings, smtpPassword, reason }),
+  testSignInEmail: (settings: WincheAuthSettings, smtpPassword: string | null, to: string | null) =>
+    http<{ sentTo: string }>("POST", "api/app-auth/settings/signin/testEmail", { settings, smtpPassword, to }),
   userDirectory: () => http<DirectoryResponse>("GET", "api/app-auth/settings/directory"),
   saveUserDirectory: (settings: UserDirectorySettings, clientSecret: string | null, reason: string) =>
     http<SettingsVersionInfo>("PUT", "api/app-auth/settings/directory", { settings, clientSecret, reason }),

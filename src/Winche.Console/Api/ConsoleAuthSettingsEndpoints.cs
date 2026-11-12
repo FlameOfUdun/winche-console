@@ -28,6 +28,8 @@ public static class ConsoleAuthSettingsEndpoints
     public sealed record ReasonRequest(string? Reason);
     public sealed record SaveDirectoryRequest(JsonElement? Settings, string? ClientSecret, string? Reason);
     public sealed record TestDirectoryRequest(JsonElement? Settings, string? ClientSecret);
+    public sealed record SaveSignInRequest(JsonElement? Settings, string? SmtpPassword, string? Reason);
+    public sealed record TestEmailRequest(JsonElement? Settings, string? SmtpPassword, string? To);
 
     /// <summary>Null when the console admin may change sensitive settings; otherwise the refusal.</summary>
     private static async Task<IResult?> RequireTwoFactorAsync(HttpContext http)
@@ -115,6 +117,81 @@ public static class ConsoleAuthSettingsEndpoints
             var draft = await directories.DraftAsync(keycloak, string.IsNullOrEmpty(body.ClientSecret) ? null : body.ClientSecret, ct);
             var r = await draft.TestAsync(ct);
             return Results.Json(new { connected = r.Connected, error = r.Error, users = r.Users, permissions = r.Permissions.Select(p => new { role = p.Role, granted = p.Granted, @for = p.For }) });
+        });
+
+        // Winche Auth's own settings (o.UseSettings()): methods, providers, two-step, sessions, lockout, email.
+        group.MapGet("/signin", async (IServiceProvider sp, CancellationToken ct) =>
+        {
+            var area = sp.GetService<SettingsArea<Winche.Auth.Settings.WincheAuthSettings>>();
+            if (area is null)
+                return Results.Json(new
+                {
+                    available = false,
+                    whyReadOnly = sp.GetService<Winche.Auth.WincheAuthOptions>() is null
+                        ? "Winche Auth isn't installed in this app."
+                        : "The app's code sets these: add o.UseSettings() to AddWincheAuth(…) to change them here.",
+                });
+            var store = sp.GetService<SettingsStore>();
+            var secrets = sp.GetService<SecretStore>();
+            var password = secrets is null ? null : await secrets.InfoAsync(Winche.Auth.Email.SmtpEmailSender.SecretName, ct);
+            var isService = sp.GetService<IServiceProviderIsService>();
+            return Results.Json(new
+            {
+                available = true,
+                settings = area.Current,
+                codeDefault = area.CodeDefault,
+                source = area.Source == SettingsSource.Saved ? "console" : "code",
+                version = area.Version is { } v ? Version(v, store) : null,
+                editable = store is not null,
+                whyReadOnly = store is null ? "The app needs AddWincheConfig(…) to save settings." : null,
+                smtpPassword = password is null ? null : new { setAt = password.SetAt, setBy = password.SetBy },
+                secretsAvailable = secrets?.Available ?? false,
+                appSender = isService?.IsService(typeof(Winche.Auth.Email.IAuthEmailSender)) == true,
+            }, SettingsArea.Json);
+        });
+
+        group.MapPut("/signin", async (SaveSignInRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
+        {
+            if (await RequireTwoFactorAsync(http) is { } refused) return refused;
+            if (sp.GetService<SettingsArea<Winche.Auth.Settings.WincheAuthSettings>>() is not { } area)
+                return Problem("The app's code sets these: add o.UseSettings() to AddWincheAuth(…).");
+            if (sp.GetService<SettingsStore>() is not { } store) return Problem("The app needs AddWincheConfig(…) to save settings.");
+            if (body.Settings is not { ValueKind: JsonValueKind.Object } doc) return Problem("Send the settings to save.");
+            if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're making this change: it goes in the history.");
+            var node = JsonNode.Parse(doc.GetRawText())!;
+            if (area.Validate(node) is { Count: > 0 } problems) return Problem("These settings can't be saved.", problems);
+            if (!string.IsNullOrEmpty(body.SmtpPassword))
+            {
+                var secrets = sp.GetRequiredService<SecretStore>();
+                if (!secrets.Available) return Problem("Secrets need the project's master key: set WincheConfigOptions.MasterKey.");
+                await secrets.SetAsync(Winche.Auth.Email.SmtpEmailSender.SecretName, body.SmtpPassword, Who(http.User), ct);
+            }
+            try { return Results.Json(Version(await store.SaveAsync(Winche.Auth.Settings.WincheAuthSettings.Area, node, Who(http.User), body.Reason, ct), store)); }
+            catch (SettingsValidationException ex) { return Problem("These settings can't be saved.", ex.Errors); }
+        });
+
+        // Send a test message through the draft's SMTP server, before saving.
+        group.MapPost("/signin/testEmail", async (TestEmailRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
+        {
+            Winche.Auth.Settings.WincheAuthSettings? draft;
+            try { draft = body.Settings is { ValueKind: JsonValueKind.Object } d ? d.Deserialize<Winche.Auth.Settings.WincheAuthSettings>(SettingsArea.Json) : null; }
+            catch (JsonException ex) { return Problem($"The settings don't have the expected shape: {ex.Message}"); }
+            if (draft?.Email.Smtp is not { } smtp) return Problem("Fill in the SMTP server.");
+            var to = string.IsNullOrWhiteSpace(body.To) ? Who(http.User) : body.To.Trim();
+            if (to is null || !to.Contains('@')) return Problem("Give an address to send the test to.");
+            var password = string.IsNullOrEmpty(body.SmtpPassword)
+                ? sp.GetService<SecretStore>() is { Available: true } secrets ? await secrets.GetAsync(Winche.Auth.Email.SmtpEmailSender.SecretName, ct) : null
+                : body.SmtpPassword;
+            try
+            {
+                await Winche.Auth.Email.SmtpEmailSender.SendTestAsync(new Winche.Auth.Email.SmtpOptions
+                {
+                    Host = smtp.Host, Port = smtp.Port, Security = smtp.Security, Username = string.IsNullOrWhiteSpace(smtp.Username) ? null : smtp.Username,
+                    FromAddress = smtp.FromAddress, FromName = string.IsNullOrWhiteSpace(smtp.FromName) ? null : smtp.FromName,
+                }, string.IsNullOrWhiteSpace(draft.Email.AppName) ? "Winche" : draft.Email.AppName, password, to, ct);
+                return Results.Json(new { sentTo = to });
+            }
+            catch (Winche.Auth.AuthException ex) { return Problem(ex.Message); }
         });
 
         if (!tokens) return MapHistory(group);
