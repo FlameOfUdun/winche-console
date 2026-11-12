@@ -171,6 +171,52 @@ public class ConsoleAppAuthTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Two_step_sign_in_shows_and_an_admin_can_turn_it_off()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        var signUp = await Json(await client.PostAsJsonAsync("/auth/v1/signUp", new { email = "ann@example.com", password = "correct horse battery" }));
+        var uid = signUp.GetProperty("user").GetProperty("uid").GetString()!;
+        var bearer = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", signUp.GetProperty("accessToken").GetString());
+        using var start = new HttpRequestMessage(HttpMethod.Post, "/auth/v1/me/mfa/totp/start") { Headers = { Authorization = bearer } };
+        var secret = (await Json(await client.SendAsync(start))).GetProperty("secret").GetString()!;
+        var code = Totp(secret);
+        using var confirm = new HttpRequestMessage(HttpMethod.Post, "/auth/v1/me/mfa/totp/confirm") { Content = JsonContent.Create(new { code }), Headers = { Authorization = bearer } };
+        await Json(await client.SendAsync(confirm));
+
+        var detail = await Json(await client.GetAsync($"/_console/api/app-auth/users/{uid}"));
+        Assert.True(detail.GetProperty("user").GetProperty("mfaEnabled").GetBoolean());
+        Assert.Equal(10, detail.GetProperty("mfa").GetProperty("recoveryCodesLeft").GetInt32());
+        Assert.Equal("Sample", (await Json(await client.GetAsync("/_console/api/app-auth/config"))).GetProperty("mfa").GetProperty("issuer").GetString());
+
+        var off = await Json(await client.DeleteAsync($"/_console/api/app-auth/users/{uid}/mfa"));
+        Assert.False(off.GetProperty("mfaEnabled").GetBoolean());
+        await Json(await client.PostAsJsonAsync("/auth/v1/signIn", new { email = "ann@example.com", password = "correct horse battery" }));   // no second step
+    }
+
+    /// <summary>The authenticator app's current code (RFC 6238).</summary>
+    private static string Totp(string base32)
+    {
+        const string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+        var bytes = new List<byte>();
+        int buffer = 0, bits = 0;
+        foreach (var c in base32)
+        {
+            buffer = (buffer << 5) | alphabet.IndexOf(c);
+            bits += 5;
+            if (bits >= 8) { bytes.Add((byte)((buffer >> (bits - 8)) & 0xFF)); bits -= 8; }
+        }
+        var counter = new byte[8];
+        System.Buffers.Binary.BinaryPrimitives.WriteInt64BigEndian(counter, DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 30);
+        var hash = System.Security.Cryptography.HMACSHA1.HashData(bytes.ToArray(), counter);
+        var o = hash[^1] & 0x0F;
+        return ((((hash[o] & 0x7F) << 24) | (hash[o + 1] << 16) | (hash[o + 2] << 8) | hash[o + 3]) % 1_000_000).ToString("D6");
+    }
+
+    [Fact]
     public async Task Signed_out_callers_get_nothing()
     {
         using var app = new ConsoleAppFactory(fx);

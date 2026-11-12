@@ -34,7 +34,7 @@ public static class ConsoleAppAuthEndpoints
     private static object User(WincheUserInfo u) => new
     {
         uid = u.Uid, email = u.Email, emailVerified = u.EmailVerified, displayName = u.DisplayName, photoUrl = u.PhotoUrl,
-        isAnonymous = u.IsAnonymous, disabled = u.Disabled, providers = u.Providers, customClaims = u.CustomClaims,
+        isAnonymous = u.IsAnonymous, disabled = u.Disabled, mfaEnabled = u.MfaEnabled, providers = u.Providers, customClaims = u.CustomClaims,
         createdAt = u.CreatedAt, lastSignInAt = u.LastSignInAt, lockedOutUntil = u.LockedOutUntil,
     };
 
@@ -75,7 +75,12 @@ public static class ConsoleAppAuthEndpoints
 
         group.MapGet("/users/{uid}", async (string uid, IWincheAuth auth, CancellationToken ct) =>
             await auth.GetUserAsync(uid, ct) is { } u
-                ? Results.Json(new { user = User(u), sessions = await auth.ListSessionsAsync(uid, ct) })
+                ? Results.Json(new
+                {
+                    user = User(u),
+                    sessions = await auth.ListSessionsAsync(uid, ct),
+                    mfa = u.MfaEnabled ? new { recoveryCodesLeft = (await auth.GetMfaStatusAsync(uid, ct)).RecoveryCodesLeft } : null,
+                })
                 : Results.NotFound());
 
         group.MapPost("/users/{uid}/disabled", async (string uid, DisabledRequest body, IWincheAuth auth, CancellationToken ct) =>
@@ -98,6 +103,10 @@ public static class ConsoleAppAuthEndpoints
 
         group.MapDelete("/users/{uid}/providers/{provider}", async (string uid, string provider, IWincheAuth auth, CancellationToken ct) =>
             Results.Json(User(await auth.UnlinkProviderAsync(uid, provider, ct))));
+
+        // For someone who lost their authenticator app.
+        group.MapDelete("/users/{uid}/mfa", async (string uid, IWincheAuth auth, CancellationToken ct) =>
+            Results.Json(User(await auth.ResetMfaAsync(uid, ct))));
 
         group.MapPost("/users/{uid}/unlock", async (string uid, IWincheAuth auth, CancellationToken ct) =>
             Results.Json(User(await auth.UnlockAsync(uid, ct))));
@@ -166,6 +175,7 @@ public static class ConsoleAppAuthEndpoints
                     sender = es.LogLinksOnly ? null : sp.GetService<Winche.Auth.Email.IAuthEmailSender>()?.GetType().Name,
                 } : null,
                 emailLink = o.EmailLinkSignIn is { } el ? new { linkUrl = el.LinkUrl } : null,
+                mfa = o.MfaSettings is { } m ? new { issuer = m.Issuer ?? o.EmailSending?.AppName ?? new Uri(o.Issuer).Host, recoveryCodes = m.RecoveryCodes, pendingMinutes = m.PendingLifetime.TotalMinutes } : null,
                 identityProviders = o.IdentityProviders.Select(p => new
                 {
                     name = p.Name, kind = p.Kind, displayName = p.DisplayName ?? p.Name, authority = p.Authority, audiences = p.Audiences,

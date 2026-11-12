@@ -114,7 +114,7 @@ export const api = {
   deleteLogQuery: (id: string) => http<void>("DELETE", `api/logs/queries/${encodeURIComponent(id)}`),
   appUsers: (search: string, offset = 0, limit = 50) =>
     http<{ users: AppUser[]; total: number }>("GET", `api/app-auth/users?${new URLSearchParams({ search, offset: String(offset), limit: String(limit) })}`),
-  appUser: (uid: string) => http<{ user: AppUser; sessions: AppSession[] }>("GET", `api/app-auth/users/${encodeURIComponent(uid)}`),
+  appUser: (uid: string) => http<{ user: AppUser; sessions: AppSession[]; mfa?: { recoveryCodesLeft: number } | null }>("GET", `api/app-auth/users/${encodeURIComponent(uid)}`),
   createAppUser: (body: { email?: string; password?: string; displayName?: string }) => http<AppUser>("POST", "api/app-auth/users", body),
   setAppUserDisabled: (uid: string, disabled: boolean) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/disabled`, { disabled }),
   setAppUserClaims: (uid: string, claims: Record<string, unknown> | null) => http<AppUser>("PUT", `api/app-auth/users/${encodeURIComponent(uid)}/claims`, { claims }),
@@ -122,6 +122,7 @@ export const api = {
   revokeAppSession: (uid: string, id: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/sessions/${id}`),
   unlinkAppUserProvider: (uid: string, provider: string) =>
     http<AppUser>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/providers/${encodeURIComponent(provider)}`),
+  resetAppUserMfa: (uid: string) => http<AppUser>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/mfa`),
   unlockAppUser: (uid: string) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/unlock`),
   deleteAppUser: (uid: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}`),
   sendAppUserPasswordReset: (uid: string) => http<void>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/sendPasswordReset`),

@@ -51,6 +51,7 @@ else
         a.EmailPassword();
         a.Anonymous();
         a.Email(e => e.AppName = "Sample");
+        a.Mfa();
         a.Google(g => { g.Audiences = ["sample.apps.googleusercontent.com"]; g.AllowUnsignedTokensForTesting = true; });
     });
     builder.Services.AddSingleton<RecordingEmailSender>();

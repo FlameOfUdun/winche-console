@@ -7,6 +7,8 @@ export interface AppUser {
   photoUrl: string | null;
   isAnonymous: boolean;
   disabled: boolean;
+  /** Two-step sign-in (an authenticator app) is on. */
+  mfaEnabled?: boolean;
   /** password, anonymous, … */
   providers: string[];
   customClaims: Record<string, unknown>;
@@ -39,6 +41,7 @@ export interface AppAuthConfig {
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
   emailLink: { linkUrl: string } | null;
+  mfa?: { issuer: string; recoveryCodes: number; pendingMinutes: number } | null;
   identityProviders: {
     name: string; kind: "google" | "apple" | "oidc"; displayName: string; authority: string; audiences: string[];
     useSubjectAsUid: boolean; copiedClaims: string[]; testingOnly: boolean;

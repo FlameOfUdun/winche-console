@@ -64,7 +64,10 @@ export function UsersView() {
                         <Text size="xs" c="dimmed" ff="monospace">{u.uid}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Group gap={4}>{u.providers.map((p) => <Badge key={p} size="sm" variant="light" tt="none">{providerLabel(p, config.data)}</Badge>)}</Group>
+                        <Group gap={4}>
+                          {u.providers.map((p) => <Badge key={p} size="sm" variant="light" tt="none">{providerLabel(p, config.data)}</Badge>)}
+                          {u.mfaEnabled && <Badge size="sm" variant="light" color="teal" tt="none">Two-step</Badge>}
+                        </Group>
                       </Table.Td>
                       <Table.Td><Text size="xs">{when(u.createdAt)}</Text></Table.Td>
                       <Table.Td><Text size="xs">{when(u.lastSignInAt)}</Text></Table.Td>
@@ -123,7 +126,7 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
 
   if (detail.isLoading) return <Paper withBorder p="md" style={{ flex: "1 1 340px" }}><Loader size="sm" /></Paper>;
   if (!detail.data) return null;
-  const { user: u, sessions } = detail.data;
+  const { user: u, sessions, mfa } = detail.data;
   const status = statusOf(u);
   const name = u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid);
 
@@ -179,6 +182,24 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
             );
           })}
         </Stack>
+
+        {(u.mfaEnabled || config.data?.mfa) && (
+          <Stack gap={6}>
+            <Title order={6}>Two-step sign-in</Title>
+            {u.mfaEnabled ? (
+              <Group justify="space-between" wrap="nowrap" gap="xs" data-testid="app-user-mfa">
+                <Text size="sm">On: authenticator app · {mfa?.recoveryCodesLeft ?? 0} recovery code{mfa?.recoveryCodesLeft === 1 ? "" : "s"} left</Text>
+                <Button size="xs" variant="subtle" color="red" disabled={busy}
+                  onClick={() => window.confirm("Turn off two-step sign-in for this user? Do this only if you've confirmed who they are (a lost phone).") &&
+                    run(() => api.resetAppUserMfa(uid), "Two-step sign-in is off: they sign in with just their first step until they add an app again.")}>
+                  Turn off
+                </Button>
+              </Group>
+            ) : (
+              <Text size="sm" c="dimmed">Off. The user turns it on from the app.</Text>
+            )}
+          </Stack>
+        )}
 
         <Stack gap={6}>
           <Group justify="space-between"><Title order={6}>Custom claims</Title><Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>

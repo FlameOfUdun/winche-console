@@ -16,7 +16,7 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, appUsers: vi.fn(), appUser: vi.fn(), createAppUser: vi.fn(), setAppUserDisabled: vi.fn(), setAppUserClaims: vi.fn(),
-      signOutAppUser: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
+      signOutAppUser: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
     },
   };
@@ -36,6 +36,7 @@ const config: AppAuthConfig = {
   emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
   email: { appName: "SmartAirway", actionUrl: "https://api.example.com/auth/v1/action", sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, logLinksOnly: false, sender: "SesEmailSender" },
   emailLink: null,
+  mfa: { issuer: "SmartAirway", recoveryCodes: 10, pendingMinutes: 5 },
   identityProviders: [{ name: "google", kind: "google", displayName: "Google", authority: "https://accounts.google.com", audiences: ["x.apps.googleusercontent.com"], useSubjectAsUid: false, copiedClaims: [], testingOnly: false }], trustsWincheTokens: true,
   trustedIssuers: [{ name: "keycloak", issuer: "https://auth.example.com/realms/trucorp", authority: "https://auth.example.com/realms/trucorp", audience: "smartairway-api", uidClaim: "sub", claims: ["role"] }],
   tokens: { issuer: "https://api.example.com", audience: "https://api.example.com", accessTokenMinutes: 15, refreshTokenDays: 60, keyRotationDays: 90, keysEncrypted: false },
@@ -58,7 +59,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock(useSession).mockReturnValue({ state: { capabilities: { logs: { app: true } } }, user: { role: "Admin" } });
   mock(api.appUsers).mockResolvedValue({ users: [user(), user({ uid: "guest1", email: null, displayName: null, isAnonymous: true, providers: ["anonymous"], customClaims: {} })], total: 2 });
-  mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"] }), sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "SmartAirway/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
+  mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "SmartAirway/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
   mock(api.appAuthConfig).mockResolvedValue(config);
 });
 
@@ -85,6 +86,10 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   await userEvent.click(screen.getByText("Save claims"));
   expect(await screen.findByText("Custom claims must be a JSON object.")).toBeInTheDocument();
 
+  expect(screen.getByTestId("app-user-mfa")).toHaveTextContent("7 recovery codes left");
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  await userEvent.click(within(screen.getByTestId("app-user-mfa")).getByText("Turn off"));
+  await waitFor(() => expect(mock(api.resetAppUserMfa)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w"));
   const providers = screen.getAllByTestId("app-user-provider");
   expect(within(providers[0]).queryByText("Unlink")).toBeNull();   // a password isn't unlinked
   vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -104,11 +109,12 @@ test("sign-in methods and settings show what's configured; keys can be rotated",
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Sign-in methods" }));
   const methods = await screen.findAllByTestId("sign-in-method");
-  expect(methods).toHaveLength(6);
+  expect(methods).toHaveLength(7);
   expect(within(methods[1]).getByText("Off")).toBeInTheDocument();   // email link
   expect(within(methods[3]).getByText("x.apps.googleusercontent.com")).toBeInTheDocument();
-  expect(within(methods[5]).getByText("keycloak (trusted issuer)")).toBeInTheDocument();
-  expect(within(methods[5]).getByText("role")).toBeInTheDocument();
+  expect(within(methods[4]).getByText("SmartAirway")).toBeInTheDocument();   // two-step
+  expect(within(methods[6]).getByText("keycloak (trusted issuer)")).toBeInTheDocument();
+  expect(within(methods[6]).getByText("role")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
   expect(await screen.findByText("k-20261112-abc123")).toBeInTheDocument();

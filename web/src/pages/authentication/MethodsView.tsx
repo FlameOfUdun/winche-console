@@ -64,6 +64,10 @@ export function MethodsView() {
             code={p.kind === "oidc" ? `o.OpenIdConnect("${p.name}", k => { k.Authority = "…"; k.Audiences = ["…"]; });`
               : p.kind === "google" ? 'o.Google(g => g.Audiences = ["…apps.googleusercontent.com"]);' : 'o.Apple(a => a.Audiences = ["com.example.app"]);'} />
         ))}
+        <Method name="Two-step sign-in" on={!!c.mfa}
+          about="Users may add an authenticator app; then every sign-in also asks for its code (or a recovery code). Their tokens carry mfa: true."
+          rows={c.mfa ? [["Shown in apps as", c.mfa.issuer], ["Recovery codes", String(c.mfa.recoveryCodes)], ["Time for the code", `${c.mfa.pendingMinutes} minutes`]] : []}
+          code='o.Mfa(m => m.Issuer = "SmartAirway");' />
         <Method name="Winche tokens" on={c.trustsWincheTokens}
           about="Database, Storage and your endpoints accept the tokens Winche Auth issues."
           rows={[["Issuer", c.tokens.issuer]]} code="AddWincheTokens(t => t.TrustWincheAuth());" />
