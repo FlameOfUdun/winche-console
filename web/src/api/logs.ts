@@ -24,7 +24,7 @@ export interface LogEntry {
   latencyMs: number | null;
 }
 
-export type LogResource = "database" | "storage" | "console" | "app";
+export type LogResource = "database" | "storage" | "auth" | "console" | "app";
 export const FILTER_FIELDS = ["resource", "operation", "principal", "path", "outcome", "category", "instance", "user"] as const;
 export type FilterField = (typeof FILTER_FIELDS)[number];
 

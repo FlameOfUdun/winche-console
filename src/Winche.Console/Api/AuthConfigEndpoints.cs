@@ -66,6 +66,7 @@ public static class AuthConfigEndpoints
                     storage = options.StorageTab is { } st && consoleRole >= st.MinRole,
                     logs = ConsoleLogsEndpoints.Capabilities(options, consoleRole),
                     history = options.DatabaseTab is { History: true } ht && consoleRole >= ht.MinRole,
+                    authentication = ConsoleAppAuthEndpoints.Capability(options, consoleRole),
                 },
                 user = new
                 {

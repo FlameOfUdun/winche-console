@@ -19,6 +19,7 @@ public sealed class LogsOptions
     [
         new("Winche.Database.Requests", LogLevel.Information),
         new("Winche.Storage.Requests", LogLevel.Information),
+        new("Winche.Auth.Events", LogLevel.Information),
     ];
     internal IReadOnlyList<LogLevelOverride> Overrides => _overrides;
 

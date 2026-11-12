@@ -22,6 +22,7 @@
     <!-- 3.1.0: rule functions and the text syntax the rules editor uses (RuleText). -->
     <PackageReference Include="Winche.Rules" Version="4.1.0" />
     <PackageReference Include="Winche.Storage" Version="9.0.0" />
+    <PackageReference Include="Winche.Auth.AspNetCore" Version="1.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.9" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.9" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />

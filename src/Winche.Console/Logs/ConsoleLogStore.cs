@@ -199,6 +199,7 @@ internal sealed class ConsoleLogStore(string connectionString, LogsOptions optio
         category.StartsWith("Winche.Database", StringComparison.Ordinal) ? "database"
         : category.StartsWith("Winche.Storage", StringComparison.Ordinal) ? "storage"
         : category.StartsWith("Winche.Console", StringComparison.Ordinal) ? "console"
+        : category.StartsWith("Winche.Auth", StringComparison.Ordinal) ? "auth"
         : "app";
 
     /// <summary>The WHERE clause for <paramref name="q"/> (paging excluded), adding its parameters to <paramref name="cmd"/>.</summary>

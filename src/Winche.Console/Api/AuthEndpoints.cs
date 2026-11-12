@@ -31,6 +31,7 @@ public static class AuthEndpoints
         storage = options.StorageTab is { } st && role is { } r2 && r2 >= st.MinRole,
         logs = ConsoleLogsEndpoints.Capabilities(options, role),
         history = options.DatabaseTab is { History: true } ht && role is { } r3 && r3 >= ht.MinRole,
+        authentication = ConsoleAppAuthEndpoints.Capability(options, role),
     };
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>

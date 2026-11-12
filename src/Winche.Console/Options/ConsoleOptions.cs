@@ -123,6 +123,19 @@ public sealed class ConsoleOptions
         return this;
     }
 
+    internal bool AuthenticationTab { get; private set; }
+
+    /// <summary>
+    /// Add an <b>Authentication</b> tab (Admins) for the app's users — needs <c>AddWincheAuth</c> (Winche.Auth): search
+    /// users, see how they sign in and their sessions, set custom claims, disable, unlock, sign out everywhere, delete;
+    /// and the sign-in methods, token settings and signing keys. (The console's own admins stay in Access.)
+    /// </summary>
+    public ConsoleOptions AddAuthenticationTab()
+    {
+        AuthenticationTab = true;
+        return this;
+    }
+
     internal bool AnyLogs => AppLogsTab || DatabaseTab?.Logs == true || StorageTab?.Logs == true;
 
     private readonly List<TabDefinition> _tabs = new();

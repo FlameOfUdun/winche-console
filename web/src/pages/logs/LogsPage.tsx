@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import type { LogResource } from "../../api/logs";
 import { Stack, Tabs, Title } from "@mantine/core";
 import { LogsExplorer } from "./LogsExplorer";
 import { SavedQueriesView } from "./SavedQueriesView";
@@ -7,7 +9,9 @@ import { EMPTY, fromSpec, type ExplorerState } from "./explorerQuery";
 /** The top-level Logs tab: the explorer over every kept entry, and the saved queries. */
 export function LogsPage() {
   const [tab, setTab] = useState<string | null>("explorer");
-  const [state, setState] = useState<ExplorerState>(EMPTY);
+  const [params] = useSearchParams();
+  // ?resource=auth (from the Authentication tab) opens the explorer on that resource.
+  const [state, setState] = useState<ExplorerState>(() => ({ ...EMPTY, resource: (params.get("resource") ?? "") as LogResource | "" }));
   return (
     <Stack gap="sm">
       <Title order={3}>Logs</Title>

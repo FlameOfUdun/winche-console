@@ -1,4 +1,6 @@
 using SampleHost;
+using Winche.Auth.AspNetCore;
+using Winche.Auth.DependencyInjection;
 using Winche.Console;
 using Winche.Console.Tabs;
 using Winche.Database.DependencyInjection;
@@ -12,8 +14,8 @@ var wincheConn = builder.Configuration["Winche:ConnectionString"]
 builder.Services.AddWincheDatabase(cfg =>
 {
     cfg.ConnectionString = wincheConn;
-    cfg.KeepHistory();
-    cfg.LogRequests(r => r.SuccessSampleRate = 1.0);   // the Logs Explorer: every request   // the Database tab's History sub-tab
+    cfg.KeepHistory();   // the Database tab's History sub-tab
+    cfg.LogRequests(r => r.SuccessSampleRate = 1.0);   // the Logs Explorer: every request
 });
 builder.Services.AddWincheStorage(opts => opts.ConnectionString = wincheConn);
 builder.Services.AddSingleton<IArchive, NoOpArchive>();
@@ -40,9 +42,20 @@ else
 {
     var authConn = builder.Configuration["Console:ConnectionString"]
         ?? throw new InvalidOperationException("Console:ConnectionString is required.");
+
+    // The app's own users (Winche Auth), managed in the console's Authentication tab.
+    builder.Services.AddWincheAuth(a =>
+    {
+        a.ConnectionString = wincheConn;
+        a.Issuer = "https://sample.test";
+        a.EmailPassword();
+        a.Anonymous();
+    });
+    builder.Services.AddAuthentication().AddWincheTokens(t => t.TrustWincheAuth());
     builder.Services.AddWincheConsole(o =>
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup
+        o.AddAuthenticationTab();
 
         o.AddDatabaseTab(b => { b.UseRulesEditor(); b.UseLogs(); b.UseHistory(); });   // Database tab + Rules, Logs, History
         o.AddStorageTab(b => { b.UseRulesEditor(); b.UseLogs(); });     // Storage tab + its Rules and Logs sub-tabs
@@ -93,6 +106,9 @@ var app = builder.Build();
 
 await app.InitializeWincheDatabaseAsync();
 await app.InitializeWincheStorageAsync();
+
+if (app.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(Winche.Auth.IWincheAuth)) == true)
+    app.MapWincheAuth();   // the app's sign-in API (/auth/v1)
 
 app.MapWincheConsole("/_console");
 

@@ -1,6 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
+import type { AppAuthConfig, AppSession, AppUser } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
 import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
 
@@ -111,6 +112,18 @@ export const api = {
   logQueries: () => http<{ queries: SavedQuery[] }>("GET", "api/logs/queries"),
   saveLogQuery: (name: string, query: SavedQuerySpec) => http<SavedQuery>("POST", "api/logs/queries", { name, query }),
   deleteLogQuery: (id: string) => http<void>("DELETE", `api/logs/queries/${encodeURIComponent(id)}`),
+  appUsers: (search: string, offset = 0, limit = 50) =>
+    http<{ users: AppUser[]; total: number }>("GET", `api/app-auth/users?${new URLSearchParams({ search, offset: String(offset), limit: String(limit) })}`),
+  appUser: (uid: string) => http<{ user: AppUser; sessions: AppSession[] }>("GET", `api/app-auth/users/${encodeURIComponent(uid)}`),
+  createAppUser: (body: { email?: string; password?: string; displayName?: string }) => http<AppUser>("POST", "api/app-auth/users", body),
+  setAppUserDisabled: (uid: string, disabled: boolean) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/disabled`, { disabled }),
+  setAppUserClaims: (uid: string, claims: Record<string, unknown> | null) => http<AppUser>("PUT", `api/app-auth/users/${encodeURIComponent(uid)}/claims`, { claims }),
+  signOutAppUser: (uid: string) => http<{ sessions: number }>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/signOut`),
+  revokeAppSession: (uid: string, id: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/sessions/${id}`),
+  unlockAppUser: (uid: string) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/unlock`),
+  deleteAppUser: (uid: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}`),
+  appAuthConfig: () => http<AppAuthConfig>("GET", "api/app-auth/config"),
+  rotateAppAuthKeys: () => http<void>("POST", "api/app-auth/keys/rotate"),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),
   logLevels: () => http<LogLevels>("GET", "api/logs/levels"),
   saveLogLevels: (defaultLevel: LogLevel, overrides: LogLevelOverride[]) =>

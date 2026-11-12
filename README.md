@@ -208,6 +208,25 @@ services.AddWincheConsole(o =>
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
+## Authentication (optional)
+
+An **Authentication** tab (Admins) for the app's own users, signed in with [Winche Auth](https://github.com/FlameOfUdun/winche-auth):
+
+```csharp
+services.AddWincheAuth(o => { /* … */ });
+services.AddAuthentication().AddWincheTokens(t => t.TrustWincheAuth());
+services.AddWincheConsole(o => o.AddAuthenticationTab());
+```
+
+- **Users:** search by email, name or uid; open one for how they sign in, their sessions (sign one out, or all), their
+  custom claims (what rules read as `request.auth.token.*`), unlock after failed sign-ins, disable, delete; add users.
+- **Sign-in methods:** what's on (email and password, anonymous, Winche tokens, trusted issuers such as Keycloak), as
+  set in code.
+- **Settings:** token lifetimes, issuer, signing keys (with *Rotate now*), lockout and hooks.
+
+Sign-ins, failures, lockouts and account changes appear in the Logs Explorer as resource `auth`, with a built-in
+*Failed sign-ins* query. The console's own admins are separate: they're in **Access**. Needs Winche.Auth 1.0.0.
+
 ## History (optional)
 
 A **History** sub-tab on the Database tab shows who changed which document, when, and how — each field's old and

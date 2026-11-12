@@ -32,6 +32,7 @@ public static class ConsoleLogsEndpoints
     internal static readonly SavedLogQuery[] BuiltInQueries =
     [
         new("builtin:denied", "Denied requests", new(null, LogLevel.Trace, [new("outcome", "denied")], null), null, null),
+        new("builtin:signins", "Failed sign-ins", new("auth", LogLevel.Warning, [], null), null, null),
         new("builtin:errors", "Errors", new(null, LogLevel.Error, [], null), null, null),
         new("builtin:database", "Database requests", new("database", LogLevel.Trace, [new("category", "Winche.Database.Requests")], null), null, null),
         new("builtin:storage", "Storage requests", new("storage", LogLevel.Trace, [new("category", "Winche.Storage.Requests")], null), null, null),

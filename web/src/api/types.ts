@@ -36,6 +36,8 @@ export interface Capabilities {
   logs?: { app: boolean; database: boolean; storage: boolean };
   /** The Database tab's History sub-tab (who changed which document). */
   history?: boolean;
+  /** The Authentication tab: the app's users (Winche Auth). Admins only. */
+  authentication?: boolean;
   invites: boolean;
   twoFactor: boolean;
   changePassword: boolean;
