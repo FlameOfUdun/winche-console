@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import type { AppAuthConfig, AppSession, AppUser } from "./appAuth";
+import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo } from "./appAuth";
 import { historyQuery, type HistoryEntry, type HistoryFilter } from "./history";
 import { logQuery, type Histogram, type LogFilter, type LogLevel, type LogLevelOverride, type LogLevels, type LogPage, type LogScope, type SavedQuery, type SavedQuerySpec } from "./logs";
 
@@ -122,6 +122,13 @@ export const api = {
   revokeAppSession: (uid: string, id: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}/sessions/${id}`),
   unlockAppUser: (uid: string) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/unlock`),
   deleteAppUser: (uid: string) => http<void>("DELETE", `api/app-auth/users/${encodeURIComponent(uid)}`),
+  sendAppUserPasswordReset: (uid: string) => http<void>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/sendPasswordReset`),
+  sendAppUserVerification: (uid: string) => http<void>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/sendVerification`),
+  setAppUserVerified: (uid: string, verified: boolean) => http<AppUser>("POST", `api/app-auth/users/${encodeURIComponent(uid)}/verified`, { verified }),
+  appEmailTemplates: () => http<{ templates: EmailTemplateInfo[] }>("GET", "api/app-auth/email-templates"),
+  saveAppEmailTemplate: (kind: string, subject: string, body: string) => http<void>("PUT", `api/app-auth/email-templates/${kind}`, { subject, body }),
+  resetAppEmailTemplate: (kind: string) => http<void>("DELETE", `api/app-auth/email-templates/${kind}`),
+  testAppEmailTemplate: (kind: string) => http<{ sentTo: string }>("POST", `api/app-auth/email-templates/${kind}/test`),
   appAuthConfig: () => http<AppAuthConfig>("GET", "api/app-auth/config"),
   rotateAppAuthKeys: () => http<void>("POST", "api/app-auth/keys/rotate"),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),

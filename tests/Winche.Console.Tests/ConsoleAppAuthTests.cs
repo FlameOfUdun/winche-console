@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Xunit;
 
@@ -98,6 +99,45 @@ public class ConsoleAppAuthTests(PostgresFixture fx) : IAsyncLifetime
         Assert.Equal("auth.signIn", entry.GetProperty("operation").GetString());
         Assert.Equal("nobody@example.com", entry.GetProperty("principal").GetString());
         Assert.Equal("Warning", entry.GetProperty("level").GetString());
+    }
+
+    [Fact]
+    public async Task Email_templates_and_emails_from_the_console()
+    {
+        using var app = new ConsoleAppFactory(fx);
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+        var outbox = app.Services.GetRequiredService<RecordingEmailSender>();
+
+        var templates = (await Json(await client.GetAsync("/_console/api/app-auth/email-templates"))).GetProperty("templates").EnumerateArray().ToArray();
+        Assert.Equal(["verifyEmail", "resetPassword", "signIn", "emailChanged"], templates.Select(t => t.GetProperty("kind").GetString()));
+        Assert.False(templates[1].GetProperty("isCustom").GetBoolean());
+
+        var bad = await client.PutAsJsonAsync("/_console/api/app-auth/email-templates/resetPassword", new { subject = "Reset", body = "no link" });
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PutAsJsonAsync("/_console/api/app-auth/email-templates/resetPassword",
+            new { subject = "Reset your %APP_NAME% password", body = "Hi,\n\n%LINK%" })).StatusCode);
+        var saved = (await Json(await client.GetAsync("/_console/api/app-auth/email-templates"))).GetProperty("templates")[1];
+        Assert.True(saved.GetProperty("isCustom").GetBoolean());
+        Assert.False(string.IsNullOrEmpty(saved.GetProperty("updatedBy").GetString()));
+
+        var test = await Json(await client.PostAsync("/_console/api/app-auth/email-templates/resetPassword/test", null));
+        var to = test.GetProperty("sentTo").GetString()!;
+        lock (outbox.Sent) Assert.Equal("[Test] Reset your Sample password", outbox.Sent.Last(m => m.To == to).Subject);
+
+        // A user: the console sends them a reset and marks their email verified.
+        var signUp = await Json(await client.PostAsJsonAsync("/auth/v1/signUp", new { email = "ann@example.com", password = "correct horse battery" }));
+        var uid = signUp.GetProperty("user").GetProperty("uid").GetString()!;
+        lock (outbox.Sent) Assert.Equal("verifyEmail", outbox.Sent.Last(m => m.To == "ann@example.com").Kind);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/_console/api/app-auth/users/{uid}/sendPasswordReset", null)).StatusCode);
+        lock (outbox.Sent) Assert.Equal("resetPassword", outbox.Sent.Last(m => m.To == "ann@example.com").Kind);
+        Assert.True((await Json(await client.PostAsJsonAsync($"/_console/api/app-auth/users/{uid}/verified", new { verified = true }))).GetProperty("emailVerified").GetBoolean());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/_console/api/app-auth/email-templates/resetPassword")).StatusCode);
+        var config = await Json(await client.GetAsync("/_console/api/app-auth/config"));
+        Assert.Equal("Sample", config.GetProperty("email").GetProperty("appName").GetString());
+        Assert.Equal("RecordingEmailSender", config.GetProperty("email").GetProperty("sender").GetString());
     }
 
     [Fact]

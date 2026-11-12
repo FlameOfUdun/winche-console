@@ -36,8 +36,16 @@ export function MethodsView() {
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         <Method name="Email and password" on={!!c.emailPassword}
           about="Sign up and sign in with an email address and a password."
-          rows={c.emailPassword ? [["Minimum length", `${c.emailPassword.minLength} characters`], ["Lockout", `${c.protection.maxFailedSignIns} failures → ${c.protection.lockoutMinutes} minutes`]] : []}
+          rows={c.emailPassword ? [
+            ["Minimum length", `${c.emailPassword.minLength} characters`],
+            ["Verified email required", c.emailPassword.requireVerifiedEmail ? "Yes" : "No"],
+            ["Lockout", `${c.protection.maxFailedSignIns} failures → ${c.protection.lockoutMinutes} minutes`],
+          ] : []}
           code={c.emailPassword ? `o.EmailPassword(p => p.MinLength = ${c.emailPassword.minLength});` : "o.EmailPassword();"} />
+        <Method name="Email link" on={!!c.emailLink}
+          about="A one-time sign-in link sent by email: no password. The first use makes the account."
+          rows={c.emailLink ? [["Finishes in", c.emailLink.linkUrl]] : []}
+          code={'o.EmailLink(l => l.LinkUrl = "https://app.example.com/finish-sign-in");'} />
         <Method name="Anonymous" on={c.anonymous}
           about="A guest user with a uid, upgraded later by linking an email and password."
           rows={[]} code="o.Anonymous();" />

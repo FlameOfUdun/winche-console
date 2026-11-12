@@ -50,7 +50,10 @@ else
         a.Issuer = "https://sample.test";
         a.EmailPassword();
         a.Anonymous();
+        a.Email(e => e.AppName = "Sample");
     });
+    builder.Services.AddSingleton<RecordingEmailSender>();
+    builder.Services.AddSingleton<Winche.Auth.Email.IAuthEmailSender>(sp => sp.GetRequiredService<RecordingEmailSender>());
     builder.Services.AddAuthentication().AddWincheTokens(t => t.TrustWincheAuth());
     builder.Services.AddWincheConsole(o =>
     {
@@ -115,3 +118,14 @@ app.MapWincheConsole("/_console");
 app.Run();
 
 public partial class Program { }
+
+/// <summary>Keeps Winche Auth's messages for the tests to read.</summary>
+public sealed class RecordingEmailSender : Winche.Auth.Email.IAuthEmailSender
+{
+    public List<Winche.Auth.Email.AuthEmailMessage> Sent { get; } = [];
+    public Task SendAsync(Winche.Auth.Email.AuthEmailMessage message, CancellationToken ct)
+    {
+        lock (Sent) Sent.Add(message);
+        return Task.CompletedTask;
+    }
+}

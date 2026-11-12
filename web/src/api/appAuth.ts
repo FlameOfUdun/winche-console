@@ -36,7 +36,9 @@ export interface TrustedIssuerInfo {
 }
 
 export interface AppAuthConfig {
-  emailPassword: { minLength: number } | null;
+  emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
+  email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
+  emailLink: { linkUrl: string } | null;
   anonymous: boolean;
   trustsWincheTokens: boolean;
   trustedIssuers: TrustedIssuerInfo[];
@@ -44,6 +46,31 @@ export interface AppAuthConfig {
   keys: { kid: string; createdAt: string; retiredAt: string | null }[];
   protection: { maxFailedSignIns: number; lockoutMinutes: number };
   hooks: { beforeCreate: boolean; afterCreate: boolean; beforeSignIn: boolean };
+}
+
+export interface EmailTemplateInfo {
+  kind: "verifyEmail" | "resetPassword" | "signIn" | "emailChanged";
+  name: string;
+  subject: string;
+  body: string;
+  isCustom: boolean;
+  defaultSubject: string;
+  defaultBody: string;
+  linkLifetime: string;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}
+
+export const PLACEHOLDERS = ["%LINK%", "%EMAIL%", "%APP_NAME%", "%DISPLAY_NAME%", "%NEW_EMAIL%"];
+
+/** The template with sample values, as the reader would see it (the link is shown as a button by the preview). */
+export function fillTemplate(text: string, appName: string, kind: string): string {
+  return text
+    .replace(/%APP_NAME%/g, appName)
+    .replace(/%EMAIL%/g, "anna.k@example.com")
+    .replace(/%NEW_EMAIL%/g, kind === "emailChanged" ? "anna.new@example.com" : "")
+    .replace(/%DISPLAY_NAME%/g, "Anna")
+    .replace(/ ,/g, ",");
 }
 
 export type UserStatus = "Active" | "Disabled" | "Locked out" | "Not verified" | "Guest";

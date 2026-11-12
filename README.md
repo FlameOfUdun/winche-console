@@ -222,6 +222,9 @@ services.AddWincheConsole(o => o.AddAuthenticationTab());
   custom claims (what rules read as `request.auth.token.*`), unlock after failed sign-ins, disable, delete; add users.
 - **Sign-in methods:** what's on (email and password, anonymous, Winche tokens, trusted issuers such as Keycloak), as
   set in code.
+- **Email templates** (with `o.Email(…)` in Winche Auth): edit the verify, reset, sign-in-link and email-changed
+  messages with a live preview, send yourself a test, or go back to the default. A user's panel can send them a reset
+  or verify link, or mark their email verified.
 - **Settings:** token lifetimes, issuer, signing keys (with *Rotate now*), lockout and hooks.
 
 Sign-ins, failures, lockouts and account changes appear in the Logs Explorer as resource `auth`, with a built-in

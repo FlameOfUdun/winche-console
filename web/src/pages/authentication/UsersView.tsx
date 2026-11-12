@@ -96,6 +96,8 @@ export function UsersView() {
 function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
   const qc = useQueryClient();
   const detail = useQuery({ queryKey: ["app-user", uid], queryFn: () => api.appUser(uid) });
+  const config = useQuery({ queryKey: ["app-auth-config"], queryFn: api.appAuthConfig });
+  const [notice, setNotice] = useState<string | null>(null);
   const [claims, setClaims] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,13 +105,15 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
     if (detail.data) setClaims(Object.keys(detail.data.user.customClaims).length ? JSON.stringify(detail.data.user.customClaims, null, 2) : "");
   }, [detail.data]);
 
-  const run = async (f: () => Promise<unknown>) => {
+  const run = async (f: () => Promise<unknown>, done?: string) => {
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await f();
       await qc.invalidateQueries({ queryKey: ["app-user", uid] });
       await qc.invalidateQueries({ queryKey: ["app-users"] });
+      if (done) setNotice(done);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -180,6 +184,20 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
         </Stack>
 
         {error && <Alert color="red">{error}</Alert>}
+        {notice && <Alert color="teal">{notice}</Alert>}
+        {u.email && (
+          <Group gap="xs">
+            {config.data?.email && config.data.emailPassword && (
+              <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.sendAppUserPasswordReset(uid), `A reset link is on its way to ${u.email}.`)}>Send password reset</Button>
+            )}
+            {config.data?.email && !u.emailVerified && (
+              <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.sendAppUserVerification(uid), `A verify link is on its way to ${u.email}.`)}>Send verify email</Button>
+            )}
+            <Button size="xs" variant="subtle" disabled={busy} onClick={() => run(() => api.setAppUserVerified(uid, !u.emailVerified))}>
+              {u.emailVerified ? "Mark not verified" : "Mark verified"}
+            </Button>
+          </Group>
+        )}
         <Group gap="xs">
           <Button size="xs" variant="default" disabled={busy || sessions.length === 0} onClick={() => run(() => api.signOutAppUser(uid))}>Sign out everywhere</Button>
           {status === "Locked out" && <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => api.unlockAppUser(uid))}>Unlock</Button>}

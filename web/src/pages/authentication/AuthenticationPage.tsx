@@ -5,6 +5,7 @@ import { useSession } from "../../auth/session";
 import { UsersView } from "./UsersView";
 import { MethodsView } from "./MethodsView";
 import { AuthSettingsView } from "./AuthSettingsView";
+import { EmailTemplatesView } from "./EmailTemplatesView";
 
 /** The Authentication tab: the app's users (Winche Auth), how they sign in, and token settings. */
 export function AuthenticationPage() {
@@ -25,10 +26,12 @@ export function AuthenticationPage() {
         <Tabs.List mb="sm">
           <Tabs.Tab value="users">Users</Tabs.Tab>
           <Tabs.Tab value="methods">Sign-in methods</Tabs.Tab>
+          <Tabs.Tab value="emails">Email templates</Tabs.Tab>
           <Tabs.Tab value="settings">Settings</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="users"><UsersView /></Tabs.Panel>
         <Tabs.Panel value="methods"><MethodsView /></Tabs.Panel>
+        <Tabs.Panel value="emails"><EmailTemplatesView /></Tabs.Panel>
         <Tabs.Panel value="settings"><AuthSettingsView /></Tabs.Panel>
       </Tabs>
     </Stack>

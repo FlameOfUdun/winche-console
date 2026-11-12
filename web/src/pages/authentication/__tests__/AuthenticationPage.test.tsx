@@ -16,7 +16,8 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, appUsers: vi.fn(), appUser: vi.fn(), createAppUser: vi.fn(), setAppUserDisabled: vi.fn(), setAppUserClaims: vi.fn(),
-      signOutAppUser: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
+      signOutAppUser: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
+      appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
     },
   };
 });
@@ -32,7 +33,9 @@ const user = (over: Partial<AppUser> = {}): AppUser => ({
   lastSignInAt: "2026-11-12T15:41:00Z", lockedOutUntil: null, ...over,
 });
 const config: AppAuthConfig = {
-  emailPassword: { minLength: 10 }, anonymous: true, trustsWincheTokens: true,
+  emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
+  email: { appName: "SmartAirway", actionUrl: "https://api.example.com/auth/v1/action", sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, logLinksOnly: false, sender: "SesEmailSender" },
+  emailLink: null, trustsWincheTokens: true,
   trustedIssuers: [{ name: "keycloak", issuer: "https://auth.example.com/realms/trucorp", authority: "https://auth.example.com/realms/trucorp", audience: "smartairway-api", uidClaim: "sub", claims: ["role"] }],
   tokens: { issuer: "https://api.example.com", audience: "https://api.example.com", accessTokenMinutes: 15, refreshTokenDays: 60, keyRotationDays: 90, keysEncrypted: false },
   keys: [{ kid: "k-20261112-abc123", createdAt: "2026-11-12T10:00:00Z", retiredAt: null }],
@@ -83,6 +86,9 @@ test("lists users; opening one shows sessions and claims, and its actions call t
 
   await userEvent.click(within(screen.getByTestId("app-session")).getByText("Sign out"));
   await waitFor(() => expect(mock(api.revokeAppSession)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "s1"));
+  await userEvent.click(screen.getByText("Send password reset"));
+  await waitFor(() => expect(mock(api.sendAppUserPasswordReset)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w"));
+  expect(await screen.findByText("A reset link is on its way to anna.k@example.com.")).toBeInTheDocument();
   await userEvent.click(screen.getByText("Disable user"));
   await waitFor(() => expect(mock(api.setAppUserDisabled)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", true));
 });
@@ -92,9 +98,10 @@ test("sign-in methods and settings show what's configured; keys can be rotated",
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Sign-in methods" }));
   const methods = await screen.findAllByTestId("sign-in-method");
-  expect(methods).toHaveLength(4);
-  expect(within(methods[3]).getByText("keycloak (trusted issuer)")).toBeInTheDocument();
-  expect(within(methods[3]).getByText("role")).toBeInTheDocument();
+  expect(methods).toHaveLength(5);
+  expect(within(methods[1]).getByText("Off")).toBeInTheDocument();   // email link
+  expect(within(methods[4]).getByText("keycloak (trusted issuer)")).toBeInTheDocument();
+  expect(within(methods[4]).getByText("role")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
   expect(await screen.findByText("k-20261112-abc123")).toBeInTheDocument();
@@ -110,4 +117,34 @@ test("helpers and nav", () => {
   expect(errorMessage(new Error('{"error":{"code":"EMAIL_EXISTS","message":"An account with that email already exists."}}'))).toBe("An account with that email already exists.");
   const nav = builtinNav({ capabilities: { authentication: true, database: true } } as never, null);
   expect(nav.map((n) => n.label)).toEqual(["Database", "Authentication"]);
+});
+
+test("email templates: edit with a live preview, save, test and reset", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const reset = { kind: "resetPassword", name: "Reset password", subject: "Reset your %APP_NAME% password", body: "Hello %DISPLAY_NAME%,\n\nReset %EMAIL%:\n\n%LINK%",
+    isCustom: true, defaultSubject: "d", defaultBody: "d", linkLifetime: "1 hour", updatedAt: "2026-11-12T10:00:00Z", updatedBy: "admin@winche.local" };
+  mock(api.appEmailTemplates).mockResolvedValue({ templates: [
+    { ...reset, kind: "verifyEmail", name: "Verify email", isCustom: false, linkLifetime: "1 day" }, reset,
+  ] });
+  mock(api.testAppEmailTemplate).mockResolvedValue({ sentTo: "admin@winche.local" });
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", { name: "Email templates" }));
+  await userEvent.click(await screen.findByRole("tab", { name: /Reset password/ }));
+  expect(await screen.findByText(/admin@winche.local/)).toBeInTheDocument();
+  expect(screen.getByTestId("preview-subject")).toHaveTextContent("Reset your SmartAirway password");
+  expect(screen.getByText("Choose a new password")).toBeInTheDocument();   // the link as a button
+  expect(screen.getByText(/Sent with SesEmailSender/)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByText("Send me a test"));
+  expect(await screen.findByText("Sent to admin@winche.local.")).toBeInTheDocument();
+
+  const subject = screen.getByLabelText("Subject");
+  await userEvent.clear(subject);
+  await userEvent.type(subject, "New %APP_NAME% password");
+  expect(screen.getByTestId("preview-subject")).toHaveTextContent("New SmartAirway password");
+  await userEvent.click(screen.getByText("Save"));
+  await waitFor(() => expect(mock(api.saveAppEmailTemplate)).toHaveBeenCalledWith("resetPassword", "New %APP_NAME% password", reset.body));
+
+  await userEvent.click(screen.getByText("Reset to default"));
+  await waitFor(() => expect(mock(api.resetAppEmailTemplate)).toHaveBeenCalledWith("resetPassword"));
 });
