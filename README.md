@@ -205,46 +205,15 @@ services.AddWincheConsole(o =>
 - **Blast radius.** These rules govern your app's data/file access (what your API consumers may do), not
   the console's own login — a bad ruleset cannot lock you out of the console.
 
-## CLI: `winche` (4.0.0)
+## Deploying rules from the repo: `winche`
 
-Rules live in your repo as `.rules` files and are published from the command line, like `firebase deploy`.
-Each deploy is a new version in the rules editor's history (with the git commit as its note), so it can be
-reviewed and reverted from the console. Rules are text only: there is no C# rules builder.
-
-```sh
-dotnet tool install -g Winche.Cli
-
-winche init --console https://api.example.com/_console   # winche.json + database.rules + storage.rules
-winche login                                             # browser sign-in (Keycloak)
-winche rules validate                                    # offline: syntax, paths, unknown functions
-winche rules diff                                        # local files vs. what the console enforces
-winche rules deploy                                      # publish changed files as new versions
-winche rules deploy --dry-run                            # show the changes without saving
-winche rules pull                                        # write the live rules into the files
-```
-
-`winche.json`, found in the working directory or a parent (paths are relative to it):
-
-```json
-{
-  "console": "https://api.example.com/_console",
-  "rules": { "database": "database.rules", "storage": "storage.rules" }
-}
-```
-
-- **Deploy is all or nothing on validity.** Every file is checked first; nothing is published if one has an
-  error (reported as `file:line:column`). A file that matches the active version is skipped (`--force` saves
-  it anyway). Saves use the same optimistic concurrency as the editor, so a concurrent edit isn't overwritten.
-- **Sign-in.** `winche login` uses the console's own Keycloak client (authorization code + PKCE, loopback
-  redirect) and saves the tokens in `~/.config/winche/credentials.json` (readable by you only), refreshing
-  them as needed. **Add `http://127.0.0.1:9005/callback` to the console client's valid redirect URIs** (or
-  pass `--port` and register that port). The account needs the console's Admin role.
-- **CI.** Pass a bearer token for the console client with `--token` or `WINCHE_TOKEN`, and the URL with
-  `--console` or `WINCHE_CONSOLE`.
-- **Needs** a console in Keycloak mode with the rules editor enabled (`b.UseRulesEditor()`); Identity-mode
-  consoles sign in with cookies, which the CLI doesn't use.
-- **In the app**, load the same files as starting rules (`UseRulesFile("database.rules")`), copied to the
-  output directory; once a version is deployed, it replaces them at startup (`ApplyPersistedRulesOnStartup`).
+Rules can also live in your repo as `.rules` files and be published with the
+[Winche CLI](https://github.com/FlameOfUdun/winche-cli) (`dotnet tool install -g Winche.Cli`), like
+`firebase deploy`: `winche rules deploy` saves each changed file as a new version here (the git commit as its
+note), hot-swapped like an editor save. It needs Keycloak mode, an account with the Admin role, and
+`http://127.0.0.1:9005/callback` registered as a redirect URI on the console's client for `winche login`.
+In the app, load the same files as starting rules (`UseRulesFile("database.rules")`); a deployed version
+replaces them at startup.
 
 ## Custom tabs (server-driven dashboards)
 

@@ -25,20 +25,10 @@ if (string.Equals(builder.Configuration["Console:Provider"], "Keycloak", StringC
             k.ClientId = builder.Configuration["Keycloak:Resource"];
         });
 
-        // Enable the browser tabs so their data/storage endpoints are mapped. The rules editor needs
-        // ConsoleOptions.ConnectionString (its versioned store), so only when the test passes one.
-        var rulesConn = builder.Configuration["Console:ConnectionString"];
-        if (string.IsNullOrWhiteSpace(rulesConn))
-        {
-            o.AddDatabaseTab();
-            o.AddStorageTab();
-        }
-        else
-        {
-            o.ConnectionString = rulesConn;
-            o.AddDatabaseTab(b => b.UseRulesEditor());
-            o.AddStorageTab(b => b.UseRulesEditor());
-        }
+        // Enable the browser tabs so their data/storage endpoints are mapped (no rules editor here —
+        // Keycloak mode leaves ConsoleOptions.ConnectionString unset, which the rules store requires).
+        o.AddDatabaseTab();
+        o.AddStorageTab();
     });
 }
 else
