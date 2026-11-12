@@ -157,6 +157,8 @@ user-management screens do not apply in Keycloak mode.
 
 ## Rule editor (optional)
 
+> How to write rules: the **[Rules Language Guide](https://github.com/FlameOfUdun/winche-rules/blob/main/GUIDE.md)**.
+
 Call `b.UseRulesEditor()` on a built-in tab and the console adds a **Rules** sub-tab to that screen for
 editing the Firestore-style security rules that guard `Winche.Database` and `Winche.Storage` (the
 `Winche.Rules` engine). Edits **hot-swap** into the live engine immediately — no restart — and every save is
