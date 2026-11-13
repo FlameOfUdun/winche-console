@@ -115,7 +115,7 @@ public static class ConsoleAppAuthEndpoints
                     accessTokenMinutes = o.AccessTokenLifetime.TotalMinutes,
                     refreshTokenDays = o.RefreshTokenLifetime.TotalDays,
                     keyRotationDays = o.KeyRotationInterval.TotalDays,
-                    keysEncrypted = o.KeyEncryptionSecret is not null,
+                    keysEncrypted = true,   // always, since Winche Auth 1.0
                 },
                 keys = keys is null ? [] : (await keys.ListAsync(ct)).Select(k => (object)new { kid = k.Kid, createdAt = k.CreatedAt, retiredAt = k.RetiredAt }),
                 protection = o is null ? null : new { maxFailedSignIns = o.MaxFailedSignIns, lockoutMinutes = o.LockoutDuration.TotalMinutes },

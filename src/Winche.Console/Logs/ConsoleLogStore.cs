@@ -61,9 +61,12 @@ public sealed record LogQuery
 }
 
 /// <summary>The <c>console_logs</c> table (plain SQL: it's written on a hot path and created on first start).</summary>
-internal sealed class ConsoleLogStore(string connectionString, LogsOptions options)
+internal sealed class ConsoleLogStore(string connectionString, LogsOptions options) : IAsyncDisposable
 {
     private readonly NpgsqlDataSource _source = NpgsqlDataSource.Create(connectionString);
+
+    /// <summary>Closes its connections when the app stops.</summary>
+    public ValueTask DisposeAsync() => _source.DisposeAsync();
 
     public LogsOptions Options => options;
 

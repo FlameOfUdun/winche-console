@@ -93,7 +93,7 @@ public static class WincheConsoleExtensions
             if (options.DatabaseTab?.Logs == true) prefixes.Add(ConsoleLogsEndpoints.DatabaseScope);
             if (options.StorageTab?.Logs == true) prefixes.Add(ConsoleLogsEndpoints.StorageScope);
             services.AddSingleton(new ConsoleLogQueue(options.Logs, options.AppLogsTab, prefixes));
-            services.AddSingleton(new ConsoleLogStore(options.ConnectionString, options.Logs));
+            services.AddSingleton(_ => new ConsoleLogStore(options.ConnectionString, options.Logs));   // made by DI, so disposed with the app
             services.AddSingleton<Microsoft.Extensions.Logging.ILoggerProvider, ConsoleLoggerProvider>();
             // The console's collector receives every level whatever the host's filters say (so a source can be set
             // to Debug from the console without changing what reaches the app's other log outputs); it then keeps
