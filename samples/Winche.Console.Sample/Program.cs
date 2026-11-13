@@ -1,3 +1,4 @@
+using Winche.Console.Apps;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Winche.Console;
@@ -165,5 +166,6 @@ if (hasFlutter)
 }
 
 app.MapWincheConsole("/_console");
+app.MapWincheAppSetup();   // GET /.well-known/winche, for `winche configure`
 
 app.Run();

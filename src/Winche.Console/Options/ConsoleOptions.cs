@@ -25,6 +25,15 @@ public sealed class ConsoleOptions
         return this;
     }
 
+    /// <summary>
+    /// The project's id, as apps see it in <c>/.well-known/winche</c> and in the <c>winche_options.dart</c> that
+    /// <c>winche configure</c> and the console's Apps page write (default <c>winche</c>).
+    /// </summary>
+    public string ProjectId { get; set; } = "winche";
+
+    /// <summary>The project's name for people, if different from <see cref="ProjectId"/>.</summary>
+    public string? ProjectName { get; set; }
+
     /// <summary>Optional first-admin seed; applied on startup only when no users exist.</summary>
     public string? SeedAdminEmail { get; set; }
     public string? SeedAdminPassword { get; set; }

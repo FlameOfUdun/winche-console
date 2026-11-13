@@ -3,6 +3,7 @@ import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemS
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { FunctionsPageData, FunctionRun, FunctionVersion } from "./functions";
+import type { AppsPageData } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
@@ -147,6 +148,7 @@ export const api = {
   dataSettingsHistory: (area: DataArea) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
+  apps: (platforms: string[]) => http<AppsPageData>("GET", `api/apps?platforms=${encodeURIComponent(platforms.join(","))}`),
   functions: () => http<FunctionsPageData>("GET", "api/functions"),
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "api/functions/versions"),
   functionVersion: (v: number) => http<{ version: FunctionVersion; files: Record<string, string> }>("GET", `api/functions/versions/${v}`),

@@ -1,3 +1,4 @@
+using Winche.Console.Apps;
 using SampleHost;
 using Winche.Auth.AspNetCore;
 using Winche.Auth.DependencyInjection;
@@ -147,6 +148,7 @@ if (app.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(Winch
 
 Winche.Functions.FunctionsEndpoints.MapWincheFunctions(app);   // callables and CLI deploys
 app.MapWincheConsole("/_console");
+app.MapWincheAppSetup();
 
 app.Run();
 

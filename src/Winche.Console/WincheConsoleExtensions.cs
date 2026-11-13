@@ -217,6 +217,9 @@ public static class WincheConsoleExtensions
             group.MapConsoleAuthSettingsEndpoints(tokens);
         }
 
+        // Apps: how an app connects (the console's API; /.well-known/winche is MapWincheAppSetup).
+        group.MapConsoleAppsEndpoints(options);
+
         var tabRegistry = endpoints.ServiceProvider.GetRequiredService<TabRegistry>();
         group.MapConsoleTabsEndpoints(tabRegistry, options);
 

@@ -1,7 +1,7 @@
 import type { AuthState, SessionUser } from "../api/types";
 import type { TabNav } from "../api/tabs";
 
-export interface BuiltinNav { to: string; label: string; icon: "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" }
+export interface BuiltinNav { to: string; label: string; icon: "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "apps" }
 
 // Ordered built-in tabs the user may see, given capabilities + role. Single source for the nav AND the home redirect.
 export function builtinNav(state: AuthState | null, user: SessionUser | null): BuiltinNav[] {
@@ -13,6 +13,7 @@ export function builtinNav(state: AuthState | null, user: SessionUser | null): B
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions" });
   if (c?.hooks) out.push({ to: "/hooks", label: "Hooks", icon: "hooks" });
   if (c?.logs?.app) out.push({ to: "/logs", label: "Logs", icon: "logs" });
+  if (state) out.push({ to: "/apps", label: "Apps", icon: "apps" });
   if (c?.manageUsers && user?.role === "Admin") out.push({ to: "/access", label: "Access", icon: "shield" });
   return out;
 }
