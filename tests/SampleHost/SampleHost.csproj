@@ -8,12 +8,10 @@
   <ItemGroup>
     <PackageReference Include="Winche.Database" Version="11.1.0" />
     <PackageReference Include="Winche.Storage" Version="9.1.0" />
-    <PackageReference Include="Winche.Webhooks.Database" Version="1.0.0" />
-    <PackageReference Include="Winche.Webhooks.Storage" Version="1.0.0" />
-    <PackageReference Include="Winche.Webhooks.Auth" Version="1.0.0" />
     <PackageReference Include="Winche.Functions.Database" Version="1.0.0" />
     <PackageReference Include="Winche.Auth.AspNetCore" Version="1.0.0" />
     <PackageReference Include="Winche.Core" Version="1.0.0" />
+    <PackageReference Include="Winche.Core.AspNetCore" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Winche.Console\Winche.Console.csproj" />

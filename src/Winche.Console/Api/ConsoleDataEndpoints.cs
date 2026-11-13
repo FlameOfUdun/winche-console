@@ -99,7 +99,7 @@ public static class ConsoleDataEndpoints
 
         group.MapDelete("/collections/{path}", async (string path, [FromServices] DocumentDatabase db, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var collection)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var collection)) return Results.BadRequest();
             while (true)
             {
                 var result = await db.QueryAsync(new Query(collection, Limit: 500), ct);
@@ -113,21 +113,21 @@ public static class ConsoleDataEndpoints
 
         group.MapGet("/documents/{path}", async (string path, [FromServices] DocumentDatabase db, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             var doc = await db.GetAsync(decoded, ct);
             return doc is null ? Results.NotFound() : Results.Json(doc);
         }).RequireAuthorization(readPolicy);
 
         group.MapPut("/documents/{path}", async (string path, DocumentPayload body, [FromServices] DocumentDatabase db, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             await db.WriteAsync(new Write[] { new SetWrite { Path = decoded, Fields = body.Fields } }, ct);
             return Results.Json(await db.GetAsync(decoded, ct));
         }).RequireAuthorization(writePolicy);
 
         group.MapPatch("/documents/{path}", async (string path, DocumentPayload body, [FromServices] DocumentDatabase db, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             var fields = body.Fields.ToDictionary(kv => FieldPath.Parse(kv.Key), kv => kv.Value);
             await db.WriteAsync(new Write[] { new UpdateWrite { Path = decoded, Fields = fields } }, ct);
             return Results.Json(await db.GetAsync(decoded, ct));
@@ -135,7 +135,7 @@ public static class ConsoleDataEndpoints
 
         group.MapDelete("/documents/{path}", async (string path, [FromServices] DocumentDatabase db, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             await db.WriteAsync(new Write[] { new DeleteWrite { Path = decoded, Cascade = true } }, ct);
             return Results.NoContent();
         }).RequireAuthorization(writePolicy);

@@ -42,7 +42,7 @@ public static class ConsoleSettingsEndpoints
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
 
     private static IResult Problem(string message, IReadOnlyList<string>? errors = null) =>
-        Results.Json(new { error = new { code = "INVALID_SETTINGS", message, errors = errors ?? [] } }, statusCode: 400);
+        ConsoleErrors.Problem("invalid-settings", message, errors);
 
     public static IEndpointRouteBuilder MapConsoleSettingsEndpoints(this IEndpointRouteBuilder app)
     {

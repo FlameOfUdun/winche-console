@@ -21,7 +21,7 @@ public static class ConsoleStorageLocationEndpoints
 
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
 
-    private static IResult Problem(string message) => Results.Json(new { error = new { code = "MOVE", message, errors = Array.Empty<string>() } }, statusCode: 400);
+    private static IResult Problem(string message) => ConsoleErrors.Problem("move", message, null);
 
     /// <summary>The app's own location, in words.</summary>
     private static string DescribeCode(ArchiveLocations locations)

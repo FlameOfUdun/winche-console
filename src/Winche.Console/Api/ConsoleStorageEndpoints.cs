@@ -42,14 +42,14 @@ public static class ConsoleStorageEndpoints
 
         group.MapGet("/files/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             var record = await files.GetAsync(decoded, ct);
             return record is null ? Results.NotFound() : Results.Json(record);
         }).RequireAuthorization(readPolicy);
 
         group.MapDelete("/files/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             await files.DeleteAsync(decoded, ct);
             return Results.NoContent();
         }).RequireAuthorization(writePolicy);
@@ -58,7 +58,7 @@ public static class ConsoleStorageEndpoints
         // "<path>/", so passing a directory id wipes the whole subtree in one transaction.
         group.MapDelete("/directories/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
-            if (!ConsolePathEncoding.TryDecode(path, out var decoded)) return Results.BadRequest();
+            if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
             await files.DeleteAsync(decoded, ct);
             return Results.NoContent();
         }).RequireAuthorization(writePolicy);

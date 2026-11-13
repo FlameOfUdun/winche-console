@@ -26,7 +26,7 @@ public static class ConsoleHooksEndpoints
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
 
     private static IResult Problem(string message, IReadOnlyList<string>? errors = null) =>
-        Results.Json(new { error = new { code = "INVALID_HOOKS", message, errors = errors ?? [] } }, statusCode: 400);
+        ConsoleErrors.Problem("invalid-hooks", message, errors);
 
     private static object Delivery(HookDelivery d) => new
     {
@@ -139,7 +139,7 @@ public static class ConsoleHooksEndpoints
     }
 
     /// <summary>A made-up event the hook would get: its path pattern filled with example values.</summary>
-    private static HookEvent Sample(HookSettings hook, HookCatalog catalog)
+    private static WincheChange Sample(HookSettings hook, HookCatalog catalog)
     {
         var source = catalog.Sources.First(s => s.Name == hook.When.Source);
         var type = hook.When.Events.FirstOrDefault() ?? source.Events[0];
@@ -163,6 +163,6 @@ public static class ConsoleHooksEndpoints
             "auth" => new JsonObject { ["uid"] = "example-uid", ["email"] = "someone@example.com" },
             _ => null,
         };
-        return new HookEvent(source.Name, type, path, DateTimeOffset.UtcNow, data, null, vars);
+        return new WincheChange(source.Name, type, path, DateTimeOffset.UtcNow, data, null, vars);
     }
 }

@@ -59,7 +59,7 @@ public static class ConsoleAuthSettingsEndpoints
     };
 
     private static IResult Problem(string message, IReadOnlyList<string>? errors = null) =>
-        Results.Json(new { error = new { code = "INVALID_SETTINGS", message, errors = errors ?? [] } }, statusCode: 400);
+        ConsoleErrors.Problem("invalid-settings", message, errors);
 
     public static IEndpointRouteBuilder MapConsoleAuthSettingsEndpoints(this IEndpointRouteBuilder app, bool tokens = true)
     {

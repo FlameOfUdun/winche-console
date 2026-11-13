@@ -170,7 +170,7 @@ export function errorWithList(e: unknown): string {
   const text = (e as Error)?.message ?? String(e);
   try {
     const body = JSON.parse(text);
-    const list: string[] = body?.error?.errors ?? [];
+    const list: string[] = body?.error?.details?.errors ?? body?.error?.errors ?? [];
     return [body?.error?.message ?? text, ...list.map((x) => `• ${x}`)].join("\n");
   } catch {
     return text;

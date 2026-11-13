@@ -20,7 +20,7 @@ builder.Services.AddWincheDatabase(cfg =>
     cfg.LogRequests(r => r.SuccessSampleRate = 1.0);   // the Logs Explorer: every request
     cfg.UseIndexes(ib => ib.Add("patients", [new("ward")]));
     cfg.UseSettings();   // Database → Settings
-    cfg.UseHooks(h => Winche.Webhooks.Database.DatabaseHooksExtensions.AddWincheHooks(h));   // the Hooks page
+    cfg.UseHooks(h => h.PublishChanges());   // document changes for the Hooks page
 });
 Winche.Webhooks.ServiceCollectionExtensions.AddWincheHooks(builder.Services, o => o.ConnectionString = wincheConn);
 // Functions (Deno from WINCHE_DENO, else PATH): the Functions page.
@@ -35,7 +35,7 @@ builder.Services.AddWincheStorage(opts =>
     opts.ConnectionString = wincheConn;
     opts.MaxFileSizeBytes = 10 * 1048576;
     opts.UseSettings();   // Storage → Settings
-    opts.UseHooks(h => Winche.Webhooks.Storage.StorageHooksExtensions.AddWincheHooks(h));
+    opts.UseHooks(h => h.PublishChanges());
 });
 builder.Services.AddSingleton<IArchive, NoOpArchive>();
 
@@ -65,7 +65,6 @@ else
     // The app's own users (Winche Auth), managed in the console's Authentication tab — unless the test runs the
     // SmartAirway shape: only an external provider (Sample:ExternalOnly), managed in the tab's Settings.
     var externalOnly = string.Equals(builder.Configuration["Sample:ExternalOnly"], "true", StringComparison.OrdinalIgnoreCase);
-    if (!externalOnly) Winche.Webhooks.Auth.AuthHooksExtensions.AddWincheHooksForAuth(builder.Services);
     if (!externalOnly) builder.Services.AddWincheAuth(a =>
     {
         a.ConnectionString = wincheConn;

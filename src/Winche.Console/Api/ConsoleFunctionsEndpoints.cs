@@ -27,7 +27,7 @@ public static class ConsoleFunctionsEndpoints
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
 
     private static IResult Problem(string message, IReadOnlyList<string>? problems = null) =>
-        Results.Json(new { error = new { code = "FUNCTIONS", message, errors = problems ?? [] } }, statusCode: 400);
+        ConsoleErrors.Problem("functions", message, problems);
 
     private static object Info(FunctionInfo f) => new
     {
