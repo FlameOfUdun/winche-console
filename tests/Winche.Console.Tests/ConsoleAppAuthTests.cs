@@ -132,6 +132,8 @@ public class ConsoleAppAuthTests(PostgresFixture fx) : IAsyncLifetime
         var uid = signUp.GetProperty("user").GetProperty("uid").GetString()!;
         lock (outbox.Sent) Assert.Equal("verifyEmail", outbox.Sent.Last(m => m.To == "ann@example.com").Kind);
         Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/_console/api/app-auth/users/{uid}/sendPasswordReset", null)).StatusCode);
+        // Reset emails go out after the answer (so timing doesn't reveal accounts): wait for it.
+        for (var i = 0; i < 100; i++) { lock (outbox.Sent) if (outbox.Sent.Last(m => m.To == "ann@example.com").Kind == "resetPassword") break; await Task.Delay(20); }
         lock (outbox.Sent) Assert.Equal("resetPassword", outbox.Sent.Last(m => m.To == "ann@example.com").Kind);
         Assert.True((await Json(await client.PostAsJsonAsync($"/_console/api/app-auth/users/{uid}/verified", new { verified = true }))).GetProperty("emailVerified").GetBoolean());
 
