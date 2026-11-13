@@ -28,8 +28,8 @@ internal static class SampleData
         await PutDocument(db, "users/bob", """{"fields":{"name":{"stringValue":"Bob"},"role":{"stringValue":"editor"}}}""", ct);
         await PutDocument(db, "posts/welcome", """{"fields":{"title":{"stringValue":"Welcome to Winche"},"author":{"stringValue":"alice"}}}""", ct);
 
-        await files.SetAsync("docs/readme.txt", "text/plain", 1024, new JsonObject(), ct);
-        await files.SetAsync("images/logo.png", "image/png", 20480, new JsonObject(), ct);
+        await files.SetAsync("docs/readme.txt", "text/plain", 1024, new JsonObject(), ct: ct);
+        await files.SetAsync("images/logo.png", "image/png", 20480, new JsonObject(), ct: ct);
     }
 
     private static async Task PutDocument(DocumentDatabase db, string path, string fieldsJson, CancellationToken ct)

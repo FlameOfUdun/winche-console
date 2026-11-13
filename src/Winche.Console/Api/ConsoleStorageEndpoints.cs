@@ -67,7 +67,7 @@ public static class ConsoleStorageEndpoints
         // and calls /confirm. (Paths carry slashes, so these endpoints take the path in the body/query.)
         group.MapPost("/upload-url", async (UploadUrlRequest body, [FromServices] FileStorage files, CancellationToken ct) =>
         {
-            await files.SetAsync(body.Path, body.MimeType, body.SizeBytes, body.Metadata ?? new JsonObject(), ct);
+            await files.SetAsync(body.Path, body.MimeType, body.SizeBytes, body.Metadata ?? new JsonObject(), ct: ct);
             var session = await files.GenerateUploadUrlAsync(body.Path, ct);
             return Results.Json(new { uploadUrl = session.Url, expiresAt = session.ExpiresAt });
         }).RequireAuthorization(writePolicy);
