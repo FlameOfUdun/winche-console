@@ -45,7 +45,7 @@ public static class WincheConsoleExtensions
         if (options.AuthenticationTab)
         {
             // Which directory the Users tab manages (Winche Auth, Keycloak): a setting the console can change.
-            Winche.Config.ServiceCollectionExtensions.AddWincheSettingsArea(services, Users.UserDirectories.Area, "User directory",
+            Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Users.UserDirectories.Area, "User directory",
                 new Users.UserDirectorySettings(), s => s.Problems());
             services.AddSingleton<Users.UserDirectories>();
             services.AddHostedService<Users.KeycloakSignInEvents>();
@@ -173,7 +173,7 @@ public static class WincheConsoleExtensions
             if (databaseTab.History)
             {
                 var dbOptions = endpoints.ServiceProvider.GetService<Microsoft.Extensions.Options.IOptions<Winche.Database.DependencyInjection.WincheDatabaseOptions>>();
-                var historyFromSettings = endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => a.Name == Winche.Database.Settings.DatabaseSettings.Area);
+                var historyFromSettings = endpoints.ServiceProvider.GetServices<Winche.Core.SettingsArea>().Any(a => a.Name == Winche.Database.Settings.DatabaseSettings.Area);
                 if (dbOptions?.Value.History is null && !historyFromSettings)
                     throw new InvalidOperationException(
                         "The Database tab's UseHistory() needs KeepHistory() in AddWincheDatabase — that's what records who changed what.");
@@ -193,7 +193,7 @@ public static class WincheConsoleExtensions
         }
 
         // Database and Storage → Settings, when the packages use settings (o.UseSettings()).
-        if (endpoints.ServiceProvider.GetServices<Winche.Config.SettingsArea>().Any(a => Api.ConsoleSettingsEndpoints.Areas.Contains(a.Name)))
+        if (endpoints.ServiceProvider.GetServices<Winche.Core.SettingsArea>().Any(a => Api.ConsoleSettingsEndpoints.Areas.Contains(a.Name)))
         {
             group.MapConsoleSettingsEndpoints();
             if (isService?.IsService(typeof(Winche.Storage.Locations.StorageMoves)) == true) group.MapConsoleStorageLocationEndpoints();

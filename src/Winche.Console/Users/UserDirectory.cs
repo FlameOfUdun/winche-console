@@ -1,5 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
-using Winche.Config;
+using Winche.Core;
 
 namespace Winche.Console.Users;
 

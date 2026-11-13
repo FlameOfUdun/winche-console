@@ -2,7 +2,7 @@ using Winche.Console.Apps;
 using SampleHost;
 using Winche.Auth.AspNetCore;
 using Winche.Auth.DependencyInjection;
-using Winche.Config;
+using Winche.Core;
 using Winche.Console;
 using Winche.Console.Tabs;
 using Winche.Database.DependencyInjection;

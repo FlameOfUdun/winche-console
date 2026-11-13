@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Winche.Auth.AspNetCore;
-using Winche.Config;
+using Winche.Core;
 using Microsoft.AspNetCore.Identity;
 using Winche.Console.Identity;
 using Winche.Console.Options;

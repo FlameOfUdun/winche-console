@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
-using Winche.Config;
+using Winche.Core;
 using Winche.Console.Identity;
 using Winche.Console.Tabs;
 using Winche.Webhooks;

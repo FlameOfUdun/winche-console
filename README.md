@@ -251,7 +251,7 @@ services.AddWincheConsole(o => o.AddAuthenticationTab());
 - **Change history:** every save with who, when and why (a reason is required), *Restore* an earlier version as a new
   change, or *Reset* to the app's code values.
 
-Without `UseSettings()` the same screens are read-only. Needs Winche.Config 1.0.0 and Winche.Auth 1.0.0.
+Without `UseSettings()` the same screens are read-only. Needs Winche.Core 1.0.0 and Winche.Auth 1.0.0.
 
 ## History (optional)
 
