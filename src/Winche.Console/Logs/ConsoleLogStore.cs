@@ -67,9 +67,10 @@ internal sealed class ConsoleLogStore(string connectionString, LogsOptions optio
 
     public LogsOptions Options => options;
 
-    public async Task EnsureCreatedAsync(CancellationToken ct)
-    {
-        await using var cmd = _source.CreateCommand("""
+    /// <summary>The log table, in the order its parts were introduced (Winche.Core's WincheSchema).</summary>
+    internal static readonly string[] Steps =
+    [
+        """
             CREATE TABLE IF NOT EXISTS console_logs (
               id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
               at timestamptz NOT NULL,
@@ -106,8 +107,12 @@ internal sealed class ConsoleLogStore(string connectionString, LogsOptions optio
               updated_at timestamptz NOT NULL,
               updated_by text NULL
             );
-            """);
-        await cmd.ExecuteNonQueryAsync(ct);
+        """,
+    ];
+
+    public async Task EnsureCreatedAsync(CancellationToken ct)
+    {
+        await Winche.Core.WincheSchema.EnsureAsync(_source, "console-logs", Steps, ct);
     }
 
     public async Task InsertAsync(IReadOnlyList<LogRecord> batch, string instance, CancellationToken ct)
