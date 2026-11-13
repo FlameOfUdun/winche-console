@@ -5,6 +5,7 @@ using Winche.Rules;
 using Winche.Rules.Json;
 using Winche.Rules.Text;
 using Xunit;
+using Winche.Values;
 
 namespace Winche.Console.Tests;
 
@@ -144,13 +145,13 @@ public class ConsoleRulesTextTests(PostgresFixture fx) : IAsyncLifetime
         using var _ = app;
         var rules = RuleText.ParseRuleSet(File);
 
-        async Task<bool> Allowed(params (string K, RuleValue V)[] fields)
+        async Task<bool> Allowed(params (string K, Value V)[] fields)
         {
-            var data = RuleValue.Map(fields.ToDictionary(f => f.K, f => f.V));
-            var request = RuleValue.Map(new Dictionary<string, RuleValue>
+            var data = new MapValue(fields.ToDictionary(f => f.K, f => f.V));
+            var request = new MapValue(new Dictionary<string, Value>
             {
-                ["auth"] = RuleValue.Map(new Dictionary<string, RuleValue> { ["uid"] = RuleValue.String("u1") }),
-                ["resource"] = RuleValue.Map(new Dictionary<string, RuleValue> { ["data"] = data }),
+                ["auth"] = new MapValue(new Dictionary<string, Value> { ["uid"] = new StringValue("u1") }),
+                ["resource"] = new MapValue(new Dictionary<string, Value> { ["data"] = data }),
             });
             var body = await Json(await client.PostAsJsonAsync("/_console/api/rules/database/simulate", new
             {
@@ -162,9 +163,9 @@ public class ConsoleRulesTextTests(PostgresFixture fx) : IAsyncLifetime
             return body.GetProperty("allowed").GetBoolean();
         }
 
-        Assert.True(await Allowed(("name", RuleValue.String("Ann"))));
-        Assert.False(await Allowed(("name", RuleValue.String("Ann")), ("role", RuleValue.String("admin"))));
-        Assert.False(await Allowed(("name", RuleValue.Int(1))));
+        Assert.True(await Allowed(("name", new StringValue("Ann"))));
+        Assert.False(await Allowed(("name", new StringValue("Ann")), ("role", new StringValue("admin"))));
+        Assert.False(await Allowed(("name", new IntegerValue(1))));
     }
 
     [Fact]

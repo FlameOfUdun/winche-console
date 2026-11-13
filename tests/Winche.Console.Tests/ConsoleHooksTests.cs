@@ -100,7 +100,7 @@ public class ConsoleHooksTests(PostgresFixture fx) : IAsyncLifetime
 
         // A real change goes through the queue and shows in the log.
         await app.Services.GetRequiredService<Winche.Database.Runtime.DocumentDatabase>().WriteAsync(
-            [new Winche.Database.Runtime.Writes.SetWrite { Path = "patients/p1", Fields = new Dictionary<string, Winche.Database.Values.Value> { ["ward"] = new Winche.Database.Values.StringValue("A3") } }]);
+            [new Winche.Database.Runtime.Writes.SetWrite { Path = "patients/p1", Fields = new Dictionary<string, Winche.Values.Value> { ["ward"] = new Winche.Values.StringValue("A3") } }]);
         JsonElement deliveries = default;
         for (var i = 0; i < 100; i++)
         {

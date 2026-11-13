@@ -2,6 +2,7 @@ using Winche.Rules;
 using Winche.Rules.Evaluation;
 using Winche.Rules.Expressions;
 using Xunit;
+using Winche.Values;
 
 namespace Winche.Console.Tests;
 
@@ -20,16 +21,16 @@ public sealed class ConsoleRulesSimulateCoreTests
 
     private static RuleRequest RequestFor(string uid) => new()
     {
-        Request = RuleValue.Map(new Dictionary<string, RuleValue>
+        Request = new MapValue(new Dictionary<string, Value>
         {
-            ["auth"] = RuleValue.Map(new Dictionary<string, RuleValue> { ["uid"] = RuleValue.String(uid) }),
+            ["auth"] = new MapValue(new Dictionary<string, Value> { ["uid"] = new StringValue(uid) }),
         }),
     };
 
     [Fact]
     public async Task AllowsAsync_WhenAuthUidMatchesPathCapture_ReturnsTrue()
     {
-        var engine = new RuleEngine(new StaticRuleSetRepository(DraftRules), new DefaultRuleValueComparer());
+        var engine = new RuleEngine(new StaticRuleSetRepository(DraftRules));
 
         var allowed = await engine.AllowsAsync(RuleOperation.Get, "users/alice", RequestFor("alice"));
 
@@ -39,7 +40,7 @@ public sealed class ConsoleRulesSimulateCoreTests
     [Fact]
     public async Task AllowsAsync_WhenAuthUidDoesNotMatchPathCapture_ReturnsFalse()
     {
-        var engine = new RuleEngine(new StaticRuleSetRepository(DraftRules), new DefaultRuleValueComparer());
+        var engine = new RuleEngine(new StaticRuleSetRepository(DraftRules));
 
         var denied = await engine.AllowsAsync(RuleOperation.Get, "users/alice", RequestFor("bob"));
 

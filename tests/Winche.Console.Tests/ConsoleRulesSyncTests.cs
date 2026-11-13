@@ -4,6 +4,7 @@ using Winche.Console.Rules;
 using Winche.Rules;
 using Winche.Rules.Json;
 using Xunit;
+using Winche.Values;
 
 namespace Winche.Console.Tests;
 
@@ -28,7 +29,7 @@ public sealed class ConsoleRulesSyncTests(PostgresFixture fx)
         return new Node(sync, rules);
     }
 
-    private static RuleSet Rules(string path) => RuleSetBuilder.Build(r => r.Match(path, b => b.Allow(RuleOperations.Of(RuleOperation.Get), Winche.Rules.Expressions.Expr.Value(RuleValue.Bool(true)))));
+    private static RuleSet Rules(string path) => RuleSetBuilder.Build(r => r.Match(path, b => b.Allow(RuleOperations.Of(RuleOperation.Get), Winche.Rules.Expressions.Expr.Value(RuleValues.True))));
 
     private static string FirstPath(MutableRuleSetRepository repo) => repo.Current.Matches[0].Path;
 

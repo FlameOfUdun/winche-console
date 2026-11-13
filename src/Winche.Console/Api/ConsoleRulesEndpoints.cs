@@ -12,6 +12,7 @@ using Winche.Rules.Evaluation;
 using Winche.Rules.Expressions;
 using Winche.Rules.Json;
 using Winche.Rules.Text;
+using Winche.Values;
 
 namespace Winche.Console.Api;
 
@@ -54,8 +55,8 @@ public static class ConsoleRulesEndpoints
 
     /// <summary>
     /// Dry-run a draft ruleset against a single simulated request. <see cref="ResourceJson"/>/<see cref="RequestJson"/>
-    /// are each a JSON-encoded <c>Winche.Rules.RuleValue</c> map (or <see langword="null"/>/empty for
-    /// <c>RuleValue.Null</c>); <see cref="Params"/> maps path-capture names to their own <c>RuleValue</c> JSON.
+    /// are each a JSON-encoded rule-literal (<c>RuleLiteralJsonConverter</c>) map (or <see langword="null"/>/empty for
+    /// <c>RuleValues.Null</c>); <see cref="Params"/> maps path-capture names to their own <c>Value</c> JSON.
     /// </summary>
     public sealed record SimulateRequest(
         string RulesJson,
@@ -341,9 +342,9 @@ public static class ConsoleRulesEndpoints
             if (!Enum.TryParse<RuleOperation>(body.Operation, ignoreCase: true, out var op))
                 return Results.BadRequest(new { error = "invalid_operation" });
 
-            RuleValue resource;
-            RuleValue request;
-            var paramsMap = new Dictionary<string, RuleValue>();
+            Value resource;
+            Value request;
+            var paramsMap = new Dictionary<string, Value>();
             try
             {
                 resource = ParseRuleValue(body.ResourceJson);
@@ -356,11 +357,10 @@ public static class ConsoleRulesEndpoints
             }
             catch (JsonException ex)
             {
-                return Results.BadRequest(new { error = $"Invalid RuleValue JSON: {ex.Message}" });
+                return Results.BadRequest(new { error = $"Invalid rule value JSON: {ex.Message}" });
             }
 
-            var comparer = sp.GetKeyedService<IRuleValueComparer>(reg.RepositoryKey) ?? new DefaultRuleValueComparer();
-            var engine = new RuleEngine(new StaticRuleSetRepository(parsed), comparer);
+            var engine = new RuleEngine(new StaticRuleSetRepository(parsed));
             var ruleRequest = new RuleRequest
             {
                 Resource = resource,
@@ -437,12 +437,12 @@ public static class ConsoleRulesEndpoints
         new(v.Version, v.IsActive, v.Note, v.CreatedAtUtc, v.CreatedBy, v.RevertedFromVersion, v.RulesJson);
 
     /// <summary>
-    /// Deserializes a JSON-encoded <see cref="RuleValue"/> (typically a map); <see langword="null"/> or
-    /// whitespace-only input yields <see cref="RuleValue.Null"/>. Throws <see cref="JsonException"/> on
+    /// Deserializes a JSON-encoded <see cref="Value"/> (typically a map); <see langword="null"/> or
+    /// whitespace-only input yields <see cref="RuleValues.Null"/>. Throws <see cref="JsonException"/> on
     /// malformed input, which callers turn into a 400.
     /// </summary>
-    private static RuleValue ParseRuleValue(string? json) =>
-        string.IsNullOrWhiteSpace(json) ? RuleValue.Null : JsonSerializer.Deserialize<RuleValue>(json, RuleJson.Options);
+    private static Value ParseRuleValue(string? json) =>
+        string.IsNullOrWhiteSpace(json) ? RuleValues.Null : JsonSerializer.Deserialize<Value>(json, RuleJson.Options);
 
     /// <summary>Prefers the email claim, then the principal's name, then the subject claim; may be null.</summary>
     private static string? GetActor(ClaimsPrincipal user) =>
