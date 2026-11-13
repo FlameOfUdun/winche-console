@@ -22,21 +22,20 @@ public static class ConsoleStorageEndpoints
         var readPolicy = ConsoleRolePolicy.For(minRole);
         var writePolicy = ConsoleRolePolicy.For(minRole < ConsoleRole.Member ? ConsoleRole.Member : minRole);
 
-        // Folder-style browse: immediate subdirectories + files directly in a directory ("" = root),
-        // using the library's directory lister (Winche.Storage 6.3+) instead of raw SQL.
+        // Folder-style browse: immediate subfolders (by name) + files directly in a folder ("" = root), every page.
         group.MapGet("/browse", async (string? path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             var dir = path ?? "";
-            var fileList = await files.ListAsync(dir, null, ct);
+            var fileList = new List<Winche.Storage.Models.FileRecord>();
             var folders = new List<string>();
             string? token = null;
             do
             {
-                var page = await files.ListDirectoryIdsAsync(dir, pageToken: token, ct: ct);
-                folders.AddRange(page.DirectoryIds);
+                var page = await files.ListAsync(dir, new(PageToken: token), ct);
+                fileList.AddRange(page.Items);
+                folders.AddRange(page.Prefixes.Select(p => p[(p.LastIndexOf('/') + 1)..]));
                 token = page.NextPageToken;
-            } while (!string.IsNullOrEmpty(token));
-            folders.Sort(StringComparer.Ordinal);
+            } while (token is not null);
             return Results.Json(new { folders, files = fileList });
         }).RequireAuthorization(readPolicy);
 
@@ -50,7 +49,7 @@ public static class ConsoleStorageEndpoints
         group.MapDelete("/files/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
-            await files.DeleteAsync(decoded, ct);
+            await files.DeleteAsync(decoded, ct: ct);
             return Results.NoContent();
         }).RequireAuthorization(writePolicy);
 
@@ -59,7 +58,7 @@ public static class ConsoleStorageEndpoints
         group.MapDelete("/directories/{path}", async (string path, [FromServices] FileStorage files, CancellationToken ct) =>
         {
             if (!WincheBase64Url.TryDecode(path, out var decoded)) return Results.BadRequest();
-            await files.DeleteAsync(decoded, ct);
+            await files.DeleteAsync(decoded, ct: ct);
             return Results.NoContent();
         }).RequireAuthorization(writePolicy);
 
@@ -82,7 +81,7 @@ public static class ConsoleStorageEndpoints
         }).RequireAuthorization(readPolicy);
 
         group.MapPost("/metadata", async (UpdateMetadataRequest body, [FromServices] FileStorage files, CancellationToken ct) =>
-            Results.Json(await files.UpdateMetadataAsync(body.Path, body.Metadata ?? new JsonObject(), ct)))
+            Results.Json(await files.UpdateMetadataAsync(body.Path, body.Metadata ?? new JsonObject(), ct: ct)))
             .RequireAuthorization(writePolicy);
 
         return app;
