@@ -314,15 +314,10 @@ public sealed class KeycloakDirectory : IUserDirectory
     {
         try
         {
-            var payload = JsonNode.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(Pad(token.Split('.')[1]))));
+            var payload = JsonNode.Parse(WincheBase64Url.Decode(token.Split('.')[1]));
             return [.. (payload?["resource_access"]?["realm-management"]?["roles"] as JsonArray ?? []).Select(r => r!.GetValue<string>())];
         }
         catch (Exception) { return []; }
     }
 
-    private static string Pad(string b64)
-    {
-        var s = b64.Replace('-', '+').Replace('_', '/');
-        return s.PadRight(s.Length + (4 - s.Length % 4) % 4, '=');
-    }
 }
