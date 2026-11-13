@@ -5,7 +5,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
-import { variablesFor, type Hook, type HookActionInfo, type HooksPageData, type HookTestResult } from "../../api/hooks";
+import { variablesFor, type FeedDeadLetter, type Hook, type HookActionInfo, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
@@ -28,9 +28,11 @@ export function HooksPage() {
         <Tabs.List mb="sm">
           <Tabs.Tab value="hooks">Hooks</Tabs.Tab>
           <Tabs.Tab value="deliveries">Deliveries</Tabs.Tab>
+          <Tabs.Tab value="in-app">In the app</Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="hooks"><HooksList /></Tabs.Panel>
         <Tabs.Panel value="deliveries"><Deliveries /></Tabs.Panel>
+        <Tabs.Panel value="in-app"><InApp /></Tabs.Panel>
       </Tabs>
     </Stack>
   );
@@ -287,6 +289,96 @@ function Deliveries() {
           </Table>
         </Paper>
       )}
+    </Stack>
+  );
+}
+
+/** Hooks inside the app (the database's and storage's, and published changes): how far behind, and what they gave up on. */
+function InApp() {
+  const feeds = useQuery({ queryKey: ["feeds"], queryFn: api.feeds, refetchInterval: 5000 });
+  if (feeds.isLoading) return <Loader size="sm" />;
+  if (feeds.isError) return <Alert color="red">Couldn't load background deliveries: {errorMessage(feeds.error)}</Alert>;
+  const rows = (feeds.data?.feeds ?? []).flatMap((f) => f.consumers.map((c) => ({ feed: f.feed, ...c })));
+  return (
+    <Stack gap="sm">
+      <Text size="sm" c="dimmed">
+        Code in the app that reacts to changes: the database's and storage's hooks, and the changes they pass on to hooks here
+        and to functions. Each takes changes in order; one that keeps failing for an hour is set aside so the rest go on.
+      </Text>
+      {rows.length === 0 ? <Text size="sm" c="dimmed">The app has none.</Text> : (
+        <Paper withBorder style={{ overflowX: "auto" }}>
+          <Table fz="sm" verticalSpacing={6} miw={640}>
+            <Table.Thead><Table.Tr><Table.Th>From</Table.Th><Table.Th>Consumer</Table.Th><Table.Th>State</Table.Th><Table.Th>Set aside</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {rows.map((r) => (
+                <Table.Tr key={`${r.feed}/${r.name}`} data-testid="feed-consumer">
+                  <Table.Td>{r.feed}</Table.Td>
+                  <Table.Td><Text size="xs" ff="monospace">{r.name}</Text></Table.Td>
+                  <Table.Td>
+                    {r.failingSince
+                      ? <Badge color="red" variant="light" tt="none" title={r.lastError ?? undefined}>failing since {when(r.failingSince)} ({r.failingAttempts} tries)</Badge>
+                      : r.oldestPendingAt
+                        ? <Badge color="yellow" variant="light" tt="none">{r.lagSeconds}s behind</Badge>
+                        : <Badge color="teal" variant="light" tt="none">up to date</Badge>}
+                  </Table.Td>
+                  <Table.Td>{r.deadLetters > 0 ? <Badge color="red" variant="outline">{r.deadLetters}</Badge> : <Text size="xs" c="dimmed">none</Text>}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      )}
+      {(feeds.data?.feeds ?? []).filter((f) => f.consumers.some((c) => c.deadLetters > 0)).map((f) => <SetAside key={f.feed} feed={f.feed} />)}
+    </Stack>
+  );
+}
+
+function SetAside({ feed }: { feed: string }) {
+  const qc = useQueryClient();
+  const letters = useQuery({ queryKey: ["feed-dead-letters", feed], queryFn: () => api.feedDeadLetters(feed) });
+  const [open, setOpen] = useState<number | null>(null);
+  const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: ["feeds"] }), qc.invalidateQueries({ queryKey: ["feed-dead-letters", feed] })]);
+  const rows: FeedDeadLetter[] = letters.data?.deadLetters ?? [];
+  const consumers = [...new Set(rows.map((r) => r.consumer))];
+  return (
+    <Stack gap={6}>
+      <Group justify="space-between">
+        <Text fw={600} size="sm">Set aside in {feed}</Text>
+        <Group gap={6}>
+          {consumers.map((c) => (
+            <Button key={c} size="compact-xs" variant="light" onClick={async () => { await api.retryFeedDeadLetters(feed, c); await refresh(); }}>
+              Retry {consumers.length > 1 ? c : "all"}
+            </Button>
+          ))}
+        </Group>
+      </Group>
+      <Paper withBorder style={{ overflowX: "auto" }}>
+        <Table fz="sm" verticalSpacing={6} miw={640}>
+          <Table.Tbody>
+            {rows.map((r) => (
+              <Fragment key={r.id}>
+                <Table.Tr data-testid="dead-letter" onClick={() => setOpen(open === r.id ? null : r.id)} style={{ cursor: "pointer" }}>
+                  <Table.Td><Text size="xs">{when(r.deadLetteredAt)}</Text></Table.Td>
+                  <Table.Td><Text size="xs" ff="monospace">{r.consumer}</Text></Table.Td>
+                  <Table.Td><Text size="xs">{String(r.record.type ?? "")} {String(r.record.path ?? "")}</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed" lineClamp={1}>{r.error?.split("\n")[0]}</Text></Table.Td>
+                  <Table.Td ta="right">
+                    <Button size="compact-xs" variant="subtle" color="red"
+                      onClick={async (e) => { e.stopPropagation(); if (window.confirm("Discard this change? Its hook won't get it.")) { await api.discardFeedDeadLetter(feed, r.id); await refresh(); } }}>
+                      Discard
+                    </Button>
+                  </Table.Td>
+                </Table.Tr>
+                {open === r.id && (
+                  <Table.Tr>
+                    <Table.Td colSpan={5}><Code block>{JSON.stringify(r.record, null, 2)}{"\n\n"}{r.error}</Code></Table.Td>
+                  </Table.Tr>
+                )}
+              </Fragment>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Paper>
     </Stack>
   );
 }

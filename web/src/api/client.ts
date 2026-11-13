@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
-import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
+import type { FeedDeadLetter, FeedInfo, Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { FunctionsPageData, FunctionRun, FunctionVersion } from "./functions";
 import type { AppsPageData } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
@@ -164,6 +164,12 @@ export const api = {
   hookDeliveries: (hookId?: string, status?: string) =>
     http<{ deliveries: HookDelivery[] }>("GET", `api/hooks/deliveries?${new URLSearchParams({ ...(hookId ? { hookId } : {}), ...(status ? { status } : {}) })}`),
   retryHookDelivery: (id: string) => http<void>("POST", `api/hooks/deliveries/${id}/retry`),
+  feeds: () => http<{ feeds: FeedInfo[] }>("GET", "api/feeds"),
+  feedDeadLetters: (feed: string, consumer?: string) =>
+    http<{ deadLetters: FeedDeadLetter[] }>("GET", `api/feeds/${encodeURIComponent(feed)}/dead-letters${consumer ? `?consumer=${encodeURIComponent(consumer)}` : ""}`),
+  retryFeedDeadLetters: (feed: string, consumer: string) =>
+    http<{ replayed: number; failed: number }>("POST", `api/feeds/${encodeURIComponent(feed)}/retry`, { consumer }),
+  discardFeedDeadLetter: (feed: string, id: number) => http<void>("DELETE", `api/feeds/${encodeURIComponent(feed)}/dead-letters/${id}`),
   storageLocation: () => http<StorageLocationState>("GET", "api/settings/storage/location"),
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "api/settings/storage/location/test", { location, secretKey }),

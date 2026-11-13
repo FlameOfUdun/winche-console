@@ -40,3 +40,14 @@ export function variablesFor(hook: Hook, sources: HookSource[]): string[] {
   const captures = [...(hook.when.path ?? "").matchAll(/\{([A-Za-z0-9_]+)(=\*\*)?\}/g)].map((m) => m[1]);
   return [...new Set([...captures, ...(source?.variables ?? [])])];
 }
+
+/** A package's durable consumer of its change feed (an in-app hook, published changes). */
+export interface FeedConsumer {
+  name: string; lagSeconds: number; oldestPendingAt: string | null; failingSince: string | null;
+  failingAttempts: number; lastError: string | null; deadLetters: number;
+}
+export interface FeedInfo { feed: string; consumers: FeedConsumer[] }
+export interface FeedDeadLetter {
+  id: number; consumer: string; record: Record<string, unknown>; error: string | null; attempts: number;
+  firstFailedAt: string; deadLetteredAt: string;
+}

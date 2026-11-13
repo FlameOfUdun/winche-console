@@ -12,7 +12,8 @@ vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return {
     ...actual,
-    api: { ...actual.api, hooks: vi.fn(), saveHooks: vi.fn(), testHook: vi.fn(), hookSecret: vi.fn(), rotateHookSecret: vi.fn(), hookDeliveries: vi.fn(), retryHookDelivery: vi.fn() },
+    api: { ...actual.api, hooks: vi.fn(), saveHooks: vi.fn(), testHook: vi.fn(), hookSecret: vi.fn(), rotateHookSecret: vi.fn(), hookDeliveries: vi.fn(), retryHookDelivery: vi.fn(),
+      feeds: vi.fn(), feedDeadLetters: vi.fn(), retryFeedDeadLetters: vi.fn(), discardFeedDeadLetter: vi.fn() },
   };
 });
 
@@ -102,4 +103,28 @@ test("deliveries: a failed one shows why and can be retried", async () => {
   expect(within(row).getByText("503 Service Unavailable")).toBeInTheDocument();
   await userEvent.click(within(row).getByRole("button", { name: "Retry" }));
   expect(mock(api.retryHookDelivery)).toHaveBeenCalledWith("d1");
+});
+
+test("hooks inside the app show how far behind they are, and what they set aside can be retried", async () => {
+  mock(api.feeds).mockResolvedValue({
+    feeds: [
+      { feed: "database", consumers: [{ name: "hooks:Audit", lagSeconds: 0, oldestPendingAt: null, failingSince: null, failingAttempts: 0, lastError: null, deadLetters: 0 }] },
+      { feed: "storage", consumers: [{ name: "hooks:Thumbs|images/{f=**}", lagSeconds: 40, oldestPendingAt: "2026-11-13T10:00:00Z", failingSince: null, failingAttempts: 0, lastError: null, deadLetters: 1 }] },
+    ],
+  });
+  mock(api.feedDeadLetters).mockResolvedValue({
+    deadLetters: [{ id: 7, consumer: "hooks:Thumbs|images/{f=**}", record: { type: "registered", path: "images/a.png" }, error: "boom", attempts: 9,
+      firstFailedAt: "2026-11-13T09:00:00Z", deadLetteredAt: "2026-11-13T10:00:00Z" }],
+  });
+  mock(api.retryFeedDeadLetters).mockResolvedValue({ replayed: 1, failed: 0 });
+  renderPage();
+  await userEvent.click(await screen.findByRole("tab", { name: "In the app" }));
+
+  const rows = await screen.findAllByTestId("feed-consumer");
+  expect(within(rows[0]).getByText("up to date")).toBeInTheDocument();
+  expect(within(rows[1]).getByText("40s behind")).toBeInTheDocument();
+  expect(await screen.findByText("registered images/a.png")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "Retry all" }));
+  await waitFor(() => expect(api.retryFeedDeadLetters).toHaveBeenCalledWith("storage", "hooks:Thumbs|images/{f=**}"));
 });
