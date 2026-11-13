@@ -33,7 +33,7 @@ export function AppsPage() {
           <Paper withBorder p="md">
             <Stack gap="xs">
               <Text fw={600}>1. Add the packages</Text>
-              <Code block>{"flutter pub add winche_flutter winche_core"}</Code>
+              <Code block>{"flutter pub add winche_flutter"}</Code>
               <Text size="sm" c="dimmed">
                 Then the ones you use: winche_database, winche_storage, winche_auth, winche_functions.
               </Text>

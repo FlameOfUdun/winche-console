@@ -55,7 +55,6 @@ public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IR
         b.Append("// Written by `winche configure` from ").Append(BaseUrl).Append(".\n");
         b.Append("// Run it again after adding a platform or a sign-in provider.\n");
         b.Append("//\n// ignore_for_file: type=lint\n");
-        b.Append("import 'package:winche_core/winche_core.dart';\n");
         b.Append("import 'package:winche_flutter/winche_flutter.dart';\n\n");
         b.Append("/// Winche options for each platform this app runs on, for project `").Append(ProjectId).Append("`.\n");
         b.Append("///\n/// ```dart\n");
