@@ -169,6 +169,39 @@ public class ConsoleRulesTextTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_structured_simulation_sees_auth_resource_and_the_incoming_data_as_a_real_call_does()
+    {
+        var (app, client) = await AdminAsync();
+        using var _ = app;
+        var rules = RuleText.ParseRuleSet("""
+            match /posts/{postId} {
+              allow update: if request.auth.uid == resource.data.owner && request.auth.token.email_verified == true
+                && request.resource.data.likes is int && request.method == 'update' && resource.id == postId;
+            }
+            """);
+
+        async Task<bool> Allowed(object? auth, object? existing, object? incoming)
+        {
+            var body = await Json(await client.PostAsJsonAsync("/_console/api/rules/database/simulate", new
+            {
+                rulesJson = RuleJson.Serialize(rules), operation = "Update", documentPath = "posts/p1", structured = true,
+                auth, existing, incoming,
+            }));
+            return body.GetProperty("allowed").GetBoolean();
+        }
+
+        var ann = new { uid = "ann", claims = new Dictionary<string, object> { ["email_verified"] = true } };
+        var owned = new Dictionary<string, object> { ["owner"] = "ann" };
+        var likes = new Dictionary<string, object> { ["likes"] = new Dictionary<string, string> { ["$integer"] = "3" } };
+        Assert.True(await Allowed(ann, owned, likes));
+        Assert.False(await Allowed(null, owned, likes));                                                   // signed out
+        Assert.False(await Allowed(new { uid = "bob", claims = new Dictionary<string, object> { ["email_verified"] = true } }, owned, likes));
+        Assert.False(await Allowed(new { uid = "ann", claims = new Dictionary<string, object>() }, owned, likes));   // not verified
+        Assert.False(await Allowed(ann, owned, new Dictionary<string, object> { ["likes"] = "3" }));         // text, not a number
+        Assert.False(await Allowed(ann, null, likes));                                                     // nothing there
+    }
+
+    [Fact]
     public async Task Text_endpoints_need_an_admin()
     {
         using var app = new ConsoleAppFactory(fx);

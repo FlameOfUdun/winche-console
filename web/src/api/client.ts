@@ -253,7 +253,12 @@ export const api = {
     http<{ fields: { path: string; types: string[] }[] }>("GET", `api/rules/${sys}/fields?pattern=${encodeURIComponent(pattern)}`),
   rulesSimulate: (
     sys: RuleSubsystem,
-    body: { rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string> },
+    body: {
+      rulesJson: string; operation: RuleOperation; documentPath: string; resourceJson?: string; requestJson?: string; params?: Record<string, string>;
+      /** Built by the server as a real call would: who's asking, the document or file now, and what's being written. */
+      structured?: boolean; auth?: { uid: string; claims: Record<string, unknown> } | null;
+      existing?: Record<string, unknown> | null; incoming?: Record<string, unknown> | null;
+    },
   ) => http<SimulateResult>("POST", `api/rules/${sys}/simulate`, body),
 
   consoleTabs: () => http<{ tabs: TabNav[] }>("GET", "api/tabs"),

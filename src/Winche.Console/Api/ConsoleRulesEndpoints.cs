@@ -64,7 +64,14 @@ public static class ConsoleRulesEndpoints
         string DocumentPath,
         string? ResourceJson,
         string? RequestJson,
-        Dictionary<string, string>? Params);
+        Dictionary<string, string>? Params,
+        SimulateAuth? Auth = null,
+        Dictionary<string, JsonElement>? Existing = null,
+        Dictionary<string, JsonElement>? Incoming = null,
+        bool Structured = false);
+
+    /// <summary>Who a simulated request is from: a user id and the token's other claims (plain JSON values).</summary>
+    public sealed record SimulateAuth(string Uid, Dictionary<string, JsonElement>? Claims);
 
     /// <summary>One structural validation problem; <see cref="Path"/> is the offending match block's
     /// (breadcrumb-joined) path when known, or <see langword="null"/> for whole-document errors.</summary>
@@ -347,8 +354,17 @@ public static class ConsoleRulesEndpoints
             var paramsMap = new Dictionary<string, Value>();
             try
             {
-                resource = ParseRuleValue(body.ResourceJson);
-                request = ParseRuleValue(body.RequestJson);
+                if (body.Structured)
+                {
+                    // As a real call builds them: request = {auth, resource (incoming), method, time}; resource = what's there.
+                    resource = Resource(sys, body.DocumentPath, body.Existing);
+                    request = RuleValues.Request(Claims(body.Auth), op.ToString().ToLowerInvariant(), Resource(sys, body.DocumentPath, body.Incoming));
+                }
+                else
+                {
+                    resource = ParseRuleValue(body.ResourceJson);
+                    request = ParseRuleValue(body.RequestJson);
+                }
                 if (body.Params is not null)
                 {
                     foreach (var (k, v) in body.Params)
@@ -441,6 +457,55 @@ public static class ConsoleRulesEndpoints
     /// whitespace-only input yields <see cref="RuleValues.Null"/>. Throws <see cref="JsonException"/> on
     /// malformed input, which callers turn into a 400.
     /// </summary>
+    /// <summary>
+    /// A document's or file's <c>resource</c> map from its fields (rule-literal JSON), with the metadata a real one has:
+    /// documents get <c>id</c>, <c>path</c>, <c>collection</c> and <c>data</c> (the fields); files <c>id</c>, <c>path</c>
+    /// and <c>directory</c>. Null fields: it doesn't exist.
+    /// </summary>
+    private static Value Resource(string subsystem, string path, Dictionary<string, JsonElement>? fields)
+    {
+        if (fields is null) return RuleValues.Null;
+        var values = fields.ToDictionary(f => f.Key, f => JsonSerializer.Deserialize<Value>(f.Value.GetRawText(), RuleJson.Options)!, StringComparer.Ordinal);
+        var segments = path.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var map = new Dictionary<string, Value>(values, StringComparer.Ordinal);
+        if (subsystem == "storage")
+        {
+            map.TryAdd("id", new StringValue(segments.LastOrDefault() ?? ""));
+            map.TryAdd("path", new StringValue(path.Trim('/')));
+            map.TryAdd("directory", new StringValue(string.Join('/', segments.SkipLast(1))));
+        }
+        else
+        {
+            map.TryAdd("id", new StringValue(segments.LastOrDefault() ?? ""));
+            map.TryAdd("path", new ReferenceValue(path.Trim('/')));
+            map.TryAdd("collection", new StringValue(segments.Length > 1 ? segments[^2] : ""));
+            map.TryAdd("data", new MapValue(values));
+        }
+        return new MapValue(map);
+    }
+
+    /// <summary>The caller's claims for <c>request.auth</c>: the uid and the token's other claims; null when signed out.</summary>
+    private static IReadOnlyDictionary<string, object?>? Claims(SimulateAuth? auth)
+    {
+        if (auth is null || string.IsNullOrWhiteSpace(auth.Uid)) return null;
+        var claims = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (var (k, v) in auth.Claims ?? []) claims[k] = Plain(v);
+        claims["uid"] = auth.Uid.Trim();
+        claims.TryAdd("sub", auth.Uid.Trim());
+        return claims;
+    }
+
+    private static object? Plain(JsonElement e) => e.ValueKind switch
+    {
+        JsonValueKind.String => e.GetString(),
+        JsonValueKind.Number => e.TryGetInt64(out var l) ? l : e.GetDouble(),
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        JsonValueKind.Array => e.EnumerateArray().Select(Plain).ToList(),
+        JsonValueKind.Object => e.EnumerateObject().ToDictionary(p => p.Name, p => Plain(p.Value)),
+        _ => null,
+    };
+
     private static Value ParseRuleValue(string? json) =>
         string.IsNullOrWhiteSpace(json) ? RuleValues.Null : JsonSerializer.Deserialize<Value>(json, RuleJson.Options);
 
