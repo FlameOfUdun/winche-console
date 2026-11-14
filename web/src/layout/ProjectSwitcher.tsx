@@ -1,12 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Alert, Button, Group, Menu, Modal, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { IconCheck, IconPlus, IconSelector, IconStack2 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { IconArchive, IconCheck, IconPlus, IconSelector, IconStack2 } from "@tabler/icons-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { errorMessage } from "../api/appAuth";
 import { isProjectId, projectIdFrom } from "../api/project";
 import { ProjectAvatar } from "../components/ProjectAvatar";
 import { surface } from "../theme";
+import { ConfirmByIdDialog } from "../components/ProjectDangerDialogs";
 
 /** Opens another project's console (a full page load: each project's console is its own app). */
 const open = (consoleUrl: string) => window.location.assign(`${consoleUrl}/overview`);
@@ -18,6 +19,7 @@ const open = (consoleUrl: string) => window.location.assign(`${consoleUrl}/overv
 export function ProjectSwitcher({ name, id, logo, collapsed }: { name: string; id: string; logo: ReactNode; collapsed: boolean }) {
   const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, staleTime: 30_000 });
   const [adding, setAdding] = useState(false);
+  const [archivedOpen, setArchivedOpen] = useState(false);
   const data = projects.data;
   const others = (data?.projects ?? []).filter((p) => p.id !== data?.current);
   const current = data?.projects.find((p) => p.id === data.current);
@@ -66,11 +68,56 @@ export function ProjectSwitcher({ name, id, logo, collapsed }: { name: string; i
             <>
               <Menu.Divider />
               <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add a project</Menu.Item>
+              {(data.archived?.length ?? 0) > 0 && (
+                <Menu.Item leftSection={<IconArchive size={16} />} onClick={() => setArchivedOpen(true)}
+                  rightSection={<Text size="xs" c={surface.faint}>{data.archived!.length}</Text>}>Archived projects</Menu.Item>
+              )}
             </>
           )}
         </Menu.Dropdown>
       </Menu>
       <CreateProjectDialog opened={adding} onClose={() => setAdding(false)} />
+      <ArchivedProjectsDialog opened={archivedOpen} archived={data?.archived ?? []} onClose={() => setArchivedOpen(false)} />
+    </>
+  );
+}
+
+/** Archived projects: restore one (back at its address) or delete it (its data, for good). */
+function ArchivedProjectsDialog({ opened, archived, onClose }: { opened: boolean; archived: { id: string; name: string; archivedAt: string }[]; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<{ id: string; name: string } | null>(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ["server-projects"] });
+  const restore = async (id: string) => {
+    setBusy(id); setError(null);
+    try { await api.restoreProject(id); await refresh(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(null); }
+  };
+  return (
+    <>
+      <Modal opened={opened && !deleting} onClose={onClose} radius="lg" size="lg" title={<Text fw={700} fz={18}>Archived projects</Text>}>
+        <Stack gap={0}>
+          {archived.length === 0 && <Text size="sm" c={surface.muted}>None.</Text>}
+          {archived.map((a) => (
+            <Group key={a.id} justify="space-between" wrap="nowrap" py={10} style={{ borderTop: `1px solid ${surface.subtle}` }} data-testid="archived-project">
+              <div style={{ minWidth: 0 }}>
+                <Text fw={500} truncate>{a.name}</Text>
+                <Text size="xs" c={surface.muted}>{a.id} · archived {new Date(a.archivedAt).toLocaleDateString()}</Text>
+              </div>
+              <Group gap="xs" wrap="nowrap">
+                <Button size="xs" variant="default" loading={busy === a.id} onClick={() => restore(a.id)}>Restore</Button>
+                <Button size="xs" variant="subtle" color="red" onClick={() => setDeleting(a)}>Delete</Button>
+              </Group>
+            </Group>
+          ))}
+          {error && <Alert color="red" p="xs" mt="sm">{error}</Alert>}
+        </Stack>
+      </Modal>
+      {deleting && (
+        <ConfirmByIdDialog opened id={deleting.id} title={`Delete ${deleting.name}?`} action="Delete for good"
+          body="Its database, users, files and settings are deleted, and can't be brought back. Its apps stop working for good."
+          onConfirm={async () => { await api.deleteProject(deleting.id); await refresh(); }} onClose={() => setDeleting(null)} />
+      )}
     </>
   );
 }

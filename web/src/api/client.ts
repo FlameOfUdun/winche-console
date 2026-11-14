@@ -67,6 +67,9 @@ export const api = {
   createProject: (body: { name: string; id: string; products: string[] }) => http<import("./project").ProjectState>("POST", "api/project", body),
   /** The projects on this server (Winche Server); `available` false where the console runs one project only. */
   projects: () => http<import("./project").ServerProjects>("GET", "api/projects"),
+  archiveProject: (id: string) => http<void>("POST", `api/projects/${encodeURIComponent(id)}/archive`),
+  restoreProject: (id: string) => http<void>("POST", `api/projects/${encodeURIComponent(id)}/restore`),
+  deleteProject: (id: string) => http<void>("DELETE", `api/projects/${encodeURIComponent(id)}`),
   createServerProject: (name: string, id: string) => http<{ id: string; name: string; consoleUrl: string }>("POST", "api/projects", { name, id }),
   /** The project's thumbnail, as a blob (fetched with the session's token, which an <img> can't send). */
   /** A project's thumbnail: this console's, or another project's at its [consoleUrl]. */

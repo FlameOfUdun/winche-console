@@ -14,6 +14,7 @@ import type { AppFields, RegisteredApp, AppUsage } from "../../api/apps";
 import { EmptyState } from "../../components/EmptyState";
 import { ProjectAvatar, squareThumbnail } from "../../components/ProjectAvatar";
 import { useSession } from "../../auth/session";
+import { ConfirmByIdDialog } from "../../components/ProjectDangerDialogs";
 import { surface } from "../../theme";
 
 /** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
@@ -53,6 +54,7 @@ export function GeneralSettings() {
     <Stack gap="lg">
       <YourProject fallbackName={page.data.setup.name ?? page.data.setup.projectId} fallbackId={page.data.setup.projectId} />
       <YourApps baseUrl={page.data.setup.baseUrl} snippet={page.data.snippet} />
+      <ArchiveProject />
     </Stack>
   );
 }
@@ -110,6 +112,34 @@ function YourProject({ fallbackName, fallbackId }: { fallbackName: string; fallb
       </Group>
       {error && <Alert color="red" p="xs" mt="md">{error}</Alert>}
       <RenameDialog opened={renaming} name={name} id={id} onClose={() => setRenaming(false)} onDone={refresh} />
+    </Paper>
+  );
+}
+
+/**
+ * Archiving this project (server admins, not the server's first project): it stops and its address is refused until
+ * it's restored; nothing is deleted.
+ */
+function ArchiveProject() {
+  const { user } = useSession();
+  const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, staleTime: 30_000 });
+  const [open, setOpen] = useState(false);
+  const data = projects.data;
+  const current = data?.projects.find((p) => p.id === data.current);
+  if (!user?.serverAdmin || !data?.available || !current || current.isDefault) return null;
+  const home = data.projects.find((p) => p.isDefault);
+  return (
+    <Paper withBorder p="lg" style={{ borderColor: "var(--mantine-color-red-2)" }}>
+      <Group justify="space-between" gap="md" wrap="wrap">
+        <div>
+          <Title order={2} fz={16}>Archive this project</Title>
+          <Text size="sm" c={surface.muted} mt={2}>It stops, and its apps and console are refused until a server admin restores it. Nothing is deleted.</Text>
+        </div>
+        <Button color="red" variant="light" onClick={() => setOpen(true)}>Archive project</Button>
+      </Group>
+      <ConfirmByIdDialog opened={open} id={current.id} title={`Archive ${current.name}?`} action="Archive project" onClose={() => setOpen(false)}
+        body="Its apps get errors until it's restored. Its data, users and files are kept: restore it or delete it from the project switcher → Archived projects."
+        onConfirm={async () => { await api.archiveProject(current.id); window.location.assign(`${home?.consoleUrl ?? "/_console"}/overview`); }} />
     </Paper>
   );
 }

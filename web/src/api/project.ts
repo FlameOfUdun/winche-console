@@ -15,7 +15,9 @@ export interface ServerProjects {
   canCreate: boolean;
   /** This console's project. */
   current: string;
-  projects: { id: string; name: string; consoleUrl: string; imageVersion: string | null }[];
+  projects: { id: string; name: string; consoleUrl: string; imageVersion: string | null; isDefault?: boolean }[];
+  /** Archived projects (server admins only). */
+  archived?: { id: string; name: string; archivedAt: string }[];
 }
 
 export type ProductId = "database" | "storage" | "authentication" | "functions" | "hooks";

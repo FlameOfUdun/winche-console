@@ -8,7 +8,7 @@ import { api } from "../../api/client";
 
 vi.mock("../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../api/client")>();
-  return { ...actual, api: { ...actual.api, projects: vi.fn(), createServerProject: vi.fn(), projectImage: vi.fn() } };
+  return { ...actual, api: { ...actual.api, projects: vi.fn(), createServerProject: vi.fn(), projectImage: vi.fn(), restoreProject: vi.fn(), deleteProject: vi.fn() } };
 });
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const clinic = { id: "clinic", name: "Clinic records", consoleUrl: "/_console", imageVersion: null };
@@ -59,4 +59,24 @@ test("a console that runs one project lists just it", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Switch project" }));
   expect(await screen.findByTestId("projects-empty")).toHaveTextContent("This console runs one project.");
   expect(screen.queryByText("Add a project")).toBeNull();
+});
+
+test("server admins restore an archived project, or delete one after typing its id", async () => {
+  mock(api.projects).mockResolvedValue({ available: true, canCreate: true, current: "clinic", projects: [clinic],
+    archived: [{ id: "wards", name: "Ward boards", archivedAt: "2026-11-14T10:00:00Z" }] });
+  mock(api.restoreProject).mockResolvedValue(undefined);
+  mock(api.deleteProject).mockResolvedValue(undefined);
+  renderIt();
+  await userEvent.click(screen.getByRole("button", { name: "Switch project" }));
+  await userEvent.click(await screen.findByText("Archived projects"));
+  const row = await screen.findByTestId("archived-project");
+  await userEvent.click(within(row).getByRole("button", { name: "Restore" }));
+  await waitFor(() => expect(api.restoreProject).toHaveBeenCalledWith("wards"));
+  await userEvent.click(within(row).getByRole("button", { name: "Delete" }));
+  const confirm = await screen.findByRole("dialog", { name: /Delete Ward boards/ });
+  const button = within(confirm).getByRole("button", { name: "Delete for good" });
+  expect(button).toBeDisabled();
+  await userEvent.type(within(confirm).getByRole("textbox"), "wards");
+  await userEvent.click(button);
+  await waitFor(() => expect(api.deleteProject).toHaveBeenCalledWith("wards"));
 });
