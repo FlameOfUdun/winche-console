@@ -129,6 +129,11 @@ public static class WincheConsoleExtensions
                     "AddWincheConsole requires ConsoleOptions.ConnectionString (the console's own auth database).");
             services.AddConsoleIdentity(options);
             services.AddHostedService<ConsoleStartupService>();
+            if (options.ProjectMembers)
+            {
+                services.AddSingleton<Project.ProjectMembers>();
+                services.AddTransient<Microsoft.AspNetCore.Authentication.IClaimsTransformation, Project.ProjectRoleClaims>();
+            }
         }
 
         return services;
@@ -224,6 +229,7 @@ public static class WincheConsoleExtensions
         Project.WincheProjectEndpoints.MapConsoleWincheProjectEndpoints(group, options);
         Project.ProjectImageEndpoints.MapConsoleProjectImageEndpoints(group);
         Apps.RegisteredAppEndpoints.MapConsoleRegisteredAppEndpoints(group, options);
+        if (options.ProjectMembers && options.Provider != ConsoleAuthProvider.Keycloak) Project.ProjectMemberEndpoints.MapConsoleProjectMemberEndpoints(group);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 

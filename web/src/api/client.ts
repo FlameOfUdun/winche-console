@@ -75,6 +75,11 @@ export const api = {
   setProjectImage: async (image: Blob) => (await raw("PUT", "api/project/image", image)).json() as Promise<{ imageVersion: string }>,
   removeProjectImage: () => http<void>("DELETE", "api/project/image"),
   renameProject: (name: string, id: string) => http<import("./project").ProjectState>("PUT", "api/project", { name, id }),
+  members: () => http<import("./members").MembersData>("GET", "api/members"),
+  addMember: (email: string, role: import("./types").ConsoleRole) =>
+    http<{ userId: string; newAccount: boolean; emailed: boolean; link: string | null }>("POST", "api/members", { email, role }),
+  setMemberRole: (userId: string, role: import("./types").ConsoleRole) => http<void>("PUT", `api/members/${encodeURIComponent(userId)}`, { role }),
+  removeMember: (userId: string) => http<void>("DELETE", `api/members/${encodeURIComponent(userId)}`),
   startProduct: (product: string) => http<import("./project").ProjectState>("POST", `api/project/products/${encodeURIComponent(product)}/start`),
   authState: () => http<AuthState>("GET", "api/auth/state"),
   authConfig: () => http<import("./types").AuthConfig>("GET", "api/auth/config"),

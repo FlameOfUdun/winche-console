@@ -66,6 +66,19 @@ public sealed class ConsoleOptions
     internal bool ProjectSetup { get; private set; }
 
     /// <summary>
+    /// Who may use this console, and as what, is this project's own list (Project settings → Members), not the
+    /// accounts' roles: for a project among several sharing accounts (<see cref="AccountsConnectionString"/>). Accounts
+    /// with the Admin role (server admins) are admins of every project. Console accounts only, not Keycloak.
+    /// </summary>
+    public ConsoleOptions UseProjectMembers()
+    {
+        ProjectMembers = true;
+        return this;
+    }
+
+    internal bool ProjectMembers { get; private set; }
+
+    /// <summary>
     /// Whether a console that was in use before setup existed becomes a project with every product on. Off for
     /// projects a server creates (they share accounts with older ones, which would look like "in use").
     /// </summary>

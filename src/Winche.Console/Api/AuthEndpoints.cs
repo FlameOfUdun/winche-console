@@ -26,7 +26,9 @@ public static class AuthEndpoints
     // per-user (tab enabled AND the user's role meets its MinRole).
     private static object CapabilitiesFor(ConsoleRole? role, ConsoleOptions options, IServiceProvider sp) => new
     {
-        manageUsers = true, invites = true, twoFactor = true, changePassword = true, editProfile = true,
+        // With project members, accounts are the server's: this project manages who's in it, not the accounts.
+        manageUsers = !options.ProjectMembers, invites = !options.ProjectMembers, members = options.ProjectMembers,
+        twoFactor = true, changePassword = true, editProfile = true,
         database = options.DatabaseTab is { } dt && role is { } r && r >= dt.MinRole,
         storage = options.StorageTab is { } st && role is { } r2 && r2 >= st.MinRole,
         logs = ConsoleLogsEndpoints.Capabilities(options, role),
@@ -36,6 +38,14 @@ public static class AuthEndpoints
         hooks = ConsoleHooksEndpoints.Capability(sp, role),
         functions = ConsoleFunctionsEndpoints.Capability(sp, role),
     };
+
+    /// <summary>The account's role in this console: its project role with project members, else its own; null: no access.</summary>
+    internal static async Task<string?> RoleHereAsync(ConsoleUser user, UserManager<ConsoleUser> users, ConsoleOptions options, IServiceProvider sp)
+    {
+        var role = (await users.GetRolesAsync(user)).FirstOrDefault();
+        if (!options.ProjectMembers || role == ConsoleRoles.Admin) return role;
+        return await sp.GetRequiredService<Project.ProjectMembers>().RoleOfAsync(user.Id);
+    }
 
     private static bool ResetEnabled(IServiceProvider sp, ConsoleOptions options) =>
         ConsoleEmail.Sender(sp) is not null && options.AllowSelfServicePasswordReset;
@@ -59,12 +69,13 @@ public static class AuthEndpoints
             var user = await users.GetUserAsync(principal);
             if (user is null)
                 return Results.Json(new { provider = "identity", capabilities = CapabilitiesFor(null, options, sp), initialized, selfServiceResetEnabled, user = (object?)null });
-            var role = (await users.GetRolesAsync(user)).FirstOrDefault();
-            var consoleRole = role switch
+            var role = await RoleHereAsync(user, users, options, sp);
+            ConsoleRole? consoleRole = role switch
             {
                 ConsoleRoles.Admin => ConsoleRole.Admin,
                 ConsoleRoles.Member => ConsoleRole.Member,
-                _ => ConsoleRole.Viewer,
+                ConsoleRoles.Viewer => ConsoleRole.Viewer,
+                _ => null,   // no role here (not a member of this project, or an account made for another one): nothing
             };
             return Results.Json(new
             {
@@ -79,6 +90,9 @@ public static class AuthEndpoints
                     firstName = user.FirstName,
                     lastName = user.LastName,
                     role,
+                    // Not a member of this project (project members): signed in, but nothing here.
+                    member = role is not null,
+                    serverAdmin = (await users.GetRolesAsync(user)).Contains(ConsoleRoles.Admin),
                     twoFactorEnabled = user.TwoFactorEnabled,
                     twoFactorRequired = user.TwoFactorRequired,
                     mustSetupTwoFactor = user.TwoFactorRequired && !user.TwoFactorEnabled,

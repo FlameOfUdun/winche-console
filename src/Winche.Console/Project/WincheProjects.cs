@@ -8,6 +8,21 @@ using Winche.Console.Identity;
 
 namespace Winche.Console.Project;
 
+/// <summary>Who's asking for the list of projects: which ones they may see.</summary>
+public sealed record WincheProjectsCaller(Guid? UserId, bool ServerAdmin, bool HasAccountRole)
+{
+    internal const string AccountRoleClaim = "winche:account-role";
+
+    internal static WincheProjectsCaller Of(ClaimsPrincipal user)
+    {
+        var accountRoles = user.FindAll(AccountRoleClaim).Select(c => c.Value).ToList();
+        // Without project members here, the role claims are the account's own.
+        if (!user.HasClaim(c => c.Type == ProjectRoleClaims.DoneClaim)) accountRoles = [.. user.FindAll(ClaimTypes.Role).Select(c => c.Value)];
+        var id = Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var g) ? g : (Guid?)null;
+        return new(id, accountRoles.Contains(ConsoleRoles.Admin), accountRoles.Count > 0);
+    }
+}
+
 /// <summary>A project on the server, for the console's project switcher.</summary>
 /// <param name="ConsolePath">Its console under the server's root, e.g. <c>/p/wards/_console</c>.</param>
 public sealed record WincheProjectInfo(string Id, string Name, string ConsolePath, DateTimeOffset? ImageVersion);
@@ -21,7 +36,8 @@ public interface IWincheProjects
     /// <summary>This console's project's path under the server's root (empty for the default project at the root).</summary>
     string CurrentPrefix { get; }
 
-    Task<IReadOnlyList<WincheProjectInfo>> ListAsync(CancellationToken ct);
+    /// <summary>The projects <paramref name="caller"/> may use.</summary>
+    Task<IReadOnlyList<WincheProjectInfo>> ListAsync(WincheProjectsCaller caller, CancellationToken ct);
 
     /// <summary>Creates a project (named, every product off) and starts it.</summary>
     Task<WincheProjectInfo> CreateAsync(string name, string id, string? by, CancellationToken ct);
@@ -49,14 +65,14 @@ public static class WincheProjectEndpoints
         app.MapGet("/api/projects", async (HttpContext http, ProjectSetup setup, CancellationToken ct) =>
         {
             var projects = http.RequestServices.GetService<IWincheProjects>();
-            var admin = Tabs.ConsoleRolePolicy.Highest(http.User, options) >= Tabs.ConsoleRole.Admin;
+            var caller = WincheProjectsCaller.Of(http.User);
             if (projects is null) return Results.Json(new { available = false, canCreate = false, current = setup.Current.Id, projects = Array.Empty<object>() });
             var root = Root(http.Request, projects);
-            var list = await projects.ListAsync(ct);
+            var list = await projects.ListAsync(caller, ct);
             return Results.Json(new
             {
                 available = true,
-                canCreate = admin,
+                canCreate = caller.ServerAdmin,   // projects are the server's: its admins make them
                 current = setup.Current.Id,
                 projects = list.Select(p => new
                 {
@@ -70,6 +86,8 @@ public static class WincheProjectEndpoints
         {
             if (http.RequestServices.GetService<IWincheProjects>() is not { } projects)
                 return ConsoleErrors.Problem("projects", "This console runs one project only.", null);
+            if (!WincheProjectsCaller.Of(http.User).ServerAdmin)
+                return Results.Json(new { error = "Only server admins create projects." }, statusCode: StatusCodes.Status403Forbidden);
             if (string.IsNullOrWhiteSpace(body.Name)) return ConsoleErrors.Problem("projects", "Name the project.", null);
             if (!ProjectSetup.IsValidId(body.Id))
                 return ConsoleErrors.Problem("projects", "The project id is 3 to 40 lower-case letters, digits and dashes, starting with a letter.", null);

@@ -21,6 +21,10 @@ export interface SessionUser {
   firstName: string | null;
   lastName: string | null;
   role: ConsoleRole;
+  /** False when signed in but with no role in this project (not one of its members). */
+  member?: boolean;
+  /** An admin of every project on the server (the only ones who create projects). */
+  serverAdmin?: boolean;
   twoFactorEnabled: boolean;
   twoFactorRequired: boolean;
   mustSetupTwoFactor: boolean;
@@ -30,6 +34,8 @@ export type AuthProvider = "identity" | "keycloak";
 
 export interface Capabilities {
   manageUsers: boolean;
+  /** This project's own member list (a project among several sharing the server's accounts). */
+  members?: boolean;
   database: boolean;
   storage: boolean;
   /** Which log views the user may open (Admins only). */

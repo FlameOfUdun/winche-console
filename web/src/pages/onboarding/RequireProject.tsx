@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import { useSession } from "../../auth/session";
 import { AuthCard } from "../../components/AuthCard";
 import { Onboarding } from "./Onboarding";
+import { NotAMember } from "./NotAMember";
 
 /**
  * The project is required once the console is set up: until it exists, admins create it (the same steps as the
@@ -13,7 +14,9 @@ import { Onboarding } from "./Onboarding";
  */
 export function RequireProject({ children }: { children: ReactNode }) {
   const { user } = useSession();
-  const project = useQuery({ queryKey: ["project"], queryFn: api.project, staleTime: 30_000, retry: false });
+  const notMember = user?.member === false;
+  const project = useQuery({ queryKey: ["project"], queryFn: api.project, staleTime: 30_000, retry: false, enabled: !notMember });
+  if (notMember) return <NotAMember email={user!.email} />;
   if (project.isLoading) return <Center h="100vh"><Loader /></Center>;
   const p = project.data;
   if (!p || !p.setup || p.created) return <>{children}</>;

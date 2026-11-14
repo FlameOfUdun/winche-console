@@ -1,3 +1,4 @@
+import { ProjectMembersPanel } from "./ProjectMembersPanel";
 import { Alert, Code, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { IconApps, IconKey, IconUsers } from "@tabler/icons-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
@@ -29,7 +30,9 @@ export function ProjectSettingsPage() {
           {admin && <Tabs.Tab value="ci" leftSection={<IconKey size={16} stroke={1.7} />}>CLI and CI</Tabs.Tab>}
         </Tabs.List>
         <Tabs.Panel value="general"><GeneralSettings /></Tabs.Panel>
-        {admin && <Tabs.Panel value="users"><UsersAndPermissions manageUsers={!!state?.capabilities?.manageUsers} /></Tabs.Panel>}
+        {admin && <Tabs.Panel value="users">
+          {state?.capabilities?.members ? <ProjectMembersPanel /> : <UsersAndPermissions manageUsers={!!state?.capabilities?.manageUsers} />}
+        </Tabs.Panel>}
         {admin && <Tabs.Panel value="ci"><CiTokensTab /></Tabs.Panel>}
       </Tabs>
     </Stack>
