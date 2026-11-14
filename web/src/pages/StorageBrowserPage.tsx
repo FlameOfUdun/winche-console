@@ -12,6 +12,7 @@ import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
 import type { FileRecord } from "../api/types";
 import { SubsystemTabs } from "./rules/SubsystemTabs";
+import { EmptyState } from "../components/EmptyState";
 
 export function StorageBrowserPage() {
   return (
@@ -142,7 +143,15 @@ function FilesView() {
 
       <Box style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         {browse.isLoading && <Text size="sm" p="md">Loading…</Text>}
-        {empty && <Text size="sm" c="dimmed" p="md">This folder is empty.</Text>}
+        {empty && (path
+          ? <EmptyState bordered={false} icon={IconFolder} title="This folder is empty"
+              action={canWrite && <Button leftSection={<IconUpload size={16} />} onClick={() => setUploadOpen(true)}>Upload files</Button>} />
+          : <EmptyState bordered={false} icon={IconFolder} title="No files yet"
+              description="Upload files here, or let your apps do it. Folders appear as soon as they hold a file."
+              action={canWrite && (<>
+                <Button leftSection={<IconUpload size={16} />} onClick={() => setUploadOpen(true)}>Upload files</Button>
+                <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={() => setNewFolderOpen(true)}>New folder</Button>
+              </>)} />)}
         {!empty && (
           <Table highlightOnHover verticalSpacing="sm">
             <Table.Thead style={{ background: "#F9FAFB", position: "sticky", top: 0 }}>

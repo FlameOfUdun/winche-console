@@ -9,6 +9,7 @@ import { api } from "../api/client";
 import type { ConsoleInvite, ConsoleRole, ConsoleUserItem } from "../api/types";
 import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
+import { EmptyState } from "../components/EmptyState";
 
 const ROLES: ConsoleRole[] = ["Admin", "Member", "Viewer"];
 
@@ -200,11 +201,18 @@ export function InvitesTab() {
 
   return (
     <Stack gap="sm">
-      <Group justify="flex-end">
-        {copied && <Text size="xs" c="green">{copied}</Text>}
-        <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>
-      </Group>
+      {(invites.data?.length ?? 0) > 0 && (
+        <Group justify="flex-end">
+          {copied && <Text size="xs" c="green">{copied}</Text>}
+          <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>
+        </Group>
+      )}
 
+      {invites.data && invites.data.length === 0 ? (
+        <EmptyState compact icon={IconMail} title="No pending invites"
+          description="Invite someone by email: they choose a password and join with the role you pick."
+          action={<Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>} />
+      ) : (
       <Box style={{ maxHeight: "60vh", border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         <Table verticalSpacing="sm" highlightOnHover>
           <Table.Thead style={{ background: "#F9FAFB", position: "sticky", top: 0 }}>
@@ -242,6 +250,7 @@ export function InvitesTab() {
           </Table.Tbody>
         </Table>
       </Box>
+      )}
 
       <CreateInviteModal opened={createOpen} onClose={() => setCreateOpen(false)} onSaved={() => invalidate()} />
     </Stack>

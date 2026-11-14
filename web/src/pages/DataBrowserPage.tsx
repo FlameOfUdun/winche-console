@@ -11,6 +11,8 @@ import { ConfirmModal } from "../components/ConfirmModal";
 import { FieldsEditor } from "../data/FieldsEditor";
 import { parseFields, serializeFields, type FieldEntry } from "../data/fields";
 import { SubsystemTabs } from "./rules/SubsystemTabs";
+import { EmptyState } from "../components/EmptyState";
+import { IconFileText, IconFolderOpen } from "@tabler/icons-react";
 
 export function DataBrowserPage() {
   return (
@@ -92,7 +94,7 @@ function DocumentsColumn({ collection, selectedDoc, onSelect, onAdd }: {
       <AddInline placeholder="Document ID (optional)" label="Add" onAdd={onAdd} />
       <Box style={{ overflow: "auto" }}>
         {docs.isLoading && <Text size="sm" p="sm">Loading…</Text>}
-        {docs.data?.documents.length === 0 && <Text size="sm" c="dimmed" p="sm">No documents.</Text>}
+        {docs.data?.documents.length === 0 && <EmptyState compact bordered={false} icon={IconFileText} title="No documents" description="Add one above." />}
         {docs.data?.documents.map((d) => <Row key={d.path} active={d.id === selectedDoc} onClick={() => onSelect(d.id)} label={d.id} />)}
       </Box>
     </Column>
@@ -281,7 +283,7 @@ function DataView() {
           <AddInline placeholder="Collection ID" label="Add" onAdd={addRoot} />
           <Box style={{ overflow: "auto" }}>
             {collectionsQuery.isLoading && <Text size="sm" c="dimmed" p="sm">Loading…</Text>}
-            {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">No collections yet. Add one above.</Text>}
+            {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">None yet: name one above.</Text>}
             {roots.map((c) => (
               <Row key={c} active={levels[0]?.collection === c} onClick={() => openRoot(c)} label={c}
                 onDelete={() => setConfirm({ kind: "collection", path: c })} deleteLabel="Delete collection" />
@@ -305,7 +307,14 @@ function DataView() {
           </Fragment>
         ))}
 
-        {levels.length === 0 && <Box p="lg"><Text size="sm" c="dimmed">Select a collection to browse documents.</Text></Box>}
+        {levels.length === 0 && (
+          <Box p="lg" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {!collectionsQuery.isLoading && roots.length === 0
+              ? <EmptyState bordered={false} icon={IconDatabase} title="Start your first collection"
+                  description="Collections hold documents, like a folder of records. Name one in the Collections column, or let your apps write the first document." />
+              : <EmptyState bordered={false} compact icon={IconFolderOpen} title="Pick a collection" description="Its documents show here." />}
+          </Box>
+        )}
       </Box>
 
       <ConfirmModal

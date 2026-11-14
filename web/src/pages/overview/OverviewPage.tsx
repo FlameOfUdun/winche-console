@@ -1,5 +1,6 @@
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconApps, IconDatabase, IconFolder, IconLambda, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconApps, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
@@ -26,7 +27,7 @@ export function OverviewPage() {
 
       <Stack gap="sm">
         <Title order={2} fz={15}>Products</Title>
-        {products.length === 0 && <Text size="sm" c={surface.muted}>Nothing here for your role yet.</Text>}
+        {products.length === 0 && <EmptyState icon={IconLock} title="Nothing for your role yet" description="Ask an admin for access to the parts of this project you work on." />}
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
           {products.map((p) => {
             const Icon = ICONS[p.id] ?? IconApps;
@@ -71,9 +72,9 @@ export function OverviewPage() {
         </Group>
       </Paper>
 
-      {changes.length > 0 && (
-        <Paper withBorder p="lg">
-          <Title order={2} fz={15} mb="xs">Recent changes</Title>
+      <Paper withBorder p="lg">
+        <Title order={2} fz={15} mb="xs">Recent changes</Title>
+        {changes.length === 0 && <EmptyState compact bordered={false} icon={IconHistory} title="Nothing has changed yet" description="Rules, function versions and settings changes show here, with who made them." />}
           {changes.map((c, i) => (
             <Group key={i} gap="md" py={8} wrap="wrap" data-testid="change"
               style={{ borderTop: i === 0 ? undefined : `1px solid ${surface.subtle}` }}>
@@ -82,8 +83,7 @@ export function OverviewPage() {
               <Text size="sm" c={surface.faint}>{c.by ?? "—"}</Text>
             </Group>
           ))}
-        </Paper>
-      )}
+      </Paper>
     </Stack>
   );
 }

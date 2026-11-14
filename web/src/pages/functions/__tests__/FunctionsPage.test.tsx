@@ -47,7 +47,7 @@ beforeEach(() => {
 test("the page shows what's live and how to deploy from the CLI; there's no editor", async () => {
   mock(api.functions).mockResolvedValue(page({ current: null, files: [] }));
   renderPage();
-  expect(await screen.findByText("Nothing deployed yet.")).toBeInTheDocument();
+  expect(await screen.findByText("No functions yet")).toBeInTheDocument();
   expect(screen.getByText(/winche functions deploy/)).toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /Code of/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("tab", { name: "VS Code" })).not.toBeInTheDocument();

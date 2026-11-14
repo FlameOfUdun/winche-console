@@ -3,6 +3,8 @@ import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { SavedQuery } from "../../api/logs";
 import { fromSpec, queryText, rangeFrom } from "./explorerQuery";
+import { EmptyState } from "../../components/EmptyState";
+import { IconBookmark } from "@tabler/icons-react";
 
 /** Saved queries, shared by every admin of this console, with how many entries each matched in the last 24 hours. */
 export function SavedQueriesView({ onOpen }: { onOpen: (q: SavedQuery) => void }) {
@@ -57,7 +59,7 @@ export function SavedQueriesView({ onOpen }: { onOpen: (q: SavedQuery) => void }
         </Table>
       )}
       {list.data && queries.length === 0 && (
-        <Text c="dimmed" size="sm">No saved queries. In the explorer, set up filters and choose "Save this query".</Text>
+        <EmptyState icon={IconBookmark} title="No saved queries" description={<>In the explorer, set up your filters and choose “Save this query”.</>} />
       )}
     </Stack>
   );

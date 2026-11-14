@@ -80,7 +80,7 @@ test("deletes a folder (cascade) after confirmation", async () => {
 });
 
 async function createFolder(name: string) {
-  await userEvent.click(screen.getByRole("button", { name: /New folder/ }));
+  await userEvent.click(screen.getAllByRole("button", { name: /New folder/ })[0]);   // the toolbar's (an empty root also offers one)
   await userEvent.type(await screen.findByLabelText("Folder name"), name);
   await userEvent.click(screen.getByRole("button", { name: "Create" }));
 }
@@ -102,7 +102,7 @@ test("creates an empty in-memory folder without forcing an upload", async () => 
 test("nests an in-memory subfolder by navigating into a created folder", async () => {
   (api.browseStorage as ReturnType<typeof vi.fn>).mockResolvedValue({ folders: [], files: [] });
   renderPage();
-  await waitFor(() => screen.getByText("This folder is empty."));
+  await waitFor(() => screen.getByText("No files yet"));
 
   await createFolder("reports");
   await userEvent.click(screen.getByText("reports"));     // navigate into it
@@ -115,7 +115,7 @@ test("nests an in-memory subfolder by navigating into a created folder", async (
 test("discards an empty in-memory folder locally after confirmation (no API call)", async () => {
   (api.browseStorage as ReturnType<typeof vi.fn>).mockResolvedValue({ folders: [], files: [] });
   renderPage();
-  await waitFor(() => screen.getByText("This folder is empty."));
+  await waitFor(() => screen.getByText("No files yet"));
 
   await createFolder("reports");
   await screen.findByText("reports");

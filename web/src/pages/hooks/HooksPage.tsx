@@ -6,6 +6,8 @@ import { errorMessage, errorWithList } from "../../api/appAuth";
 import { variablesFor, type FeedDeadLetter, type Hook, type HookActionInfo, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
 import { PageHeader } from "../../components/PageHeader";
+import { EmptyState } from "../../components/EmptyState";
+import { IconPlugConnected, IconSend, IconWebhook } from "@tabler/icons-react";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -78,13 +80,20 @@ function HooksList() {
       setBusy(false);
     }
   };
+  const addHook = () => setEditing({
+    id: newId(), name: "", enabled: true, when: { source: d.sources[0]?.name ?? "database", events: [], path: null }, do: { kind: "webhook", url: "", options: {} },
+  });
   const put = (h: Hook) => setDraft(draft.some((x) => x.id === h.id) ? draft.map((x) => (x.id === h.id ? h : x)) : [...draft, h]);
 
   return (
     <Stack gap="md" maw={980}>
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
       {d.sources.length === 0 && <Alert color="yellow">No events reach hooks yet: add the Winche.Webhooks adapters for the database, storage or auth.</Alert>}
-      {draft.length === 0 && !editing && <Text size="sm" c="dimmed">No hooks yet.</Text>}
+      {draft.length === 0 && !editing && (
+        <EmptyState icon={IconWebhook} title="No hooks yet"
+          description="When documents, files or users change, call an address of yours or run a ready-made action."
+          action={d.editable && <Button disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>} />
+      )}
       {draft.map((h) => {
         const text = describe(h, d);
         const counts = d.counts[h.id] ?? {};
@@ -118,10 +127,8 @@ function HooksList() {
         );
       })}
       {editing && <HookEditor initial={editing} data={d} onDone={(h) => { put(h); setEditing(null); }} onCancel={() => setEditing(null)} />}
-      {d.editable && !editing && (
-        <Button w="fit-content" variant="default" disabled={d.sources.length === 0} onClick={() => setEditing({
-          id: newId(), name: "", enabled: true, when: { source: d.sources[0]?.name ?? "database", events: [], path: null }, do: { kind: "webhook", url: "", options: {} },
-        })}>Add hook</Button>
+      {d.editable && !editing && draft.length > 0 && (
+        <Button w="fit-content" variant="default" disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>
       )}
       {d.editable && (dirty || error || notice) && (
         <Paper withBorder p="sm" data-testid="hooks-save-bar" style={{ borderColor: dirty ? "var(--mantine-color-blue-5)" : undefined, position: "sticky", bottom: 8 }}>
@@ -248,7 +255,10 @@ function Deliveries() {
     <Stack gap="sm">
       <SegmentedControl size="xs" w="fit-content" value={status} onChange={setStatus} aria-label="Status"
         data={[{ value: "all", label: "All" }, { value: "failed", label: "Failed" }, { value: "pending", label: "Waiting" }, { value: "delivered", label: "Delivered" }]} />
-      {rows.length === 0 ? <Text size="sm" c="dimmed">Nothing yet.</Text> : (
+      {rows.length === 0 ? (
+        <EmptyState icon={IconSend} title={status === "all" ? "No deliveries yet" : "None here"}
+          description={status === "all" ? "Each time a hook fires, its delivery shows here with how it went." : "No deliveries with this status."} compact={status !== "all"} />
+      ) : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table fz="sm" verticalSpacing={6} miw={760}>
             <Table.Thead><Table.Tr><Table.Th>When</Table.Th><Table.Th>Hook</Table.Th><Table.Th>Event</Table.Th><Table.Th>Result</Table.Th><Table.Th /></Table.Tr></Table.Thead>
@@ -302,7 +312,7 @@ function InApp() {
         Code in the app that reacts to changes: the database's and storage's hooks, and the changes they pass on to hooks here
         and to functions. Each takes changes in order; one that keeps failing for an hour is set aside so the rest go on.
       </Text>
-      {rows.length === 0 ? <Text size="sm" c="dimmed">The app has none.</Text> : (
+      {rows.length === 0 ? <EmptyState compact icon={IconPlugConnected} title="None in this app" /> : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table fz="sm" verticalSpacing={6} miw={640}>
             <Table.Thead><Table.Tr><Table.Th>From</Table.Th><Table.Th>Consumer</Table.Th><Table.Th>State</Table.Th><Table.Th>Set aside</Table.Th></Table.Tr></Table.Thead>

@@ -6,6 +6,8 @@ import { errorMessage, errorWithList } from "../../api/appAuth";
 import type { FunctionInfo, FunctionRun } from "../../api/functions";
 import { when } from "../authentication/UsersView";
 import { PageHeader } from "../../components/PageHeader";
+import { EmptyState } from "../../components/EmptyState";
+import { IconHistory, IconLambda } from "@tabler/icons-react";
 
 /**
  * Functions: TypeScript run on the server when data changes, on a schedule, or when apps call them. The code lives in
@@ -64,7 +66,10 @@ winche functions deploy -m "what changed"`}</Code>
 
 function Deployed({ functions, version }: { functions: FunctionInfo[]; version: number | null }) {
   const [running, setRunning] = useState<string | null>(null);
-  if (version === null) return <Text size="sm" c="dimmed">Nothing deployed yet.</Text>;
+  if (version === null) return (
+    <EmptyState icon={IconLambda} title="No functions yet"
+      description="Write them in your editor and deploy them from your terminal or CI: they appear here, with Run for callables." />
+  );
   return (
     <Stack gap="xs">
       <Text fw={600}>Live: version {version}</Text>
@@ -124,7 +129,7 @@ function VersionsTab() {
   const [error, setError] = useState<string | null>(null);
   if (list.isLoading) return <Loader size="sm" />;
   const versions = list.data?.versions ?? [];
-  if (versions.length === 0) return <Text size="sm" c="dimmed">Nothing deployed yet.</Text>;
+  if (versions.length === 0) return <EmptyState icon={IconHistory} title="No versions yet" description="Each deploy becomes a version here, and you can roll back to any of them." />;
   const rollBack = async (v: number) => {
     if (!window.confirm(`Deploy version ${v}'s code again, as a new version?`)) return;
     setError(null);

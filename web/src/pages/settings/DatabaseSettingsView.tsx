@@ -5,6 +5,8 @@ import { api } from "../../api/client";
 import { fieldsText, parseFields, sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
 import { when } from "../authentication/UsersView";
 import { AreaSettingsView, num, Section } from "./AreaSettings";
+import { EmptyState } from "../../components/EmptyState";
+import { IconClockOff, IconListSearch } from "@tabler/icons-react";
 
 /** Database → Settings: indexes (with the slow queries' suggestions), expiry, history, limits and logging. */
 export function DatabaseSettingsView() {
@@ -129,7 +131,7 @@ function Indexes({ draft, set, editable }: Props) {
           </Stack>
         </Paper>
       )}
-      {draft.indexes.length === 0 ? <Text size="sm" c="dimmed">None: every collection uses the built-in one.</Text> : (
+      {draft.indexes.length === 0 ? <EmptyState compact icon={IconListSearch} title="No indexes of your own" description="Every query still works. Slow ones are suggested here when they need one." /> : (
         <Table fz="sm" verticalSpacing={6}>
           <Table.Thead><Table.Tr><Table.Th>Collection</Table.Th><Table.Th>Fields</Table.Th><Table.Th>Kind</Table.Th><Table.Th /></Table.Tr></Table.Thead>
           <Table.Tbody>
@@ -179,7 +181,7 @@ function Expiry({ draft, set, editable }: Props) {
   const [field, setField] = useState("");
   return (
     <Section title="Expiry" hint="Delete documents once a timestamp field is in the past (checked every few minutes).">
-      {draft.ttl.length === 0 && <Text size="sm" c="dimmed">Nothing expires.</Text>}
+      {draft.ttl.length === 0 && <EmptyState compact icon={IconClockOff} title="Nothing expires" description="Pick a collection and a timestamp field to delete its documents once that time has passed." />}
       {draft.ttl.map((t, n) => (
         <Group key={n} justify="space-between" data-testid="db-ttl">
           <Text size="sm"><b>{t.collection}</b> when <Text span ff="monospace">{t.field}</Text> has passed</Text>

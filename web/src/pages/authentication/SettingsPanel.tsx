@@ -12,6 +12,8 @@ import { AuthSettingsView } from "./AuthSettingsView";
 import { DirectorySection } from "./DirectorySection";
 import { SignInSettings, useSignInDraft, type SignInPart } from "./SignInSettings";
 import { when } from "./UsersView";
+import { EmptyState } from "../../components/EmptyState";
+import { IconShieldCheck } from "@tabler/icons-react";
 
 type Section = "providers" | "mapping" | "directory" | "history" | "keys" | SignInPart;
 const SIGN_IN: Section[] = ["methods", "security", "email"];
@@ -170,7 +172,7 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
       </Paper>
 
       {draft.providers.length === 0 && !editing && (
-        <Text size="sm" c="dimmed">No other providers. Add Keycloak, Auth0, Microsoft Entra ID or any OpenID Connect provider.</Text>
+        <EmptyState compact icon={IconShieldCheck} title="No other identity providers" description="Accept tokens from Keycloak, Auth0, Microsoft Entra ID or any OpenID Connect provider." />
       )}
 
       {draft.providers.map((p, i) => {

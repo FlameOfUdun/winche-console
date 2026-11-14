@@ -48,3 +48,15 @@ test("an admin makes a CI token (shown once), and revokes tokens and CLI sign-in
   await userEvent.click(within(screen.getByTestId("cli-token")).getByRole("button", { name: "Revoke" }));
   await waitFor(() => expect(api.revokeConsoleToken).toHaveBeenCalledWith("t2"));
 });
+
+test("with no tokens, each list shows its empty state, and the empty CI list offers Create token", async () => {
+  mock(api.consoleTokens).mockResolvedValue({ available: true, scopes: ["functions", "rules"], tokens: [] });
+  renderTab();
+  const empties = await screen.findAllByTestId("empty-state");
+  expect(empties).toHaveLength(2);
+  expect(within(empties[0]).getByText("No CI tokens")).toBeInTheDocument();
+  expect(within(empties[1]).getByText("Nobody has signed in with the CLI")).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: "Create token" })).toHaveLength(1);   // only the empty state's
+  await userEvent.click(within(empties[0]).getByRole("button", { name: "Create token" }));
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+});

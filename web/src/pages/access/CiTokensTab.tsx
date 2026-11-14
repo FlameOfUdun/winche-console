@@ -6,6 +6,8 @@ import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { ConsoleToken } from "../../api/tokens";
 import { when } from "../authentication/UsersView";
+import { EmptyState } from "../../components/EmptyState";
+import { IconKey, IconTerminal2 } from "@tabler/icons-react";
 
 const SCOPE_LABEL: Record<string, string> = { functions: "Deploy functions", rules: "Deploy rules" };
 const DAYS = [{ value: "30", label: "30 days" }, { value: "90", label: "90 days" }, { value: "365", label: "1 year" }, { value: "730", label: "2 years" }];
@@ -53,15 +55,18 @@ export function CiTokensTab() {
               stops working if its maker is no longer an admin.
             </Text>
           </div>
-          <Button leftSection={<IconPlus size={16} />} disabled={!available} onClick={() => setCreating(true)}>Create token</Button>
+          {ci.length > 0 && <Button leftSection={<IconPlus size={16} />} disabled={!available} onClick={() => setCreating(true)}>Create token</Button>}
         </Group>
-        <TokenTable tokens={ci} onRevoke={revoke} empty="No CI tokens yet." ci />
+        <TokenTable tokens={ci} onRevoke={revoke} ci empty={
+          <EmptyState icon={IconKey} title="No CI tokens"
+            description="Make one for each pipeline that deploys: it can only deploy, and you can revoke it any time."
+            action={<Button leftSection={<IconPlus size={16} />} disabled={!available} onClick={() => setCreating(true)}>Create token</Button>} />} />
       </Paper>
 
       <Paper withBorder p="lg">
         <Title order={2} fz={16}>CLI sign-ins</Title>
         <Text size="sm" c="dimmed" mt={2} mb="md">Made when someone runs <Code>winche login</Code> and allows it in the browser. They last 90 days; <Code>winche logout</Code> ends one too.</Text>
-        <TokenTable tokens={cli} onRevoke={revoke} empty="Nobody has signed in with the CLI." />
+        <TokenTable tokens={cli} onRevoke={revoke} empty={<EmptyState compact icon={IconTerminal2} title="Nobody has signed in with the CLI" />} />
       </Paper>
 
       <CreateTokenDialog opened={creating} scopes={tokens.data.scopes} onClose={() => setCreating(false)}
@@ -132,8 +137,8 @@ function CreateTokenDialog({ opened, scopes: allScopes, onClose, onCreated }: {
   );
 }
 
-function TokenTable({ tokens, onRevoke, empty, ci }: { tokens: ConsoleToken[]; onRevoke: (t: ConsoleToken) => void; empty: string; ci?: boolean }) {
-  if (tokens.length === 0) return <Text size="sm" c="dimmed">{empty}</Text>;
+function TokenTable({ tokens, onRevoke, empty, ci }: { tokens: ConsoleToken[]; onRevoke: (t: ConsoleToken) => void; empty: React.ReactNode; ci?: boolean }) {
+  if (tokens.length === 0) return <>{empty}</>;
   return (
     <Paper withBorder style={{ overflowX: "auto" }}>
       <Table fz="sm" verticalSpacing={6} miw={720}>

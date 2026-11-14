@@ -11,6 +11,8 @@ import { useSession } from "../../auth/session";
 import { Histogram } from "./Histogram";
 import { LogLevelsPanel } from "./LogLevelsPanel";
 import { RANGES, queryText, rangeFrom, toSpec, withFilter, type ExplorerState, type RangeKey } from "./explorerQuery";
+import { EmptyState } from "../../components/EmptyState";
+import { IconSearch } from "@tabler/icons-react";
 
 const PAGE = 100;
 const LIVE_MS = 3000;
@@ -218,7 +220,7 @@ export function LogsExplorer({ scope, state, onChange, onSaved }: {
       {first.isLoading && <Loader size="sm" />}
       {first.isError && <Alert color="red">Couldn't load the logs: {String((first.error as Error).message)}</Alert>}
       {first.data && entries.length === 0 && (
-        <Text c="dimmed" size="sm">No entries match. Remove a filter or widen the time range.</Text>
+        <EmptyState compact icon={IconSearch} title="Nothing matches" description="Remove a filter or widen the time range." />
       )}
 
       {entries.length > 0 && (

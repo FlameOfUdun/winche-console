@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { valueText, type HistoryEntry } from "../../api/history";
+import { EmptyState } from "../../components/EmptyState";
+import { IconHistory, IconSearch } from "@tabler/icons-react";
 
 const PAGE = 50;
 const TYPE: Record<HistoryEntry["type"], { label: string; color: string }> = {
@@ -88,7 +90,9 @@ export function HistoryView() {
 
       {first.isLoading && <Loader size="sm" />}
       {first.isError && <Alert color="red">Couldn't load the history: {String((first.error as Error).message)}</Alert>}
-      {first.data && entries.length === 0 && <Text c="dimmed">No changes{pathInput || actor ? " match" : " yet"}.</Text>}
+      {first.data && entries.length === 0 && (pathInput || actor
+        ? <EmptyState compact icon={IconSearch} title="No changes match" description="Try another path or person." />
+        : <EmptyState icon={IconHistory} title="No changes yet" description="Every write to a document shows here: who, when and what, with the version before it to restore." />)}
 
       {entries.length > 0 && (
         <Table highlightOnHover verticalSpacing={6} fz="sm">

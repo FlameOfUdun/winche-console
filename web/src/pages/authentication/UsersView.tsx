@@ -5,6 +5,9 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, providerLabel, statusOf, type AppUser, type UserStatus } from "../../api/appAuth";
+import { EmptyState } from "../../components/EmptyState";
+import { IconSearch, IconUsers } from "@tabler/icons-react";
+import { IconDevices } from "@tabler/icons-react";
 
 const PAGE = 50;
 const STATUS_COLOR: Record<UserStatus, string> = { Active: "teal", Disabled: "red", "Locked out": "red", "Not verified": "yellow", Guest: "violet" };
@@ -46,8 +49,11 @@ export function UsersView() {
       {list.isError && <Alert color="red">Couldn't load the users: {errorMessage(list.error)}</Alert>}
       <Group align="flex-start" gap="md" wrap="wrap">
         <Paper withBorder style={{ flex: "999 1 520px", minWidth: 0, overflowX: "auto" }}>
-          {list.isLoading ? <Loader m="md" size="sm" /> : users.length === 0 ? (
-            <Text c="dimmed" size="sm" p="md">{q ? "No users match." : "No users yet. They appear here when they sign up."}</Text>
+          {list.isLoading ? <Loader m="md" size="sm" /> : users.length === 0 ? (q
+            ? <EmptyState compact bordered={false} icon={IconSearch} title="No users match" description={<>Nothing for “{q}”. Search by email, name or uid.</>} />
+            : <EmptyState bordered={false} icon={IconUsers} title="No users yet"
+                description="Your apps' users appear here when they sign up. You can also add one yourself."
+                action={(config.data?.directory?.capabilities.create ?? true) && <Button onClick={() => setAdding(true)}>Add user</Button>} />
           ) : (
             <Table highlightOnHover verticalSpacing={8} fz="sm" miw={640}>
               <Table.Thead>
@@ -222,7 +228,7 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
 
         <Stack gap={6}>
           <Title order={6}>Sessions</Title>
-          {sessions.length === 0 && <Text size="sm" c="dimmed">No active sessions.</Text>}
+          {sessions.length === 0 && <EmptyState compact bordered={false} icon={IconDevices} title="Not signed in anywhere" />}
           {sessions.map((s) => (
             <Group key={s.id} justify="space-between" wrap="nowrap" gap="xs" data-testid="app-session"
               style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>

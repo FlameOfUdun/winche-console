@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { RuleSubsystem, RuleVersionSummary } from "../../api/rules";
 import { diffStats, lineDiff, type DiffLine } from "./lineDiff";
+import { EmptyState } from "../../components/EmptyState";
+import { IconHistory } from "@tabler/icons-react";
 
 type View = "changes" | "file";
 
@@ -75,7 +77,7 @@ export function VersionHistory({ subsystem, opened, onClose, versions, onOpenInE
   return (
     <Modal opened={opened} onClose={onClose} title="Rules history" size="90%" padding="md">
       {!versions && <Loader size="sm" />}
-      {versions?.length === 0 && <Text size="sm" c="dimmed">No saved versions yet.</Text>}
+      {versions?.length === 0 && <EmptyState icon={IconHistory} title="No versions yet" description="Each time rules are published, from here or with winche rules deploy, a version is kept." />}
       {versions && versions.length > 0 && selected && (
         <Group align="stretch" wrap="nowrap" gap="md" h="70vh">
           <ScrollArea w={280} style={{ flexShrink: 0, borderRight: "1px solid #eee" }}>
