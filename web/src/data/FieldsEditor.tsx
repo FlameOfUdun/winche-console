@@ -3,9 +3,9 @@ import { ActionIcon, Box, Button, Collapse, Group, Select, Stack, Text, TextInpu
 import { IconCheck, IconChevronRight, IconPencil, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
 import { type EditValue, type FieldEntry, type ValueType, defaultValue, valueTypeOptions } from "./fields";
 
-const KEY_COLOR = "#3c4043";
+const KEY_COLOR = "#344054";
 const VALUE_COLOR = "#0b8043";
-const TYPE_COLOR = "#9aa0a6";
+const TYPE_COLOR = "#98A2B3";
 const CARET_W = 18;
 
 /** Right-pointing caret that rotates down when open; the collapse toggle for maps & arrays. */
@@ -155,7 +155,7 @@ function FieldNode({ keyName, keyEditable, value, readOnly, autoEdit = false, is
       ) : (
         <Box
           onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-          style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 4px", borderRadius: 4, background: hovered ? "#f8f9fa" : undefined }}>
+          style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 4px", borderRadius: 4, background: hovered ? "#F9FAFB" : undefined }}>
           {complex
             ? <Caret open={expanded} onToggle={() => setExpanded((o) => !o)} />
             : <Box style={{ width: CARET_W, flexShrink: 0 }} />}
@@ -166,7 +166,7 @@ function FieldNode({ keyName, keyEditable, value, readOnly, autoEdit = false, is
             </Text>
             {!complex && (
               <>
-                <Text size="sm" c="#5f6368" style={{ flexShrink: 0 }}>:</Text>
+                <Text size="sm" c="#475467" style={{ flexShrink: 0 }}>:</Text>
                 <Text size="sm" ff="monospace" c={VALUE_COLOR} truncate style={{ minWidth: 0 }}>{valuePreview(value)}</Text>
               </>
             )}
@@ -185,11 +185,11 @@ function FieldNode({ keyName, keyEditable, value, readOnly, autoEdit = false, is
 
       {complex && (
         <Collapse in={expanded}>
-          <Box ml={8} pl={12} style={{ borderLeft: "1px solid #e8eaed" }}>
+          <Box ml={8} pl={12} style={{ borderLeft: "1px solid #E4E7EC" }}>
             {childNodes}
             {!readOnly && (
               <Box role="button" onClick={addChild} style={{ cursor: "pointer", padding: "3px 4px" }}>
-                <Group gap={4} c="#1a73e8" wrap="nowrap">
+                <Group gap={4} c="#2F4FD8" wrap="nowrap">
                   <IconPlus size={13} /><Text size="xs">Add {value.type === "array" ? "item" : "field"}</Text>
                 </Group>
               </Box>

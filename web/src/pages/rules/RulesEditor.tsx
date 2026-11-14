@@ -217,7 +217,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
         </Alert>
       )}
 
-      <Box style={{ border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", padding: 12 }}>
+      <Box style={{ border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", padding: 12 }}>
         {draftJson !== null && (
           <RuleSetEditor ref={editor} subsystem={subsystem} json={draftJson} onChange={setDraftJson} onEditedChange={setTextEdited} />
         )}

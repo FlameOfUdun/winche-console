@@ -10,6 +10,7 @@ import { ScopedLogs } from "../logs/ScopedLogs";
 import { HistoryView } from "../history/HistoryView";
 import { DatabaseSettingsView } from "../settings/DatabaseSettingsView";
 import { StorageSettingsView } from "../settings/StorageSettingsView";
+import { PageHeader } from "../../components/PageHeader";
 
 /**
  * Wraps an existing browser page (Documents / Files) with routed "Rules" and "Logs" sub-tabs. The Rules tab
@@ -49,6 +50,8 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
   const active = onRulesPath ? "rules" : onLogsPath ? "logs" : onHistoryPath ? "history" : onSettingsPath ? "settings" : "primary";
 
   return (
+    <>
+    <PageHeader eyebrow="Build" title={subsystem === "database" ? "Database" : "Storage"} />
     <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" || v === "history" || v === "settings" ? `${basePath}/${v}` : basePath)}>
       <Tabs.List mb="sm">
         <Tabs.Tab value="primary">{primaryLabel}</Tabs.Tab>
@@ -80,5 +83,6 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
         </Tabs.Panel>
       )}
     </Tabs>
+    </>
   );
 }

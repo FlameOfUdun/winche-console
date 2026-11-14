@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, Paper, Stack, Table, Tabs, Text, Textarea, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, Paper, Stack, Table, Tabs, Text, Textarea, TextInput } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
 import type { FunctionInfo, FunctionRun } from "../../api/functions";
 import { when } from "../authentication/UsersView";
+import { PageHeader } from "../../components/PageHeader";
 
 /**
  * Functions: TypeScript run on the server when data changes, on a schedule, or when apps call them. The code lives in
@@ -14,10 +15,8 @@ export function FunctionsPage() {
   const [tab, setTab] = useState<string | null>("deployed");
   return (
     <Stack gap="sm">
-      <div>
-        <Title order={3}>Functions</Title>
-        <Text size="sm" c="dimmed">Your own TypeScript, run on this server: when documents, files or users change, on a schedule, or called by apps.</Text>
-      </div>
+      <PageHeader eyebrow="Build" title="Functions"
+        description="Your own TypeScript, run on this server: when documents, files or users change, on a schedule, or called by apps." />
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List mb="sm">
           <Tabs.Tab value="deployed">Deployed</Tabs.Tab>

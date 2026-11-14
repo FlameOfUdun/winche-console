@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Button, Card, Center, Group, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Button, Group, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
+import { AuthCard } from "../components/AuthCard";
 
+/** First visit, no admin yet: create one. (The full setup wizard replaces this in the next step.) */
 export function SetupPage() {
   const { refresh } = useSession();
   const [f, setF] = useState({ firstName: "", lastName: "", email: "", password: "" });
@@ -18,20 +20,18 @@ export function SetupPage() {
   };
 
   return (
-    <Center h="100vh" bg="#f6f8fb">
-      <Card withBorder shadow="sm" radius="md" p="xl" w={400}>
-        <Stack>
-          <Title order={3}>Create the first admin</Title>
-          <Group grow>
-            <TextInput label="First name" value={f.firstName} onChange={up("firstName")} />
-            <TextInput label="Last name" value={f.lastName} onChange={up("lastName")} />
-          </Group>
-          <TextInput label="Email" value={f.email} onChange={up("email")} />
-          <PasswordInput label="Password" value={f.password} onChange={up("password")} />
-          {error && <Text c="red" size="sm">{error}</Text>}
-          <Button onClick={submit} loading={busy}>Create admin</Button>
-        </Stack>
-      </Card>
-    </Center>
+    <AuthCard title="Create your admin account" subtitle="This server has no admin yet. You'll sign in to the console with this account, and can invite others later." width={460}>
+      <Stack gap="md">
+        <Group grow>
+          <TextInput label="First name" size="md" value={f.firstName} onChange={up("firstName")} />
+          <TextInput label="Last name" size="md" value={f.lastName} onChange={up("lastName")} />
+        </Group>
+        <TextInput label="Email" size="md" type="email" autoComplete="username" value={f.email} onChange={up("email")} />
+        <PasswordInput label="Password" size="md" autoComplete="new-password" value={f.password} onChange={up("password")}
+          onKeyDown={(e) => e.key === "Enter" && submit()} />
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Button size="md" onClick={submit} loading={busy}>Create admin</Button>
+      </Stack>
+    </AuthCard>
   );
 }

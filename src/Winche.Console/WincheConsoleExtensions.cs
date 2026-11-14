@@ -208,6 +208,7 @@ public static class WincheConsoleExtensions
         // Background deliveries (hooks inside the app) of every package that has them.
         group.MapConsoleFeedsEndpoints();
         group.MapConsoleTokenEndpoints(options);
+        group.MapConsoleOverviewEndpoints(options);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 

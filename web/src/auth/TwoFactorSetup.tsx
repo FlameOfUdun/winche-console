@@ -35,10 +35,10 @@ export function TwoFactorSetup({ onDone, forced }: { onDone: () => void; forced?
 
   return (
     <Stack>
-      <Title order={4}>Set up two-factor authentication</Title>
-      <Text size="sm" c="dimmed">
-        {forced ? "Your administrator requires two-factor authentication. " : ""}
-        Scan this QR code with an authenticator app, then enter the 6-digit code.
+      {/* Forced setup sits in a sign-in card that already has the heading. */}
+      {!forced && <Title order={4}>Set up two-step sign-in</Title>}
+      <Text size="sm" c="dimmed" ta={forced ? "center" : undefined}>
+        Scan this with an authenticator app (Google Authenticator, 1Password, Authy), then type the 6-digit code.
       </Text>
       {info && (
         <>
@@ -46,11 +46,11 @@ export function TwoFactorSetup({ onDone, forced }: { onDone: () => void; forced?
           <Text size="xs" c="dimmed" ta="center">Or enter this key manually: <Code>{info.sharedKey}</Code></Text>
         </>
       )}
-      <TextInput label="Authentication code" placeholder="123456" value={code}
+      <TextInput label="Code from the app" placeholder="123456" size="md" value={code}
         onChange={(e) => setCode(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && enable()} />
       {error && <Text c="red" size="sm">{error}</Text>}
       <Group>
-        <Button onClick={enable} loading={busy}>Enable</Button>
+        <Button onClick={enable} loading={busy} fullWidth={forced} size={forced ? "md" : "sm"}>Turn on</Button>
         {!forced && <Button variant="default" onClick={onDone}>Cancel</Button>}
       </Group>
     </Stack>

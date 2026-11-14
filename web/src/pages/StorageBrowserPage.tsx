@@ -122,13 +122,13 @@ function FilesView() {
   return (
     <Stack gap="sm" h="calc(100vh - 4rem)">
       <Group justify="space-between">
-        <Group gap={6} c="#5f6368">
+        <Group gap={6} c="#475467">
           <IconFolder size={18} />
-          <Anchor size="sm" fw={500} c={path ? "#1a73e8" : "#5f6368"} onClick={() => setPath("")}>Files</Anchor>
+          <Anchor size="sm" fw={500} c={path ? "#2F4FD8" : "#475467"} onClick={() => setPath("")}>Files</Anchor>
           {segments.map((s, i) => (
             <Group key={i} gap={6}>
               <Text size="sm" c="dimmed">/</Text>
-              <Anchor size="sm" ff="monospace" c={i === segments.length - 1 ? "#5f6368" : "#1a73e8"} onClick={() => goTo(i)}>{s}</Anchor>
+              <Anchor size="sm" ff="monospace" c={i === segments.length - 1 ? "#475467" : "#2F4FD8"} onClick={() => goTo(i)}>{s}</Anchor>
             </Group>
           ))}
         </Group>
@@ -140,12 +140,12 @@ function FilesView() {
         )}
       </Group>
 
-      <Box style={{ flex: 1, minHeight: 0, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+      <Box style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         {browse.isLoading && <Text size="sm" p="md">Loading…</Text>}
         {empty && <Text size="sm" c="dimmed" p="md">This folder is empty.</Text>}
         {!empty && (
           <Table highlightOnHover verticalSpacing="sm">
-            <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
+            <Table.Thead style={{ background: "#F9FAFB", position: "sticky", top: 0 }}>
               <Table.Tr>
                 <Table.Th>Name</Table.Th><Table.Th>Size</Table.Th><Table.Th>Type</Table.Th>
                 <Table.Th>Status</Table.Th><Table.Th>Last modified</Table.Th><Table.Th w={48} />
@@ -159,7 +159,7 @@ function FilesView() {
                   <Table.Tr key={`d:${name}`} style={{ cursor: "pointer" }} onClick={() => setPath(full)}>
                     <Table.Td>
                       <Group gap={8} wrap="nowrap">
-                        <IconFolder size={18} color={eph ? "#b0b0b0" : "#5f6368"} />
+                        <IconFolder size={18} color={eph ? "#b0b0b0" : "#475467"} />
                         <Text size="sm" fw={500} c={eph ? "dimmed" : undefined}>{name}</Text>
                         {eph && (
                           <Tooltip label="Empty folder kept in memory — upload a file here to save it." withArrow>
@@ -189,7 +189,7 @@ function FilesView() {
               {files.map((f) => (
                 <Table.Tr key={`f:${f.path}`}>
                   <Table.Td>
-                    <Group gap={8} wrap="nowrap"><IconFile size={18} color="#5f6368" /><Text size="sm" ff="monospace">{f.path.split("/").pop()}</Text></Group>
+                    <Group gap={8} wrap="nowrap"><IconFile size={18} color="#475467" /><Text size="sm" ff="monospace">{f.path.split("/").pop()}</Text></Group>
                   </Table.Td>
                   <Table.Td><Text size="sm">{humanSize(f.sizeBytes)}</Text></Table.Td>
                   <Table.Td><Text size="sm" c="dimmed">{f.mimeType}</Text></Table.Td>
@@ -280,7 +280,7 @@ function UploadModal({ opened, dir, onClose, onUploaded }: {
       <Stack>
         <Dropzone onDrop={(files) => setFile(files[0] ?? null)} maxFiles={1} multiple={false}>
           <Group justify="center" gap="md" mih={120} style={{ pointerEvents: "none" }}>
-            <Dropzone.Idle><IconUpload size={36} color="#9aa0a6" /></Dropzone.Idle>
+            <Dropzone.Idle><IconUpload size={36} color="#98A2B3" /></Dropzone.Idle>
             <div>
               <Text size="sm">Drag a file here or click to browse</Text>
               <Text size="xs" c="dimmed">A single file is uploaded to the destination folder below.</Text>

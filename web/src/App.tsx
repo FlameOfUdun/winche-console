@@ -10,6 +10,7 @@ import { StorageBrowserPage } from "./pages/StorageBrowserPage";
 import { LogsPage } from "./pages/logs/LogsPage";
 import { AuthenticationPage } from "./pages/authentication/AuthenticationPage";
 import { ProjectSettingsPage } from "./pages/settings/ProjectSettingsPage";
+import { OverviewPage } from "./pages/overview/OverviewPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
@@ -54,6 +55,7 @@ function GatedApp() {
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
           <Route path="functions" element={caps?.functions ? <FunctionsPage /> : <Navigate to={home} replace />} />
+          <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />
           <Route path="settings/:tab" element={<ProjectSettingsPage />} />
           <Route path="apps" element={<Navigate to="/settings/general" replace />} />

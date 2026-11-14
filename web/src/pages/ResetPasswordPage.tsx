@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { Anchor, Button, Card, Center, PasswordInput, Stack, Text, Title } from "@mantine/core";
+import { Alert, Button, PasswordInput, Stack, Text } from "@mantine/core";
+import { IconCheck } from "@tabler/icons-react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
+import { AuthCard } from "../components/AuthCard";
+import { Circle } from "./ForgotPasswordPage";
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -15,31 +18,26 @@ export function ResetPasswordPage() {
   const submit = async () => {
     setBusy(true); setError(null);
     try { await api.resetPassword(email, token, password); setDone(true); }
-    catch { setError("This link is invalid or has expired."); }
+    catch { setError("This link isn't valid any more: ask for a new one."); }
     finally { setBusy(false); }
   };
 
+  if (done) {
+    return (
+      <AuthCard title="Password changed" icon={<Circle><IconCheck size={24} /></Circle>}>
+        <Button size="md" component={Link} to="/">Continue to sign in</Button>
+      </AuthCard>
+    );
+  }
   return (
-    <Center h="100vh" bg="#f6f8fb">
-      <Card withBorder shadow="sm" radius="md" p="xl" w={360}>
-        <Stack>
-          <Title order={3}>Set a new password</Title>
-          {done ? (
-            <>
-              <Text size="sm">Your password has been set.</Text>
-              <Anchor component={Link} to="/" size="sm">Continue to sign in</Anchor>
-            </>
-          ) : (
-            <>
-              <Text size="sm" c="dimmed">{email}</Text>
-              <PasswordInput label="New password" value={password} onChange={(e) => setPassword(e.currentTarget.value)}
-                onKeyDown={(e) => e.key === "Enter" && submit()} />
-              {error && <Text c="red" size="sm">{error}</Text>}
-              <Button onClick={submit} loading={busy} disabled={!email || !token}>Set password</Button>
-            </>
-          )}
-        </Stack>
-      </Card>
-    </Center>
+    <AuthCard title="Choose a new password" subtitle={email}>
+      <Stack gap="md">
+        <PasswordInput label="New password" size="md" autoComplete="new-password" value={password}
+          onChange={(e) => setPassword(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        {(!email || !token) && <Text size="sm" c="red">This link is incomplete.</Text>}
+        <Button size="md" onClick={submit} loading={busy} disabled={!email || !token || !password}>Set password</Button>
+      </Stack>
+    </AuthCard>
   );
 }

@@ -113,10 +113,15 @@ public static class InviteEndpoints
             var invite = await db.Invites.FindAsync(id);
             var now = DateTimeOffset.UtcNow;
             if (invite is null || invite.Status(now) != "pending") return Results.StatusCode(StatusCodes.Status410Gone);
+            // Who sent it, by name (or email): the page says "Ann Moreau invited you".
+            var by = invite.CreatedByUserId is { } uid ? await db.Users.FindAsync(uid) : null;
+            var invitedBy = by is null ? null
+                : string.Join(" ", new[] { by.FirstName, by.LastName }.Where(n => !string.IsNullOrWhiteSpace(n))) is { Length: > 0 } name ? name : by.Email;
             return Results.Json(new
             {
                 email = invite.Email, firstName = invite.FirstName, lastName = invite.LastName,
                 requireName = invite.RequireName, requireTwoFactor = invite.RequireTwoFactor,
+                role = invite.Role, invitedBy, expiresAt = invite.ExpiresAt,
             });
         });
 

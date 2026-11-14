@@ -5,6 +5,7 @@ import { useSession } from "../../auth/session";
 import { GeneralSettings } from "../apps/AppsPage";
 import { InvitesTab, UsersTab } from "../UsersPage";
 import { CiTokensTab } from "../access/CiTokensTab";
+import { PageHeader } from "../../components/PageHeader";
 
 /**
  * Project settings (the gear, like Firebase's): General (the project and its apps) for everyone; Users and
@@ -20,7 +21,7 @@ export function ProjectSettingsPage() {
 
   return (
     <Stack gap="sm">
-      <Title order={3}>Project settings</Title>
+      <PageHeader title="Project settings" />
       <Tabs value={tab} onChange={(v) => v && navigate(`/settings/${v}`)} keepMounted={false}>
         <Tabs.List mb="md">
           <Tabs.Tab value="general" leftSection={<IconApps size={16} stroke={1.7} />}>General</Tabs.Tab>

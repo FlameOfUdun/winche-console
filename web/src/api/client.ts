@@ -49,6 +49,7 @@ async function http<T>(method: string, rel: string, body?: unknown): Promise<T> 
 }
 
 export const api = {
+  overview: () => http<import("./overview").Overview>("GET", "api/overview"),
   authState: () => http<AuthState>("GET", "api/auth/state"),
   authConfig: () => http<import("./types").AuthConfig>("GET", "api/auth/config"),
   setup: (body: { email: string; firstName?: string; lastName?: string; password: string }) =>

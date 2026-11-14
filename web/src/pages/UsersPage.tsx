@@ -36,9 +36,9 @@ export function UsersTab() {
         <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>New user</Button>
       </Group>
 
-      <Box style={{ maxHeight: "60vh", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+      <Box style={{ maxHeight: "60vh", border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         <Table verticalSpacing="sm" highlightOnHover>
-          <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
+          <Table.Thead style={{ background: "#F9FAFB", position: "sticky", top: 0 }}>
             <Table.Tr>
               <Table.Th>Email</Table.Th><Table.Th>Name</Table.Th><Table.Th>Role</Table.Th>
               <Table.Th>Status</Table.Th><Table.Th w={48} />
@@ -205,9 +205,9 @@ export function InvitesTab() {
         <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>
       </Group>
 
-      <Box style={{ maxHeight: "60vh", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+      <Box style={{ maxHeight: "60vh", border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         <Table verticalSpacing="sm" highlightOnHover>
-          <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
+          <Table.Thead style={{ background: "#F9FAFB", position: "sticky", top: 0 }}>
             <Table.Tr>
               <Table.Th>Email</Table.Th><Table.Th>Role</Table.Th><Table.Th>Requires</Table.Th>
               <Table.Th>Status</Table.Th><Table.Th>Expires</Table.Th><Table.Th w={48} />

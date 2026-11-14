@@ -30,7 +30,7 @@ test("previews the invite and accepts", async () => {
   (api.acceptInvite as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
   renderPage();
 
-  await waitFor(() => expect(screen.getByText("invitee@example.com")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByDisplayValue("invitee@example.com")).toBeInTheDocument());
   await userEvent.type(screen.getByLabelText("Password"), "Inv1ted!");
   await userEvent.click(screen.getByRole("button", { name: /set password/i }));
 
@@ -42,5 +42,5 @@ test("previews the invite and accepts", async () => {
 test("shows an error for an invalid invite", async () => {
   (api.invitePreview as ReturnType<typeof vi.fn>).mockRejectedValue(new Error("gone"));
   renderPage();
-  await waitFor(() => expect(screen.getByText(/invalid or has expired/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/This invite doesn.t work/)).toBeInTheDocument());
 });

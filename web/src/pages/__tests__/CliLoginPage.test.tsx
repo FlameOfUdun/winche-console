@@ -35,7 +35,7 @@ test("allowing the CLI sends the browser back to it with the code", async () => 
   (api.approveCliLogin as ReturnType<typeof vi.fn>).mockResolvedValue({ redirect: "http://127.0.0.1:9005/callback?code=c&state=s" });
   renderPage(`port=9005&state=s&challenge=${challenge}&name=winche%20CLI%20on%20laptop`);
   expect(screen.getByText("winche CLI on laptop")).toBeInTheDocument();
-  expect(screen.getByText(/ann@example.com, Admin/)).toBeInTheDocument();
+  expect(screen.getByText(/ann@example.com · Admin/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Allow" }));
   await waitFor(() => expect(api.approveCliLogin).toHaveBeenCalledWith({ challenge, port: 9005, state: "s", name: "winche CLI on laptop" }));
   expect(window.location.href).toBe("http://127.0.0.1:9005/callback?code=c&state=s");

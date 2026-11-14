@@ -14,12 +14,14 @@ public static class AuthConfigEndpoints
     /// <summary>Anonymous bootstrap: tells the SPA how to authenticate, for both providers.</summary>
     public static IEndpointRouteBuilder MapAuthConfigEndpoint(this IEndpointRouteBuilder app, ConsoleOptions options)
     {
+        // The project's name, so the sign-in page can say which console this is.
+        object Project() => new { id = options.ProjectId, name = options.ProjectName ?? options.ProjectId };
         app.MapGet("/api/auth/config", (HttpContext http) =>
         {
             var kc = http.RequestServices.GetService<KeycloakRuntime>();
             if (options.Provider != ConsoleAuthProvider.Keycloak || kc is null)
-                return Results.Json(new { provider = "identity" });
-            return Results.Json(new { provider = "keycloak", authority = kc.Authority, clientId = kc.ClientId, scopes = kc.Scopes });
+                return Results.Json(new { provider = "identity", project = Project() });
+            return Results.Json(new { provider = "keycloak", authority = kc.Authority, clientId = kc.ClientId, scopes = kc.Scopes, project = Project() });
         });
         return app;
     }

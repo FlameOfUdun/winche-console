@@ -1,12 +1,11 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import {
-  Alert, Badge, Button, Chip, Code, Group, Loader, Paper, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput, Title,
-} from "@mantine/core";
+import { Alert, Badge, Button, Chip, Code, Group, Loader, Paper, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
 import { variablesFor, type FeedDeadLetter, type Hook, type HookActionInfo, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
+import { PageHeader } from "../../components/PageHeader";
 
 const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v));
 const newId = () => Math.random().toString(36).slice(2, 10);
@@ -20,10 +19,8 @@ export function HooksPage() {
   const [tab, setTab] = useState<string | null>("hooks");
   return (
     <Stack gap="sm">
-      <div>
-        <Title order={3}>Hooks</Title>
-        <Text size="sm" c="dimmed">When documents, files or users change, call an address of yours or run a ready-made action. Delivered at least once, retried on failure.</Text>
-      </div>
+      <PageHeader eyebrow="Build" title="Hooks"
+        description="When documents, files or users change, call an address of yours or run a ready-made action. Delivered at least once, retried on failure." />
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List mb="sm">
           <Tabs.Tab value="hooks">Hooks</Tabs.Tab>

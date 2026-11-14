@@ -1,12 +1,13 @@
-import { Button, Card, Center, Loader, Stack, Text } from "@mantine/core";
-import { IconLogin, IconLogout } from "@tabler/icons-react";
+import { Button, Center, Loader } from "@mantine/core";
+import { IconLock, IconLogin, IconLogout } from "@tabler/icons-react";
 import type { ReactNode } from "react";
 import { useSession } from "./session";
 import { TwoFactorSetup } from "./TwoFactorSetup";
 import { LoginPage } from "../pages/LoginPage";
 import { SetupPage } from "../pages/SetupPage";
 import { keycloakLogin, keycloakLogout } from "./keycloak";
-import logoUrl from "../assets/winche-logo.png";
+import { AuthCard } from "../components/AuthCard";
+import { Circle } from "../pages/ForgotPasswordPage";
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { state, refresh } = useSession();
@@ -14,44 +15,23 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   if (state.provider === "keycloak") {
     if (!state.user) {
-      // Authenticated with Keycloak but holding none of the console roles: a dead-end "no access" screen
-      // with a way back out, rather than the sign-in prompt (they are already signed in) or the console.
+      // Signed in to Keycloak but holding none of the console roles: a dead end with a way back out.
       if (state.accessDenied) {
         return (
-          <Center h="100vh" bg="#f6f8fb">
-            <Card withBorder shadow="md" radius="lg" p="xl" w={400}>
-              <Stack align="center" gap="xs">
-                <img src={logoUrl} alt="Winche" width={64} height={64}
-                  style={{ borderRadius: 14, display: "block" }} />
-                <Text fw={600} size="xl" mt="sm" c="#202124">No access</Text>
-                <Text c="dimmed" size="sm" ta="center">
-                  Your account doesn't have a role for this console. Ask an administrator to grant you access.
-                </Text>
-                <Button fullWidth variant="light" size="md" mt="md" leftSection={<IconLogout size={18} />}
-                  onClick={() => void keycloakLogout()}>
-                  Sign out
-                </Button>
-              </Stack>
-            </Card>
-          </Center>
+          <AuthCard title="No access to this console" icon={<Circle tone="red"><IconLock size={24} /></Circle>}
+            subtitle="Your account has no role in this console. Ask an admin to give you one.">
+            <Button size="md" variant="default" leftSection={<IconLogout size={18} />} onClick={() => void keycloakLogout()}>
+              Sign out
+            </Button>
+          </AuthCard>
         );
       }
       return (
-        <Center h="100vh" bg="#f6f8fb">
-          <Card withBorder shadow="md" radius="lg" p="xl" w={400}>
-            <Stack align="center" gap="xs">
-              <img src={logoUrl} alt="Winche" width={64} height={64}
-                style={{ borderRadius: 14, display: "block" }} />
-              <Text fw={600} size="xl" mt="sm" c="#202124">Winche Console</Text>
-              <Text c="dimmed" size="sm" ta="center">Sign in to continue.</Text>
-              <Button fullWidth size="md" mt="md" leftSection={<IconLogin size={18} />}
-                onClick={() => void keycloakLogin()}>
-                Sign in with Keycloak
-              </Button>
-              <Text c="dimmed" size="xs" mt="xs">Secured by Keycloak</Text>
-            </Stack>
-          </Card>
-        </Center>
+        <AuthCard title="Sign in to the console" subtitle="This console signs in with your organisation's account.">
+          <Button size="md" leftSection={<IconLogin size={18} />} onClick={() => void keycloakLogin()}>
+            Sign in with Keycloak
+          </Button>
+        </AuthCard>
       );
     }
     return <>{children}</>;
@@ -61,11 +41,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (!state.user) return <LoginPage />;
   if (state.user.mustSetupTwoFactor) {
     return (
-      <Center h="100vh" bg="#f6f8fb">
-        <Card withBorder shadow="sm" radius="md" p="xl" w={420}>
-          <TwoFactorSetup forced onDone={refresh} />
-        </Card>
-      </Center>
+      <AuthCard title="Protect your account" subtitle="This console asks for a code from your phone too.">
+        <TwoFactorSetup forced onDone={refresh} />
+      </AuthCard>
     );
   }
   return <>{children}</>;

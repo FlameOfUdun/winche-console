@@ -70,7 +70,7 @@ export function SimulatePanel({ subsystem, rulesJson }: { subsystem: RuleSubsyst
               value={resourceJson} onChange={(e) => setResourceJson(e.currentTarget.value)} />
 
             <Stack gap={4}>
-              <Text size="xs" fw={600} c="#5f6368">PARAMS (path captures)</Text>
+              <Text size="xs" fw={600} c="#475467">PARAMS (path captures)</Text>
               {params.map((p, i) => (
                 <Group key={i} gap={6} wrap="nowrap">
                   <TextInput size="xs" ff="monospace" placeholder="userId" style={{ flex: 1 }}

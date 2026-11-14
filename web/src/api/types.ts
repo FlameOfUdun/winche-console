@@ -50,9 +50,10 @@ export interface Capabilities {
   editProfile: boolean;
 }
 
-export type AuthConfig =
+export type AuthConfig = (
   | { provider: "identity" }
-  | { provider: "keycloak"; authority: string; clientId: string; scopes: string };
+  | { provider: "keycloak"; authority: string; clientId: string; scopes: string }
+) & { project?: { id: string; name: string } };
 
 export interface AuthState {
   provider: AuthProvider;
@@ -116,4 +117,7 @@ export interface InvitePreview {
   lastName: string | null;
   requireName: boolean;
   requireTwoFactor: boolean;
+  role?: string;
+  invitedBy?: string | null;
+  expiresAt?: string;
 }

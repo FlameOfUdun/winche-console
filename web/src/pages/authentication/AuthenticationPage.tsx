@@ -1,4 +1,4 @@
-import { Anchor, Group, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Anchor, Stack, Tabs } from "@mantine/core";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useSession } from "../../auth/session";
@@ -8,6 +8,7 @@ import { SettingsPanel } from "./SettingsPanel";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { EmailTemplatesView } from "./EmailTemplatesView";
+import { PageHeader } from "../../components/PageHeader";
 
 /** The Authentication tab: the app's users (Winche Auth), how they sign in, and token settings. */
 export function AuthenticationPage() {
@@ -19,17 +20,11 @@ export function AuthenticationPage() {
   const tab = chosen ?? (hasUsers ? "users" : "settings");
   return (
     <Stack gap="sm">
-      <Group justify="space-between" align="flex-end" wrap="wrap">
-        <div>
-          <Title order={3}>Authentication</Title>
-          <Text size="sm" c="dimmed">
-            {wincheAuth ? "The app's users and how they sign in." : "How the app's sign-ins are checked."} The console's own admins are in Access.
-          </Text>
-        </div>
-        {state?.capabilities?.logs?.app && (
-          <Anchor component={Link} to="/logs?resource=auth" size="sm">Sign-ins and failures in Logs →</Anchor>
-        )}
-      </Group>
+      <PageHeader eyebrow="Build" title="Authentication"
+        description={<>{wincheAuth ? "Your apps' users and how they sign in." : "How your apps' sign-ins are checked."} The console's own members are in Project settings.</>}
+        actions={state?.capabilities?.logs?.app && (
+          <Anchor component={Link} to="/logs?resource=auth" size="sm" fw={600}>Sign-ins and failures in Logs →</Anchor>
+        )} />
       <Tabs value={tab} onChange={setTab} keepMounted={false}>
         <Tabs.List mb="sm">
           {hasUsers && <Tabs.Tab value="users">Users</Tabs.Tab>}

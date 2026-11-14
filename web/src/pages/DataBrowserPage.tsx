@@ -28,8 +28,8 @@ const autoId = () => Array.from({ length: 20 }, () => ID_CHARS[Math.floor(Math.r
 
 function PanelHeader({ title, children }: { title: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <Group h={44} px="sm" justify="space-between" style={{ borderBottom: "1px solid #e0e0e0", background: "#fafafa", flexShrink: 0 }}>
-      <Text size="sm" fw={500} c="#5f6368" truncate>{title}</Text>
+    <Group h={44} px="sm" justify="space-between" style={{ borderBottom: "1px solid #E4E7EC", background: "#F9FAFB", flexShrink: 0 }}>
+      <Text size="sm" fw={500} c="#475467" truncate>{title}</Text>
       {children}
     </Group>
   );
@@ -37,7 +37,7 @@ function PanelHeader({ title, children }: { title: React.ReactNode; children?: R
 
 function Column({ children, width = COL_W }: { children: React.ReactNode; width?: number }) {
   return (
-    <Box w={width} style={{ borderRight: "1px solid #e0e0e0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+    <Box w={width} style={{ borderRight: "1px solid #E4E7EC", display: "flex", flexDirection: "column", flexShrink: 0 }}>
       {children}
     </Box>
   );
@@ -53,7 +53,7 @@ function Row({ active, onClick, label, onDelete, deleteLabel }: {
       role="button" onClick={onClick} px="sm" py={8}
       style={{
         cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
-        background: active ? "#e8f0fe" : undefined, borderLeft: active ? "3px solid #1a73e8" : "3px solid transparent",
+        background: active ? "#EEF2FF" : undefined, borderLeft: active ? "3px solid #2F4FD8" : "3px solid transparent",
       }}
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "#f5f5f5"; }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = ""; }}
@@ -63,7 +63,7 @@ function Row({ active, onClick, label, onDelete, deleteLabel }: {
         <ActionIcon size="xs" variant="subtle" color="red" aria-label={deleteLabel ?? "Delete"}
           onClick={(e) => { e.stopPropagation(); onDelete!(); }}><IconTrash size={13} /></ActionIcon>
       )}
-      <IconChevronRight size={14} color="#9aa0a6" />
+      <IconChevronRight size={14} color="#98A2B3" />
     </Box>
   );
 }
@@ -74,7 +74,7 @@ function AddInline({ placeholder, label, onAdd }: { placeholder: string; label: 
   const submit = () => { onAdd(value.trim()); setValue(""); };
   if (user?.role === "Viewer") return null;
   return (
-    <Group gap={6} p="sm" style={{ borderBottom: "1px solid #f1f3f4" }}>
+    <Group gap={6} p="sm" style={{ borderBottom: "1px solid #F2F4F7" }}>
       <TextInput size="xs" placeholder={placeholder} value={value}
         onChange={(e) => setValue(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ flex: 1 }} />
       <Button size="xs" variant="light" onClick={submit}>{label}</Button>
@@ -154,7 +154,7 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
       </PanelHeader>
 
       <Box style={{ overflow: "auto" }}>
-        <Text size="xs" fw={600} c="#5f6368" px="sm" pt="sm">COLLECTIONS</Text>
+        <Text size="xs" fw={600} c="#475467" px="sm" pt="sm">COLLECTIONS</Text>
         <AddInline placeholder="Collection ID" label="Add" onAdd={onAddSub} />
         {subs.length === 0 && <Text size="xs" c="dimmed" px="sm" py={6}>No collections.</Text>}
         {subs.map((s) => (
@@ -165,7 +165,7 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
         <Divider my={4} />
 
         <Group justify="space-between" px="sm" pt="xs" mih={26}>
-          <Text size="xs" fw={600} c="#5f6368">FIELDS</Text>
+          <Text size="xs" fw={600} c="#475467">FIELDS</Text>
           {save.isPending && <Text size="xs" c="dimmed">Saving…</Text>}
           {save.isError && <Text size="xs" c="red">Save failed</Text>}
         </Group>
@@ -264,9 +264,9 @@ function DataView() {
 
   return (
     <Stack gap="sm" h="calc(100vh - 4rem)">
-      <Group gap={6} c="#5f6368">
+      <Group gap={6} c="#475467">
         <IconDatabase size={18} />
-        <Anchor size="sm" fw={500} c="#5f6368" onClick={() => setLevels([])}>Database</Anchor>
+        <Anchor size="sm" fw={500} c="#475467" onClick={() => setLevels([])}>Database</Anchor>
         {crumbs.map((cr, i) => (
           <Fragment key={i}>
             <IconChevronRight size={14} />
@@ -275,7 +275,7 @@ function DataView() {
         ))}
       </Group>
 
-      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", display: "flex", overflow: "auto" }}>
+      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", display: "flex", overflow: "auto" }}>
         <Column>
           <PanelHeader title="Collections" />
           <AddInline placeholder="Collection ID" label="Add" onAdd={addRoot} />

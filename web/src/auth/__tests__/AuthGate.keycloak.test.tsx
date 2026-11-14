@@ -44,7 +44,7 @@ describe("AuthGate (Keycloak)", () => {
 
   it("shows a no-access screen for an authenticated user without a role", () => {
     renderWithState(keycloakNoAccess);
-    expect(screen.getByText("No access")).toBeInTheDocument();
+    expect(screen.getByText("No access to this console")).toBeInTheDocument();
     expect(screen.getByText("Sign out")).toBeInTheDocument();
     expect(screen.queryByText("Sign in with Keycloak")).not.toBeInTheDocument();
     expect(screen.queryByText("PROTECTED")).not.toBeInTheDocument();

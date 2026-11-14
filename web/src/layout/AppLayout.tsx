@@ -1,12 +1,14 @@
-import { Fragment, useState } from "react";
+import React, { Fragment, useState } from "react";
 import {
   ActionIcon, AppShell, Box, Button, Group, Menu, Modal, NavLink, PasswordInput, Stack, Text, TextInput,
   Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
-  IconChevronRight, IconDatabase, IconFolder, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
-  IconLogout, IconShield, IconUser, IconUserCog, IconListDetails, IconUsers, IconWebhook, IconLambda, IconSettings,
+  IconChevronRight, IconDatabase, IconFolder, IconHome, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
+  IconLogout, IconShield, IconUserCog, IconListDetails, IconUsers, IconWebhook, IconLambda, IconSettings,
 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
+import { surface } from "../theme";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
@@ -25,21 +27,18 @@ export function AppLayout() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const overview = useQuery({ queryKey: ["overview"], queryFn: api.overview, staleTime: 60_000 });
+  const project = overview.data?.project;
   const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook, functions: IconLambda };
-  const inSettings = pathname === "/settings" || pathname.startsWith("/settings/");
-  // Project settings: a gear beside the name, like Firebase's.
-  const settingsGear = (
-    <Tooltip label="Project settings" position="right" withArrow>
-      <ActionIcon component={Link} to="/settings/general" variant={inSettings ? "light" : "subtle"} color={inSettings ? "blue" : "gray"}
-        aria-label="Project settings">
-        <IconSettings size={19} stroke={1.7} />
-      </ActionIcon>
-    </Tooltip>
-  );
-  const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon] }));
+  const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon], group: n.group }));
   const manifest = useTabsManifest();
-  const customTabs = (manifest.data?.tabs ?? []).map((t) => ({ to: `/${t.id}`, label: t.label, icon: tabIcon(t.icon) }));
-  const allNav = [...builtins, ...customTabs];
+  const customTabs = (manifest.data?.tabs ?? []).map((t) => ({ to: `/${t.id}`, label: t.label, icon: tabIcon(t.icon), group: "monitor" as const }));
+  const groups = [
+    { id: "build", label: "Build", items: builtins.filter((n) => n.group === "build") },
+    { id: "monitor", label: "Monitor", items: [...builtins.filter((n) => n.group === "monitor"), ...customTabs] },
+  ].filter((g) => g.items.length > 0);
+  const inSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  const initials = (user?.firstName && user?.lastName ? user.firstName[0] + user.lastName[0] : (user?.email ?? "?").slice(0, 2)).toUpperCase();
 
   const onLogout = async () => {
     if (isKeycloak) { await keycloakLogout(); return; }
@@ -47,116 +46,134 @@ export function AppLayout() {
     window.location.assign(document.baseURI);
   };
 
+  const link = (to: string, label: string, Icon: React.ElementType) => {
+    const active = pathname === to || pathname.startsWith(to + "/");
+    const item = (
+      <NavLink component={Link} to={to} active={active}
+        aria-current={active ? "page" : undefined}
+        label={collapsed ? undefined : label}
+        aria-label={collapsed ? label : undefined}
+        leftSection={<Icon size={18} stroke={1.8} />}
+        styles={{
+          root: { borderRadius: 8, padding: "8px 10px", justifyContent: collapsed ? "center" : undefined, paddingInline: collapsed ? 0 : undefined },
+          label: { fontSize: 14, fontWeight: active ? 600 : 500 },
+          body: collapsed ? { display: "none" } : undefined,
+          section: collapsed ? { marginInlineEnd: 0 } : undefined,
+        }} />
+    );
+    return collapsed
+      ? <Tooltip key={to} label={label} position="right" withArrow>{item}</Tooltip>
+      : <Fragment key={to}>{item}</Fragment>;
+  };
+
+  // Project settings: a gear beside the project's name, like Firebase's.
+  const settingsGear = (
+    <Tooltip label="Project settings" position="right" withArrow>
+      <ActionIcon component={Link} to="/settings/general" size={34} variant={inSettings ? "light" : "subtle"} color={inSettings ? "winche" : "gray"}
+        aria-label="Project settings">
+        <IconSettings size={18} stroke={1.8} />
+      </ActionIcon>
+    </Tooltip>
+  );
+
   return (
     <AppShell
-      navbar={{ width: collapsed ? 72 : 248, breakpoint: "xs", collapsed: { mobile: false } }}
-      padding="xl"
-      styles={{ main: { background: "#f6f8fb", minHeight: "100vh" } }}
+      navbar={{ width: collapsed ? 72 : 256, breakpoint: "xs", collapsed: { mobile: false } }}
+      padding={0}
+      styles={{ main: { background: surface.page, minHeight: "100vh" } }}
     >
-      <AppShell.Navbar p="sm" style={{ background: "#fff", borderRight: "1px solid #e8eaed" }}>
-        {/* Brand */}
-        <Group justify={collapsed ? "center" : "space-between"} gap={collapsed ? 0 : 11}
-          px={collapsed ? 0 : "xs"} py="sm" mb={4} wrap="nowrap">
-          <Group gap={11} wrap="nowrap">
-            <img src={logoUrl} alt="Winche" width={34} height={34} style={{ borderRadius: 8, display: "block" }} />
+      <AppShell.Navbar p="sm" style={{ background: surface.card, borderRight: `1px solid ${surface.border}` }}>
+        {/* Project */}
+        <Group justify={collapsed ? "center" : "space-between"} gap={8} px={collapsed ? 0 : 4} pt={4} pb={12} wrap="nowrap">
+          <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
+            <img src={logoUrl} alt="Winche" width={32} height={32} style={{ borderRadius: 8, display: "block", flexShrink: 0 }} />
             {!collapsed && (
-              <div>
-                <Text fw={600} size="sm" lh={1.15} c="#202124">Winche</Text>
-                <Text size="xs" c="dimmed" lh={1.15}>Console</Text>
+              <div style={{ minWidth: 0 }}>
+                <Text fw={600} size="sm" lh={1.2} c={surface.text} truncate>{project?.name ?? "Winche"}</Text>
+                <Text size="xs" lh={1.3} c={surface.faint} truncate>{project?.id ?? "Console"}</Text>
               </div>
             )}
           </Group>
-          {!collapsed && (
-            <Group gap={2} wrap="nowrap">
-              {settingsGear}
+          {!collapsed && settingsGear}
+        </Group>
+        {collapsed && <Group justify="center" mb={6}>{settingsGear}</Group>}
+
+        <Stack gap={2}>
+          {link("/overview", "Project overview", IconHome)}
+          {groups.map((g) => (
+            <Fragment key={g.id}>
+              {collapsed
+                ? <Box my={8} style={{ borderTop: `1px solid ${surface.subtle}` }} />
+                : <Text size="11px" fw={600} c={surface.faint} px={10} pt={16} pb={6} style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>{g.label}</Text>}
+              {g.items.map((n) => link(n.to, n.label, n.icon))}
+            </Fragment>
+          ))}
+        </Stack>
+
+        {/* Account */}
+        <Box mt="auto" pt="sm" style={{ borderTop: `1px solid ${surface.subtle}` }}>
+          <Group justify={collapsed ? "center" : "space-between"} gap={4} wrap="nowrap">
+            <Menu position="top-start" withinPortal width={220}>
+              <Menu.Target>
+                <UnstyledButton aria-label="Your account" style={{ flex: collapsed ? undefined : 1, borderRadius: 8, padding: 6, minWidth: 0 }}>
+                  <Group gap={10} wrap="nowrap">
+                    <Box w={32} h={32} style={{ background: "var(--mantine-color-winche-0)", color: "var(--mantine-color-winche-6)", borderRadius: 999, display: "grid", placeItems: "center", flexShrink: 0, fontSize: 12, fontWeight: 600 }}>
+                      {initials}
+                    </Box>
+                    {!collapsed && (
+                      <>
+                        <div style={{ flex: 1, overflow: "hidden" }}>
+                          <Text size="xs" fw={500} c={surface.text} truncate>{user?.email}</Text>
+                          <Text size="xs" c={surface.faint}>{user?.role}</Text>
+                        </div>
+                        <IconChevronRight size={14} color="#98A2B3" />
+                      </>
+                    )}
+                  </Group>
+                </UnstyledButton>
+              </Menu.Target>
+              <Menu.Dropdown>
+                {caps?.editProfile && <Menu.Item onClick={() => setProfileOpen(true)}>Edit profile</Menu.Item>}
+                {caps?.changePassword && <Menu.Item onClick={() => setPasswordOpen(true)}>Change password</Menu.Item>}
+                {caps?.twoFactor && (
+                  <Menu.Item onClick={() => setTwoFactorOpen(true)}>
+                    {user?.twoFactorEnabled ? "Two-step sign-in: on" : "Set up two-step sign-in"}
+                  </Menu.Item>
+                )}
+                {isKeycloak && (
+                  <Menu.Item leftSection={<IconUserCog size={15} />}
+                    onClick={() => window.open(keycloakAccountUrl(), "_blank", "noopener,noreferrer")}>
+                    Manage account
+                  </Menu.Item>
+                )}
+                <Menu.Divider />
+                <Menu.Item color="red" leftSection={<IconLogout size={15} />} onClick={onLogout}>Sign out</Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
+            {!collapsed && (
               <Tooltip label="Collapse" position="right" withArrow>
                 <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(true)} aria-label="Collapse sidebar">
-                  <IconLayoutSidebarLeftCollapse size={19} stroke={1.7} />
+                  <IconLayoutSidebarLeftCollapse size={18} stroke={1.8} />
+                </ActionIcon>
+              </Tooltip>
+            )}
+          </Group>
+          {collapsed && (
+            <Group justify="center" mt={6}>
+              <Tooltip label="Expand" position="right" withArrow>
+                <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(false)} aria-label="Expand sidebar">
+                  <IconLayoutSidebarLeftExpand size={18} stroke={1.8} />
                 </ActionIcon>
               </Tooltip>
             </Group>
           )}
-        </Group>
-
-        {collapsed && (
-          <Group justify="center" mb={4}>
-            {settingsGear}
-            <Tooltip label="Expand" position="right" withArrow>
-              <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(false)} aria-label="Expand sidebar">
-                <IconLayoutSidebarLeftExpand size={19} stroke={1.7} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        )}
-
-        {/* Nav */}
-        <Stack gap={4} mt="xs">
-          {allNav.map(({ to, label, icon: Icon }) => {
-            const active = pathname === to || pathname.startsWith(to + "/");
-            const link = (
-              <NavLink component={Link} to={to} active={active}
-                label={collapsed ? undefined : label}
-                leftSection={<Icon size={19} stroke={1.7} />}
-                styles={{
-                  root: { borderRadius: 8, justifyContent: collapsed ? "center" : undefined, paddingInline: collapsed ? 0 : undefined },
-                  label: { fontSize: 14, fontWeight: 500 },
-                  body: collapsed ? { display: "none" } : undefined,
-                  section: collapsed ? { marginInlineEnd: 0 } : undefined,
-                }} />
-            );
-            return collapsed
-              ? <Tooltip key={to} label={label} position="right" withArrow>{link}</Tooltip>
-              : <Fragment key={to}>{link}</Fragment>;
-          })}
-        </Stack>
-
-        {/* Account menu */}
-        <Box mt="auto" pt="sm" style={{ borderTop: "1px solid #eef0f3" }}>
-          <Menu position="top-start" withinPortal width={210}>
-            <Menu.Target>
-              <UnstyledButton style={{ width: "100%", borderRadius: 8, padding: 8 }}>
-                <Group gap={8} wrap="nowrap" justify={collapsed ? "center" : undefined}>
-                  <Box w={30} h={30} style={{ background: "#e8f0fe", borderRadius: 999, display: "grid", placeItems: "center", flexShrink: 0 }}>
-                    <IconUser size={16} color="#1a73e8" />
-                  </Box>
-                  {!collapsed && (
-                    <>
-                      <div style={{ flex: 1, overflow: "hidden" }}>
-                        <Text size="xs" fw={500} c="#3c4043" truncate>{user?.email}</Text>
-                        <Text size="xs" c="dimmed">{user?.role}</Text>
-                      </div>
-                      <IconChevronRight size={14} color="#9aa0a6" />
-                    </>
-                  )}
-                </Group>
-              </UnstyledButton>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {caps?.editProfile && <Menu.Item onClick={() => setProfileOpen(true)}>Edit profile</Menu.Item>}
-              {caps?.changePassword && <Menu.Item onClick={() => setPasswordOpen(true)}>Change password</Menu.Item>}
-              {caps?.twoFactor && (
-                <Menu.Item onClick={() => setTwoFactorOpen(true)}>
-                  {user?.twoFactorEnabled ? "Two-factor: on" : "Set up two-factor"}
-                </Menu.Item>
-              )}
-              {isKeycloak && (
-                <Menu.Item
-                  leftSection={<IconUserCog size={15} />}
-                  onClick={() => window.open(keycloakAccountUrl(), "_blank", "noopener,noreferrer")}
-                >
-                  Manage account
-                </Menu.Item>
-              )}
-              <Menu.Divider />
-              <Menu.Item color="red" leftSection={<IconLogout size={15} />}
-                onClick={onLogout}>Sign out</Menu.Item>
-            </Menu.Dropdown>
-          </Menu>
         </Box>
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Outlet />
+        <Box px={{ base: 16, sm: 32 }} py={28} maw={1280} mx="auto">
+          <Outlet />
+        </Box>
       </AppShell.Main>
 
       <ProfileModal opened={profileOpen} onClose={() => setProfileOpen(false)} />

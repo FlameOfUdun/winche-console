@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Anchor, Button, Card, Center, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Group, PasswordInput, PinInput, Stack, TextInput } from "@mantine/core";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
+import { AuthCard } from "../components/AuthCard";
 
 export function LoginPage() {
   const { state, refresh } = useSession();
@@ -20,50 +21,60 @@ export function LoginPage() {
       const res = await api.login(email, password);
       if (res.requiresTwoFactor) setStage("twoFactor");
       else await refresh();
-    } catch { setError("Invalid email or password."); }
+    } catch { setError("That email and password don't match."); }
     finally { setBusy(false); }
   };
 
-  const submitTwoFactor = async () => {
+  const submitTwoFactor = async (value = code) => {
     setBusy(true); setError(null);
     try {
-      if (useRecovery) await api.loginRecovery(code); else await api.loginTwoFactor(code);
+      if (useRecovery) await api.loginRecovery(value); else await api.loginTwoFactor(value);
       await refresh();
-    } catch { setError(useRecovery ? "Invalid recovery code." : "Invalid authentication code."); }
+    } catch { setError(useRecovery ? "That recovery code isn't right." : "That code isn't right. Codes change every 30 seconds."); }
     finally { setBusy(false); }
   };
 
-  return (
-    <Center h="100vh" bg="#f6f8fb">
-      <Card withBorder shadow="sm" radius="md" p="xl" w={360}>
-        {stage === "password" ? (
-          <Stack>
-            <Title order={3}>Sign in</Title>
-            <TextInput label="Email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-            <PasswordInput label="Password" value={password} onChange={(e) => setPassword(e.currentTarget.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitPassword()} />
-            {error && <Text c="red" size="sm">{error}</Text>}
-            <Button onClick={submitPassword} loading={busy}>Sign in</Button>
-            {state?.selfServiceResetEnabled && (
-              <Anchor component={Link} to="/forgot-password" size="xs" ta="center">Forgot password?</Anchor>
-            )}
-          </Stack>
-        ) : (
-          <Stack>
-            <Title order={3}>Two-factor</Title>
-            <Text size="sm" c="dimmed">
-              {useRecovery ? "Enter one of your recovery codes." : "Enter the code from your authenticator app."}
-            </Text>
-            <TextInput label={useRecovery ? "Recovery code" : "Authentication code"} value={code}
-              onChange={(e) => setCode(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submitTwoFactor()} autoFocus />
-            {error && <Text c="red" size="sm">{error}</Text>}
-            <Button onClick={submitTwoFactor} loading={busy}>Verify</Button>
-            <Anchor size="xs" onClick={() => { setUseRecovery(!useRecovery); setError(null); setCode(""); }}>
-              {useRecovery ? "Use an authenticator code instead" : "Use a recovery code"}
+  if (stage === "twoFactor") {
+    return (
+      <AuthCard title={useRecovery ? "Use a recovery code" : "Enter your code"}
+        subtitle={useRecovery ? "One of the codes you saved when you set up two-step sign-in." : "From the authenticator app on your phone."}>
+        <Stack gap="md">
+          {useRecovery
+            ? <TextInput label="Recovery code" size="md" value={code} autoFocus
+                onChange={(e) => setCode(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submitTwoFactor()} />
+            : <Group justify="center">
+                <PinInput length={6} type="number" size="lg" oneTimeCode autoFocus aria-label="Authentication code" value={code}
+                  onChange={setCode} onComplete={(v) => submitTwoFactor(v)} />
+              </Group>}
+          {error && <Alert color="red" p="xs">{error}</Alert>}
+          <Button size="md" onClick={() => submitTwoFactor()} loading={busy}>Verify</Button>
+          <Group justify="space-between">
+            <Anchor size="sm" c="dimmed" onClick={() => { setStage("password"); setCode(""); setError(null); }}>← Back</Anchor>
+            <Anchor size="sm" fw={600} onClick={() => { setUseRecovery(!useRecovery); setError(null); setCode(""); }}>
+              {useRecovery ? "Use your authenticator app" : "Use a recovery code"}
             </Anchor>
-          </Stack>
-        )}
-      </Card>
-    </Center>
+          </Group>
+        </Stack>
+      </AuthCard>
+    );
+  }
+
+  return (
+    <AuthCard title="Sign in to the console" subtitle="Use your console account."
+      footer={<>This is for the people who run the project. Your apps' users sign in in the apps.</>}>
+      <Stack gap="md">
+        <TextInput label="Email" size="md" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
+        <Stack gap={4}>
+          <PasswordInput label="Password" size="md" autoComplete="current-password" value={password}
+            onChange={(e) => setPassword(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submitPassword()} />
+          {state?.selfServiceResetEnabled && (
+            <Anchor component={Link} to="/forgot-password" size="sm" fw={600} ta="right">Forgot your password?</Anchor>
+          )}
+        </Stack>
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Button size="md" onClick={submitPassword} loading={busy}>Sign in</Button>
+      </Stack>
+    </AuthCard>
   );
 }
+

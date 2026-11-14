@@ -153,7 +153,7 @@ export const RulesCodeEditor = forwardRef<RulesCodeEditorHandle, {
             "&": { fontSize: "13px", border: "1px solid #dee2e6", borderRadius: "6px", background: "#fff" },
             "&.cm-focused": { outline: "2px solid #a5b4fc" },
             ".cm-content": { fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", minHeight: "360px" },
-            ".cm-gutters": { background: "#f8f9fa", borderRight: "1px solid #eee", color: "#adb5bd" },
+            ".cm-gutters": { background: "#F9FAFB", borderRight: "1px solid #eee", color: "#adb5bd" },
             ".cm-tooltip-autocomplete ul li[aria-selected]": { background: "#eef2ff", color: "inherit" },
           }),
         ],
