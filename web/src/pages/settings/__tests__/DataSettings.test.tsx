@@ -31,7 +31,7 @@ const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const db: DatabaseSettings = {
   indexes: [{ collection: "patients", fields: [{ path: "ward", direction: "asc" }], kind: "ordered", collectionGroup: false }],
   dropUndeclaredIndexes: true, ttl: [], history: { enabled: false, retentionDays: 30 }, writeLimits: { maxDocumentKb: 1024, maxDepth: 20 },
-  slowQueryMs: 500, requestLog: { enabled: true, sampleRate: 0.1, slowMs: 1000 },
+  slowQueryMs: 500, expandLimit: 100, requestLog: { enabled: true, sampleRate: 0.1, slowMs: 1000 },
 };
 const storage: StorageSettings = {
   maxFileSizeMb: 10, requestLog: { enabled: false, sampleRate: 0.1, slowMs: 1000 }, orphanSweep: { enabled: false, intervalHours: 6, graceHours: 24, prefix: null },

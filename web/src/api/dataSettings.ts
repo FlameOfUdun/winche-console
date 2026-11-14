@@ -30,6 +30,7 @@ export interface DatabaseSettings {
   history: { enabled: boolean; retentionDays: number };
   writeLimits: { maxDocumentKb: number; maxDepth: number };
   slowQueryMs: number | null;
+  expandLimit: number;
   requestLog: { enabled: boolean; sampleRate: number; slowMs: number };
 }
 

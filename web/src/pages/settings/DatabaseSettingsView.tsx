@@ -65,6 +65,9 @@ function DatabaseArea() {
                 onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDocumentKb: num(v) } })} />
               <NumberInput label="Deepest nesting" w={200} min={1} max={100} disabled={!editable} value={draft.writeLimits.maxDepth}
                 onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDepth: num(v) } })} />
+              <NumberInput label="Expanded references per response" w={260} min={1} max={10000} disabled={!editable}
+                description="Documents, files and users one expand brings; past it, links come back without data."
+                value={draft.expandLimit} onChange={(v) => set({ ...draft, expandLimit: num(v) })} />
             </Group>
           </Section>
           <Section title="Logging" hint="Requests appear in Logs; denied and slow ones always, a share of the rest.">
