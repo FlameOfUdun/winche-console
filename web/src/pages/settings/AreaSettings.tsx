@@ -1,3 +1,4 @@
+import { SavedVersion } from "../../components/SectionTitle";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, Badge, Button, Group, Loader, Modal, Paper, Stack, Text, TextInput, Timeline, Title } from "@mantine/core";
 import { IconArrowBackUp, IconCheck, IconHistory } from "@tabler/icons-react";
@@ -63,11 +64,7 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
     <Stack gap="md">
       <div>
         <Title order={4}>{title}</Title>
-        {d.source === "console" && d.version && (
-          <Text size="xs" c="dimmed" mt={4} data-testid="area-source">
-            Version {d.version.number}, {when(d.version.at)}{d.version.by ? ` by ${d.version.by}` : ""}{d.version.reason ? ` — ${d.version.reason}` : ""}
-          </Text>
-        )}
+        <SavedVersion version={d.source === "console" ? d.version : null} testId="area-source" />
       </div>
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 

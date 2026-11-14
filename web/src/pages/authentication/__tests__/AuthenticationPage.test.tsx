@@ -206,7 +206,7 @@ test("Keycloak-only apps: settings first; providers, mapping with the token test
   renderPage();
 
   // No Users or Email templates tab without Winche Auth; Settings opens first.
-  expect(await screen.findByText(/Saved in the console: version 3/)).toBeInTheDocument();
+  expect(await screen.findByText(/Version 3,/)).toBeInTheDocument();
   expect(screen.queryByRole("tab", { name: "Users" })).toBeNull();
   expect(screen.queryByRole("tab", { name: "Email templates" })).toBeNull();
   expect(within(screen.getByTestId("provider-card")).getByText("TruCorp Keycloak")).toBeInTheDocument();

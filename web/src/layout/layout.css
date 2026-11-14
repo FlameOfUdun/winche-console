@@ -23,3 +23,6 @@
 /* Setting rows: hairlines between them, a hint of hover. */
 .winche-setting-row + .winche-setting-row { border-top: 1px solid #F2F4F7; }
 .winche-setting-row:hover { background: #FCFCFD; }
+
+/* The settings list: a hint of hover on the sections not chosen. */
+.winche-settings-nav-item[aria-selected="false"]:hover { background: #F9FAFB; }

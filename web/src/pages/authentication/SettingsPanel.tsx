@@ -1,3 +1,4 @@
+import { SavedVersionContext, SectionTitle } from "../../components/SectionTitle";
 import { SettingsLayout } from "../../components/SettingsLayout";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -83,15 +84,9 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
     <SettingsLayout sections={sections} active={section} onChange={setSection}>
         {needsProviders && saved.isLoading && <Loader size="sm" />}
         {needsProviders && saved.isError && <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>}
-        {needsProviders && saved.data && draft && (
-          <Text size="xs" c="dimmed" data-testid="settings-source">
-            {saved.data.source === "console" && saved.data.version
-              ? `Saved in the console: version ${saved.data.version.number}, ${when(saved.data.version.at)}${saved.data.version.by ? ` by ${saved.data.version.by}` : ""}${saved.data.version.reason ? ` — ${saved.data.version.reason}` : ""}.`
-              : null}
-          </Text>
-        )}
         {needsProviders && saved.data && !editable && <Alert color="gray">Read-only. {saved.data.whyReadOnly}</Alert>}
 
+        <SavedVersionContext.Provider value={saved.data?.source === "console" ? saved.data.version : null}>
         {section === "providers" && draft && (
           <ProvidersSection draft={draft} setDraft={setDraft} editable={editable}
             onMapping={(name) => { setMappingFor(name); setSection("mapping"); }} />
@@ -99,6 +94,7 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
         {section === "mapping" && draft && (
           <MappingSection draft={draft} setDraft={setDraft} editable={editable} selected={mappingFor} onSelect={setMappingFor} />
         )}
+        </SavedVersionContext.Provider>
         {section === "directory" && <DirectorySection wincheAuth={wincheAuth} />}
         {SIGN_IN.includes(section) && <SignInSettings part={section as SignInPart} state={signIn} />}
         {section === "history" && <HistorySection />}
@@ -147,7 +143,7 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
     <Stack gap="md">
       <Group justify="space-between" align="flex-end" wrap="wrap">
         <div>
-          <Title order={4}>Identity providers</Title>
+          <SectionTitle>Identity providers</SectionTitle>
         </div>
         {editable && <Button onClick={() => setEditing({ index: null, provider: newProvider() })}>Add provider</Button>}
       </Group>
@@ -325,7 +321,7 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
     <Stack gap="md">
       <Group justify="space-between" align="flex-end" wrap="wrap">
         <div>
-          <Title order={4}>Token mapping</Title>
+          <SectionTitle>Token mapping</SectionTitle>
         </div>
         {draft.providers.length > 1 && (
           <Select aria-label="Provider" w={240} data={draft.providers.map((x) => ({ value: x.name, label: x.displayName || x.name }))}

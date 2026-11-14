@@ -1,6 +1,7 @@
+import { SavedVersionContext, SectionTitle } from "../../components/SectionTitle";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Badge, Button, Group, Loader, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, Title,
+  Alert, Badge, Button, Group, Loader, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -65,12 +66,8 @@ export function SignInSettings({ part, state }: { part: SignInPart; state: SignI
   };
 
   return (
+    <SavedVersionContext.Provider value={d.source === "console" ? d.version : null}>
     <Stack gap="md">
-      <Text size="xs" c="dimmed" data-testid="signin-source">
-        {d.source === "console" && d.version
-          ? `Saved in the console: version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
-          : null}
-      </Text>
       {!editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 
       {part === "methods" && <Methods draft={draft} set={set} editable={editable} />}
@@ -98,6 +95,7 @@ export function SignInSettings({ part, state }: { part: SignInPart; state: SignI
         </Paper>
       )}
     </Stack>
+    </SavedVersionContext.Provider>
   );
 }
 
@@ -124,7 +122,7 @@ function Methods({ draft, set, editable }: PartProps) {
   return (
     <Stack gap="md">
       <div>
-        <Title order={4}>Sign-in methods</Title>
+        <SectionTitle>Sign-in methods</SectionTitle>
       </div>
       <Card title="Email and password">
         <Switch label="Users can sign up and sign in with an email and password" disabled={!editable} checked={ep.enabled}
@@ -193,7 +191,7 @@ function Security({ draft, set, editable }: PartProps) {
   return (
     <Stack gap="md">
       <div>
-        <Title order={4}>Sessions and security</Title>
+        <SectionTitle>Sessions and security</SectionTitle>
       </div>
       <Card title="Sessions" hint="Shorter access tokens pick up changes (disabled users, new claims) sooner.">
         <Group wrap="wrap">
@@ -251,7 +249,7 @@ function EmailPart({ draft, set, editable, appSender, passwordSet, secretsAvaila
   return (
     <Stack gap="md">
       <div>
-        <Title order={4}>Email</Title>
+        <SectionTitle>Email</SectionTitle>
       </div>
       <Card title="Sending email">
         <Switch label="Winche Auth sends email" disabled={!editable} checked={e.enabled} onChange={(ev) => setE({ enabled: ev.currentTarget.checked })} />

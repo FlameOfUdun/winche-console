@@ -1,3 +1,4 @@
+import { SavedVersion } from "../../components/SectionTitle";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Button, Group, Loader, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -80,12 +81,8 @@ export function DirectorySection({ wincheAuth }: { wincheAuth: boolean }) {
     <Stack gap="md">
       <div>
         <Title order={4}>User directory</Title>
+        <SavedVersion version={d.source === "console" ? d.version : null} testId="directory-source" />
       </div>
-      <Text size="xs" c="dimmed" data-testid="directory-source">
-        {d.source === "console" && d.version
-          ? `Saved in the console: version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
-          : null}
-      </Text>
       {!editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 
       <SegmentedControl aria-label="Directory" w="fit-content" disabled={!editable} data={kinds}
