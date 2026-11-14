@@ -74,20 +74,21 @@ else
         a.Email(e => e.AppName = "Sample");
         a.Mfa();
         a.Google(g => { g.Audiences = ["sample.apps.googleusercontent.com"]; g.AllowUnsignedTokensForTesting = true; });
-        // A Keycloak-synced provider (Sample:KeycloakSync) whose Keycloak can't be reached: the sync runs and fails.
+        // A Keycloak-synced provider (Sample:KeycloakSync). Tests leave its Keycloak unreachable, so the sync fails; set
+        // Sample:KeycloakAuthority and Sample:KeycloakSyncSecret to sync from a real one.
         if (string.Equals(builder.Configuration["Sample:KeycloakSync"], "true", StringComparison.OrdinalIgnoreCase))
             a.OpenIdConnect("staff", k =>
             {
                 k.DisplayName = "Staff Keycloak";
-                k.Authority = "http://127.0.0.1:9/realms/staff";
+                k.Authority = builder.Configuration["Sample:KeycloakAuthority"] ?? "http://127.0.0.1:9/realms/staff";
                 k.Audiences = ["staff-app"];
                 k.AllowUnsignedTokensForTesting = true;
                 k.SyncFromKeycloak(s =>
                 {
                     s.ClientId = "winche-sync";
-                    s.ClientSecret = "secret";
+                    s.ClientSecret = builder.Configuration["Sample:KeycloakSyncSecret"] ?? "secret";
                     s.WebhookSecret = "0123456789abcdef0123";
-                    s.PollInterval = TimeSpan.FromMilliseconds(200);
+                    s.PollInterval = builder.Configuration["Sample:KeycloakAuthority"] is null ? TimeSpan.FromMilliseconds(200) : TimeSpan.FromSeconds(10);
                     s.MapAttribute("ward");
                 });
             });
