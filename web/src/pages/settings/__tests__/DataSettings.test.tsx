@@ -107,7 +107,10 @@ test("a slow query's suggested index is added with one click", async () => {
   ] });
   renderIt(<DatabaseSettingsView />);
   const box = await screen.findByTestId("index-suggestions");
-  expect(within(box).getByText("visits: patientId, at desc")).toBeInTheDocument();
+  // Shown as the collection and its fields as chips (each with its direction).
+  expect(within(box).getByText("visits")).toBeInTheDocument();
+  expect(within(box).getByText("patientId")).toBeInTheDocument();
+  expect(within(box).getByText("at")).toBeInTheDocument();
   await userEvent.click(within(box).getByRole("button", { name: "Add" }));
   expect(screen.getAllByTestId("db-index")).toHaveLength(2);
   expect(screen.queryByTestId("index-suggestions")).toBeNull();   // already listed now
@@ -116,7 +119,7 @@ test("a slow query's suggested index is added with one click", async () => {
 test("storage: the size limit and the clean-up change", async () => {
   renderIt(<StorageSettingsView />);
   await userEvent.click(await screen.findByRole("tab", { name: "File size" }));
-  const size = await screen.findByLabelText("Largest file (MB)");
+  const size = await screen.findByLabelText("Largest file");
   await userEvent.clear(size);
   await userEvent.type(size, "5");
   await userEvent.click(screen.getByRole("tab", { name: "Clean-up" }));

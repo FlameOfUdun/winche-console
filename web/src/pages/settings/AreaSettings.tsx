@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { Alert, Badge, Button, Group, Loader, Paper, Stack, Table, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Group, Loader, Modal, Paper, Stack, Text, TextInput, Timeline, Title } from "@mantine/core";
+import { IconArrowBackUp, IconCheck, IconHistory } from "@tabler/icons-react";
+import { EmptyState } from "../../components/EmptyState";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -93,14 +95,20 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
   );
 }
 
-export function AreaHistory({ area, editable }: { area: DataArea; editable: boolean }) {
+/** The versions an area's settings went through, newest first, as a timeline; restore one in a dialog. */
+export function AreaHistory({ area, editable, empty = true }: { area: DataArea; editable: boolean; empty?: boolean }) {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["data-settings-history", area], queryFn: () => api.dataSettingsHistory(area) });
   const [restoring, setRestoring] = useState<{ id: number; number: number } | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const versions = history.data?.versions ?? [];
-  if (versions.length === 0) return null;
+  if (history.isLoading) return <Loader size="sm" />;
+  if (versions.length === 0) {
+    return empty
+      ? <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here: who made them, when and why." />
+      : null;
+  }
 
   const restore = async () => {
     if (!restoring) return;
@@ -115,36 +123,40 @@ export function AreaHistory({ area, editable }: { area: DataArea; editable: bool
   };
 
   return (
-    <Stack gap="xs">
-      <Text fw={600}>Change history</Text>
-      <Paper withBorder style={{ overflowX: "auto" }}>
-        <Table verticalSpacing={6} fz="sm" miw={560}>
-          <Table.Tbody>
-            {versions.map((v) => (
-              <Table.Tr key={v.id} data-testid="area-version">
-                <Table.Td><Text size="xs">{when(v.at)}</Text></Table.Td>
-                <Table.Td><Text size="xs">{v.reset ? "Back to the code's values" : `Version ${v.number}${v.restoredFrom ? ", restored" : ""}`}</Text></Table.Td>
-                <Table.Td><Text size="xs">{v.by ?? "—"}</Text></Table.Td>
-                <Table.Td><Text size="xs">{v.reason ?? "—"}</Text></Table.Td>
-                <Table.Td ta="right">
-                  {v.current ? <Badge color="teal" variant="light" tt="none">In use</Badge>
-                    : editable && !v.reset ? <Button size="xs" variant="default" onClick={() => setRestoring({ id: v.id, number: v.number })}>Restore</Button> : null}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Paper>
-      {restoring && (
-        <Group gap="xs" wrap="wrap">
-          <Text size="sm">Restore version {restoring.number}?</Text>
-          <TextInput placeholder="Why?" aria-label="Reason" value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
-          <Button size="xs" disabled={!reason.trim()} onClick={restore}>Restore</Button>
-          <Button size="xs" variant="subtle" onClick={() => setRestoring(null)}>Cancel</Button>
+    <Paper withBorder radius="md" p="lg">
+      <Timeline active={versions.findIndex((v) => v.current)} color="teal" bulletSize={26} lineWidth={2}>
+        {versions.map((v) => (
+          <Timeline.Item key={v.id} data-testid="area-version"
+            bullet={v.current ? <IconCheck size={14} /> : v.reset ? <IconArrowBackUp size={14} /> : <IconHistory size={14} />}
+            color={v.current ? "teal" : "gray"}
+            title={
+              <Group gap={8} justify="space-between" wrap="nowrap">
+                <Group gap={8}>
+                  <Text fw={600} size="sm">{v.reset ? "Back to the code's values" : `Version ${v.number}`}</Text>
+                  {v.restoredFrom && <Badge size="xs" variant="light" color="gray" tt="none">restored</Badge>}
+                  {v.current && <Badge size="xs" variant="light" color="teal" tt="none">In use</Badge>}
+                </Group>
+                {!v.current && editable && !v.reset && (
+                  <Button size="compact-xs" variant="subtle" onClick={() => setRestoring({ id: v.id, number: v.number })}>Restore</Button>
+                )}
+              </Group>
+            }>
+            <Text size="xs" c="dimmed">{when(v.at)}{v.by ? ` · ${v.by}` : ""}</Text>
+            {v.reason && <Text size="sm" mt={4} style={{ fontStyle: "italic" }}>“{v.reason}”</Text>}
+          </Timeline.Item>
+        ))}
+      </Timeline>
+      <Modal opened={!!restoring} onClose={() => setRestoring(null)} radius="lg" title={<Text fw={700} fz={18}>Restore version {restoring?.number}?</Text>}>
+        <Stack gap="md">
+          <TextInput label="Why?" data-autofocus value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
           {error && <Alert color="red" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
-        </Group>
-      )}
-    </Stack>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={() => setRestoring(null)}>Cancel</Button>
+            <Button disabled={!reason.trim()} onClick={restore}>Restore</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Paper>
   );
 }
 

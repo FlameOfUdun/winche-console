@@ -19,3 +19,7 @@
 
 /* The project switcher in the sidebar's header. */
 .winche-switcher:hover { background: #F2F4F7; }
+
+/* Setting rows: hairlines between them, a hint of hover. */
+.winche-setting-row + .winche-setting-row { border-top: 1px solid #F2F4F7; }
+.winche-setting-row:hover { background: #FCFCFD; }
