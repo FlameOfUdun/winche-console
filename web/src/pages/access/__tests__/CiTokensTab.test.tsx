@@ -37,11 +37,13 @@ test("an admin makes a CI token (shown once), and revokes tokens and CLI sign-in
   expect(within(await screen.findByTestId("ci-token")).getByText("gitlab-main")).toBeInTheDocument();
   expect(within(screen.getByTestId("cli-token")).getByText("winche CLI on laptop")).toBeInTheDocument();
 
-  await userEvent.type(screen.getByLabelText("Name"), "github-release");
+  await userEvent.click(screen.getByRole("button", { name: "Create token" }));   // opens the dialog
+  await userEvent.type(await screen.findByLabelText(/^Name/), "github-release");
   await userEvent.click(screen.getByLabelText("Deploy rules"));   // off: functions only
-  await userEvent.click(screen.getByRole("button", { name: "Make token" }));
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Create token" }));
   await waitFor(() => expect(api.createCiToken).toHaveBeenCalledWith("github-release", ["functions"], 90));
   expect(await screen.findByTestId("ci-token-secret")).toHaveTextContent("wct_abc_def");
+  await userEvent.click(screen.getByRole("button", { name: "Done" }));
 
   await userEvent.click(within(screen.getByTestId("cli-token")).getByRole("button", { name: "Revoke" }));
   await waitFor(() => expect(api.revokeConsoleToken).toHaveBeenCalledWith("t2"));

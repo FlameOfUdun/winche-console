@@ -40,20 +40,20 @@ function renderPage() {
   );
 }
 
-test("shows the options file for the chosen platforms, the main() lines and this server", async () => {
+test("shows the project's details and what apps see, without the options file", async () => {
   renderPage();
-  expect(await screen.findByTestId("options-file")).toHaveTextContent("static final android");
-  expect(screen.getByTestId("options-file")).not.toHaveTextContent("static final macos");
-  expect(screen.getByText(/DefaultWincheOptions.currentPlatform/)).toBeInTheDocument();
-  expect(screen.getByText("/documents/v1/ws")).toBeInTheDocument();
+  expect(await screen.findByText("Your project")).toBeInTheDocument();
+  expect(screen.getAllByText("https://api.example.com").length).toBeGreaterThan(0);
+  expect(screen.getByText("/documents/v1")).toBeInTheDocument();
   expect(screen.getByText("g.apps.googleusercontent.com")).toBeInTheDocument();
-  expect(screen.getByText(/winche configure --url https:\/\/api.example.com/)).toBeInTheDocument();
+  expect(screen.queryByTestId("options-file")).not.toBeInTheDocument();
 });
 
-test("choosing another platform asks for a file with it", async () => {
+test("a platform opens the add-an-app dialog with its command and a download", async () => {
   renderPage();
-  await screen.findByTestId("options-file");
-  await userEvent.click(screen.getByText("macOS"));
-  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "web", "macos"]));
-  expect(await screen.findByTestId("options-file")).toHaveTextContent("static final macos");
+  await userEvent.click(await screen.findByRole("button", { name: "Add a macOS app" }));
+  expect(await screen.findByText("Add a macOS app")).toBeInTheDocument();
+  expect(screen.getByText("winche configure --url https://api.example.com --platforms macos")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
+  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["macos"]));
 });

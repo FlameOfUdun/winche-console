@@ -1,4 +1,4 @@
-import { Alert, Code, Stack, Tabs, Text, Title } from "@mantine/core";
+import { Alert, Code, Paper, Stack, Tabs, Text, Title } from "@mantine/core";
 import { IconApps, IconKey, IconUsers } from "@tabler/icons-react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useSession } from "../../auth/session";
@@ -25,7 +25,7 @@ export function ProjectSettingsPage() {
       <Tabs value={tab} onChange={(v) => v && navigate(`/settings/${v}`)} keepMounted={false}>
         <Tabs.List mb="md">
           <Tabs.Tab value="general" leftSection={<IconApps size={16} stroke={1.7} />}>General</Tabs.Tab>
-          {admin && <Tabs.Tab value="users" leftSection={<IconUsers size={16} stroke={1.7} />}>Users and permissions</Tabs.Tab>}
+          {admin && <Tabs.Tab value="users" leftSection={<IconUsers size={16} stroke={1.7} />}>Members</Tabs.Tab>}
           {admin && <Tabs.Tab value="ci" leftSection={<IconKey size={16} stroke={1.7} />}>CLI and CI</Tabs.Tab>}
         </Tabs.List>
         <Tabs.Panel value="general"><GeneralSettings /></Tabs.Panel>
@@ -36,27 +36,28 @@ export function ProjectSettingsPage() {
   );
 }
 
-/** The console's own users and invites; with Keycloak, they're managed there. */
+/** The console's own members and invites; with Keycloak, they're managed there. */
 function UsersAndPermissions({ manageUsers }: { manageUsers: boolean }) {
   if (!manageUsers) {
     return (
       <Alert color="blue" maw={760}>
-        This console signs in with Keycloak: its users, and their Admin, Member or Viewer roles, are managed in Keycloak.
-        The app's own users are under <Code>Authentication</Code>.
+        This console signs in with Keycloak: its members, and their Admin, Member or Viewer roles, are managed in Keycloak.
+        Your apps' users are under <Code>Authentication</Code>.
       </Alert>
     );
   }
   return (
-    <Stack gap="lg">
-      <Stack gap="xs">
-        <Title order={5}>Members</Title>
-        <Text size="sm" c="dimmed">Who can use this console, and with which role. The app's own users are under Authentication.</Text>
+    <Stack gap="lg" maw={1100}>
+      <Paper withBorder p="lg">
+        <Title order={2} fz={16}>Members</Title>
+        <Text size="sm" c="dimmed" mt={2} mb="md">Who can use this console, and with which role. Your apps' users are under Authentication.</Text>
         <UsersTab />
-      </Stack>
-      <Stack gap="xs">
-        <Title order={5}>Invites</Title>
+      </Paper>
+      <Paper withBorder p="lg">
+        <Title order={2} fz={16}>Invites</Title>
+        <Text size="sm" c="dimmed" mt={2} mb="md">Pending invites. Each works once, until it expires.</Text>
         <InvitesTab />
-      </Stack>
+      </Paper>
     </Stack>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Checkbox, Code, Group, Loader, Paper, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
+import { Alert, Badge, Button, Checkbox, Code, CopyButton, Group, Loader, Modal, Paper, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
+import { IconCheck, IconCopy, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
@@ -16,11 +17,7 @@ const DAYS = [{ value: "30", label: "30 days" }, { value: "90", label: "90 days"
 export function CiTokensTab() {
   const qc = useQueryClient();
   const tokens = useQuery({ queryKey: ["console-tokens"], queryFn: api.consoleTokens });
-  const [name, setName] = useState("");
-  const [scopes, setScopes] = useState<string[]>(["functions", "rules"]);
-  const [days, setDays] = useState("90");
-  const [busy, setBusy] = useState(false);
-  const [secret, setSecret] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   if (tokens.isLoading) return <Loader size="sm" />;
@@ -29,20 +26,6 @@ export function CiTokensTab() {
   const ci = list.filter((t) => t.kind === "ci");
   const cli = list.filter((t) => t.kind === "cli");
 
-  const create = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const made = await api.createCiToken(name.trim(), scopes, Number(days));
-      setSecret(made.secret);
-      setName("");
-      await qc.invalidateQueries({ queryKey: ["console-tokens"] });
-    } catch (e) {
-      setError(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
-  };
   const revoke = async (t: ConsoleToken) => {
     const what = t.kind === "ci" ? `the CI token "${t.name}"` : `${t.user}'s CLI sign-in (${t.name})`;
     if (!window.confirm(`Revoke ${what}? Anything using it stops working at once.`)) return;
@@ -56,41 +39,96 @@ export function CiTokensTab() {
   };
 
   return (
-    <Stack gap="md" maw={980}>
+    <Stack gap="lg" maw={980}>
       {!available && <Alert color="yellow">Tokens need <Code>AddWincheConfig(…)</Code> in the app: that's where they're kept.</Alert>}
       {error && <Alert color="red">{error}</Alert>}
 
-      <Stack gap="xs">
-        <Title order={5}>CI tokens</Title>
-        <Text size="sm" c="dimmed">
-          For deploying from CI: set <Code>WINCHE_TOKEN</Code> to one, then run <Code>winche functions deploy</Code> or{" "}
-          <Code>winche rules deploy</Code>. A token can only deploy what it's allowed to, is named in the version history, and
-          stops working if you're no longer an admin.
-        </Text>
-        <Paper withBorder p="sm">
-          <Group align="flex-end" wrap="wrap">
-            <TextInput label="Name" placeholder="gitlab-main" w={220} value={name} onChange={(e) => setName(e.currentTarget.value)} />
-            <Checkbox.Group label="May" value={scopes} onChange={setScopes}>
-              <Group gap="md" mt={8}>{tokens.data.scopes.map((s) => <Checkbox key={s} value={s} label={SCOPE_LABEL[s] ?? s} />)}</Group>
-            </Checkbox.Group>
-            <Select label="Expires after" w={140} data={DAYS} value={days} onChange={(v) => setDays(v ?? "90")} allowDeselect={false} />
-            <Button loading={busy} disabled={!available || !name.trim() || scopes.length === 0} onClick={create}>Make token</Button>
-          </Group>
-        </Paper>
-        {secret && (
-          <Alert color="teal" title="Copy it now: it won't be shown again" withCloseButton onClose={() => setSecret(null)}>
-            <Code data-testid="ci-token-secret" style={{ wordBreak: "break-all" }}>{secret}</Code>
-          </Alert>
-        )}
+      <Paper withBorder p="lg">
+        <Group justify="space-between" align="flex-start" gap="sm" mb="md" wrap="wrap">
+          <div style={{ maxWidth: 640 }}>
+            <Title order={2} fz={16}>CI tokens</Title>
+            <Text size="sm" c="dimmed" mt={2}>
+              For deploying from CI: set <Code>WINCHE_TOKEN</Code> to one, then run <Code>winche functions deploy</Code> or{" "}
+              <Code>winche rules deploy</Code>. A token can only deploy what it's allowed to, is named in the version history, and
+              stops working if its maker is no longer an admin.
+            </Text>
+          </div>
+          <Button leftSection={<IconPlus size={16} />} disabled={!available} onClick={() => setCreating(true)}>Create token</Button>
+        </Group>
         <TokenTable tokens={ci} onRevoke={revoke} empty="No CI tokens yet." ci />
-      </Stack>
+      </Paper>
 
-      <Stack gap="xs">
-        <Title order={5}>CLI sign-ins</Title>
-        <Text size="sm" c="dimmed">Made when someone runs <Code>winche login</Code> and allows it in the browser. They last 90 days; <Code>winche logout</Code> ends one too.</Text>
+      <Paper withBorder p="lg">
+        <Title order={2} fz={16}>CLI sign-ins</Title>
+        <Text size="sm" c="dimmed" mt={2} mb="md">Made when someone runs <Code>winche login</Code> and allows it in the browser. They last 90 days; <Code>winche logout</Code> ends one too.</Text>
         <TokenTable tokens={cli} onRevoke={revoke} empty="Nobody has signed in with the CLI." />
-      </Stack>
+      </Paper>
+
+      <CreateTokenDialog opened={creating} scopes={tokens.data.scopes} onClose={() => setCreating(false)}
+        onCreated={() => qc.invalidateQueries({ queryKey: ["console-tokens"] })} />
     </Stack>
+  );
+}
+
+/** Name, scopes and expiry; then the token, shown once, to copy. */
+function CreateTokenDialog({ opened, scopes: allScopes, onClose, onCreated }: {
+  opened: boolean; scopes: string[]; onClose: () => void; onCreated: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [scopes, setScopes] = useState<string[]>(["functions", "rules"]);
+  const [days, setDays] = useState("90");
+  const [busy, setBusy] = useState(false);
+  const [secret, setSecret] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const close = () => { setName(""); setScopes(["functions", "rules"]); setDays("90"); setSecret(null); setError(null); onClose(); };
+  const create = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const made = await api.createCiToken(name.trim(), scopes, Number(days));
+      setSecret(made.secret);
+      onCreated();
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal opened={opened} onClose={close} radius="lg" size="md"
+      title={<Text fw={700} fz={18}>{secret ? "Copy your token" : "Create a CI token"}</Text>}>
+      {secret ? (
+        <Stack gap="md">
+          <Text size="sm" c="dimmed">Copy it now and put it in your CI's secrets as <Code>WINCHE_TOKEN</Code>. It won't be shown again.</Text>
+          <Group gap={4} wrap="nowrap" style={{ background: "#F2F4F7", borderRadius: 8, padding: "8px 8px 8px 12px" }}>
+            <Text size="sm" ff="monospace" data-testid="ci-token-secret" style={{ flex: 1, wordBreak: "break-all" }}>{secret}</Text>
+            <CopyButton value={secret}>
+              {({ copied, copy }) => (
+                <Button size="xs" variant={copied ? "light" : "filled"} color={copied ? "teal" : undefined}
+                  leftSection={copied ? <IconCheck size={14} /> : <IconCopy size={14} />} onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
+              )}
+            </CopyButton>
+          </Group>
+          <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
+        </Stack>
+      ) : (
+        <Stack gap="md">
+          <TextInput label="Name" description="Where it's used, e.g. gitlab-main" placeholder="gitlab-main" data-autofocus
+            value={name} onChange={(e) => setName(e.currentTarget.value)} />
+          <Checkbox.Group label="It may" value={scopes} onChange={setScopes}>
+            <Stack gap={8} mt={8}>{allScopes.map((s) => <Checkbox key={s} value={s} label={SCOPE_LABEL[s] ?? s} />)}</Stack>
+          </Checkbox.Group>
+          <Select label="Expires after" data={DAYS} value={days} onChange={(v) => setDays(v ?? "90")} allowDeselect={false} />
+          {error && <Alert color="red" p="xs">{error}</Alert>}
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={close}>Cancel</Button>
+            <Button loading={busy} disabled={!name.trim() || scopes.length === 0} onClick={create}>Create token</Button>
+          </Group>
+        </Stack>
+      )}
+    </Modal>
   );
 }
 

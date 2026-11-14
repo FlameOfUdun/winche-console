@@ -48,9 +48,9 @@ test("admins get General, Users and permissions, and CLI and CI, each at its own
   expect(await screen.findByText("Your project")).toBeInTheDocument();
   expect(screen.getByText("Your apps")).toBeInTheDocument();
   expect(screen.getByText("Demo")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("tab", { name: "Users and permissions" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Members" }));
   expect(screen.getByTestId("where")).toHaveTextContent("/settings/users");
-  expect(await screen.findByText("Members")).toBeInTheDocument();
+  expect(await screen.findByText(/Who can use this console/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("tab", { name: "CLI and CI" }));
   expect(await screen.findByText("CI tokens")).toBeInTheDocument();
 });
