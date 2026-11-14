@@ -10,6 +10,21 @@ public sealed class ConsoleOptions
     /// <summary>Connection string for the console's own auth database (Identity tables). Required.</summary>
     public string ConnectionString { get; set; } = "";
 
+    /// <summary>
+    /// Where console accounts live, when not in <see cref="ConnectionString"/>: several consoles (one per project, as
+    /// Winche Server runs them) pointing at the same accounts database share their accounts.
+    /// </summary>
+    public string? AccountsConnectionString { get; set; }
+
+    /// <summary>
+    /// The sign-in cookie's path (default: the app's path base). <c>/</c> lets consoles under different paths of one
+    /// address (<c>/p/clinic/_console</c>, <c>/p/wards/_console</c>) share a sign-in, with <see cref="AccountsConnectionString"/>
+    /// and one data-protection key ring.
+    /// </summary>
+    public string? SignInCookiePath { get; set; }
+
+    internal string AccountsDatabase => string.IsNullOrWhiteSpace(AccountsConnectionString) ? ConnectionString : AccountsConnectionString;
+
     /// <summary>Which auth backend to use. Defaults to Identity; set to Keycloak by calling <see cref="UseKeycloak"/>.</summary>
     public ConsoleAuthProvider Provider { get; private set; } = ConsoleAuthProvider.Identity;
 
@@ -41,13 +56,20 @@ public sealed class ConsoleOptions
     /// was already in use keeps every product on. <see cref="ProjectId"/> and <see cref="ProjectName"/> become the
     /// suggestions the setup starts from.
     /// </summary>
-    public ConsoleOptions UseProjectSetup()
+    public ConsoleOptions UseProjectSetup(bool carryOver = true)
     {
         ProjectSetup = true;
+        ProjectCarryOver = carryOver;
         return this;
     }
 
     internal bool ProjectSetup { get; private set; }
+
+    /// <summary>
+    /// Whether a console that was in use before setup existed becomes a project with every product on. Off for
+    /// projects a server creates (they share accounts with older ones, which would look like "in use").
+    /// </summary>
+    internal bool ProjectCarryOver { get; private set; } = true;
 
     /// <summary>Optional first-admin seed; applied on startup only when no users exist.</summary>
     public string? SeedAdminEmail { get; set; }

@@ -121,7 +121,7 @@ public sealed class ProjectSetup(ConsoleOptions options, IServiceProvider servic
     /// </summary>
     internal async Task CarryOverAsync(CancellationToken ct)
     {
-        if (!Enabled || Area!.Version is not null) return;
+        if (!Enabled || !options.ProjectCarryOver || Area!.Version is not null) return;
         var store = services.GetRequiredService<SettingsStore>();
         if ((await store.HistoryAsync(ProjectSettings.Area, 1, ct)).Count > 0) return;
         var inUse = false;

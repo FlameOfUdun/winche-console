@@ -16,7 +16,7 @@ internal static class ConsoleAuth
     /// </summary>
     public static IServiceCollection AddConsoleIdentity(this IServiceCollection services, ConsoleOptions options)
     {
-        services.AddDbContext<ConsoleIdentityDbContext>(o => o.UseNpgsql(options.ConnectionString));
+        services.AddDbContext<ConsoleIdentityDbContext>(o => o.UseNpgsql(options.AccountsDatabase));
         services.AddDataProtection();
         services.AddSingleton<ConsoleInviteTokens>();
 
@@ -40,6 +40,7 @@ internal static class ConsoleAuth
             .AddCookie(IdentityConstants.ApplicationScheme, o =>
             {
                 o.Cookie.Name = "WincheConsole";
+                if (options.SignInCookiePath is { } path) o.Cookie.Path = path;
                 o.Cookie.HttpOnly = true;
                 o.Cookie.SameSite = SameSiteMode.Lax;
                 o.ExpireTimeSpan = TimeSpan.FromDays(7);
@@ -48,9 +49,9 @@ internal static class ConsoleAuth
                 o.Events.OnRedirectToLogin = ctx => { ctx.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
                 o.Events.OnRedirectToAccessDenied = ctx => { ctx.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
             })
-            .AddCookie(IdentityConstants.ExternalScheme)
-            .AddCookie(IdentityConstants.TwoFactorUserIdScheme)
-            .AddCookie(IdentityConstants.TwoFactorRememberMeScheme);
+            .AddCookie(IdentityConstants.ExternalScheme, o => { if (options.SignInCookiePath is { } path) o.Cookie.Path = path; })
+            .AddCookie(IdentityConstants.TwoFactorUserIdScheme, o => { if (options.SignInCookiePath is { } path) o.Cookie.Path = path; })
+            .AddCookie(IdentityConstants.TwoFactorRememberMeScheme, o => { if (options.SignInCookiePath is { } path) o.Cookie.Path = path; });
 
         services.AddAuthorizationBuilder()
             .AddPolicy(ConsoleRoles.ViewerPolicy, p => p
