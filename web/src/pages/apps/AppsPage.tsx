@@ -1,19 +1,27 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Anchor, Button, Code, CopyButton, Group, Loader, Modal, Paper, SimpleGrid, Stack, Table, Text, Title, Tooltip,
+  ActionIcon, Alert, Button, CopyButton, Group, Loader, Modal, Paper, SimpleGrid, Stack, Table, Text, Title, Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import {
-  IconBrandAndroid, IconBrandApple, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop, IconDownload, IconWorld,
+  IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop, IconDownload,
+  IconWorld,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { PLATFORM_LABEL } from "../../api/apps";
 import { surface } from "../../theme";
 
-const PLATFORM_ICON: Record<string, typeof IconWorld> = {
-  android: IconBrandAndroid, ios: IconBrandApple, macos: IconDeviceDesktop, web: IconWorld, windows: IconBrandWindows, linux: IconBrandUbuntu,
-};
+/** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
+const SDKS: { id: string; label: string; icon: typeof IconWorld; ready: boolean }[] = [
+  { id: "flutter", label: "Flutter", icon: IconBrandFlutter, ready: true },
+  { id: "android", label: "Android", icon: IconBrandAndroid, ready: false },
+  { id: "ios", label: "iOS", icon: IconBrandApple, ready: false },
+  { id: "web", label: "Web", icon: IconWorld, ready: false },
+  { id: "macos", label: "macOS", icon: IconDeviceDesktop, ready: false },
+  { id: "windows", label: "Windows", icon: IconBrandWindows, ready: false },
+  { id: "linux", label: "Linux", icon: IconBrandUbuntu, ready: false },
+];
+const ALL_PLATFORMS = ["android", "ios", "macos", "web", "windows", "linux"];
 
 function Copy({ value, label }: { value: string; label: string }) {
   return (
@@ -42,25 +50,19 @@ function Fact({ label, value, mono = true }: { label: string; value: string; mon
   );
 }
 
-function Section({ title, description, action, children }: { title: string; description?: ReactNode; action?: ReactNode; children: ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Paper withBorder p="lg">
-      <Group justify="space-between" align="flex-start" gap="sm" mb="sm" wrap="wrap">
-        <div>
-          <Title order={2} fz={16}>{title}</Title>
-          {description && <Text size="sm" c={surface.faint} mt={2}>{description}</Text>}
-        </div>
-        {action}
-      </Group>
+      <Title order={2} fz={16} mb="sm">{title}</Title>
       {children}
     </Paper>
   );
 }
 
-/** Project settings → General: the project's details, and adding an app to it (Firebase's "Your apps"). */
+/** Project settings → General: the project's details, and adding an app to it. */
 export function GeneralSettings() {
   const page = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]) });
-  const [adding, setAdding] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
   if (page.isLoading) return <Loader size="sm" />;
   if (page.error || !page.data) return <Alert color="red">Couldn't load the project: {String(page.error)}</Alert>;
   const { setup } = page.data;
@@ -75,23 +77,26 @@ export function GeneralSettings() {
         <Fact label="Console" value={consoleUrl} />
       </Section>
 
-      <Section title="Your apps" description="Connect a Flutter or Dart app to this project. Pick its platform for the steps.">
-        <SimpleGrid cols={{ base: 2, sm: 3, md: 6 }} spacing="sm">
-          {page.data.platforms.map((p) => {
-            const Icon = PLATFORM_ICON[p] ?? IconWorld;
-            return (
-              <UnstyledButton key={p} onClick={() => setAdding(p)} aria-label={`Add a ${PLATFORM_LABEL[p] ?? p} app`}
-                style={{ border: `1px solid ${surface.border}`, borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                <Icon size={26} stroke={1.6} color="var(--mantine-color-winche-6)" />
-                <Text size="sm" fw={600}>{PLATFORM_LABEL[p] ?? p}</Text>
+      <Section title="Your apps">
+        <SimpleGrid cols={{ base: 2, sm: 4, md: 7 }} spacing="sm">
+          {SDKS.map((sdk) => {
+            const Icon = sdk.icon;
+            const tile = (
+              <UnstyledButton key={sdk.id} disabled={!sdk.ready} onClick={() => setAdding(true)}
+                aria-label={sdk.ready ? `Add a ${sdk.label} app` : `${sdk.label}: not available yet`}
+                style={{ border: `1px solid ${surface.border}`, borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column",
+                  alignItems: "center", gap: 8, opacity: sdk.ready ? 1 : 0.45, cursor: sdk.ready ? "pointer" : "not-allowed",
+                  background: sdk.ready ? surface.card : surface.page }}>
+                <Icon size={26} stroke={1.6} color={sdk.ready ? "var(--mantine-color-winche-6)" : surface.faint} />
+                <Text size="sm" fw={600}>{sdk.label}</Text>
               </UnstyledButton>
             );
+            return sdk.ready ? tile : <Tooltip key={sdk.id} label="Not available yet" withArrow>{tile}</Tooltip>;
           })}
         </SimpleGrid>
       </Section>
 
-      <Section title="What apps see"
-        description={<>Public, nothing secret: apps and <Code>winche configure</Code> read it from <Anchor href={`${setup.baseUrl}/.well-known/winche`} target="_blank" ff="monospace" size="sm">/.well-known/winche</Anchor>.</>}>
+      <Section title="What apps see">
         <Table verticalSpacing={8} fz="sm">
           <Table.Tbody>
             {setup.services.map((s) => (
@@ -110,7 +115,7 @@ export function GeneralSettings() {
         </Table>
       </Section>
 
-      <AddAppDialog platform={adding} baseUrl={setup.baseUrl} snippet={page.data.snippet} onClose={() => setAdding(null)} />
+      <AddAppDialog opened={adding} baseUrl={setup.baseUrl} snippet={page.data.snippet} onClose={() => setAdding(false)} />
     </Stack>
   );
 }
@@ -137,15 +142,13 @@ function Command({ value }: { value: string }) {
   );
 }
 
-/** The steps to connect an app on one platform: packages, the options file (by the CLI, or downloaded), main(). */
-function AddAppDialog({ platform, baseUrl, snippet, onClose }: { platform: string | null; baseUrl: string; snippet: string; onClose: () => void }) {
+/** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main(). */
+function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
   const [busy, setBusy] = useState(false);
-  const label = platform ? PLATFORM_LABEL[platform] ?? platform : "";
   const download = async () => {
-    if (!platform) return;
     setBusy(true);
     try {
-      const data = await api.apps([platform]);
+      const data = await api.apps(ALL_PLATFORMS);
       const url = URL.createObjectURL(new Blob([data.file], { type: "text/plain" }));
       const a = document.createElement("a");
       a.href = url;
@@ -157,15 +160,13 @@ function AddAppDialog({ platform, baseUrl, snippet, onClose }: { platform: strin
     }
   };
   return (
-    <Modal opened={platform !== null} onClose={onClose} title={<Text fw={700} fz={18}>Add a {label} app</Text>} size="lg" radius="lg">
+    <Modal opened={opened} onClose={onClose} title={<Text fw={700} fz={18}>Add a Flutter app</Text>} size="lg" radius="lg">
       <Stack gap="xl" pt="xs">
         <Step n={1} title="Add the packages">
-          <Command value="flutter pub add winche_flutter" />
-          <Text size="sm" c={surface.faint}>Then the ones you use: winche_database, winche_storage, winche_auth, winche_functions.</Text>
+          <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions" />
         </Step>
         <Step n={2} title="Add lib/winche_options.dart">
-          <Text size="sm" c={surface.muted}>In your app's folder:</Text>
-          <Command value={`winche configure --url ${baseUrl} --platforms ${platform ?? ""}`} />
+          <Command value={`winche configure --url ${baseUrl}`} />
           <Group gap="xs">
             <Text size="sm" c={surface.faint}>or</Text>
             <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>

@@ -49,11 +49,11 @@ test("shows the project's details and what apps see, without the options file", 
   expect(screen.queryByTestId("options-file")).not.toBeInTheDocument();
 });
 
-test("a platform opens the add-an-app dialog with its command and a download", async () => {
+test("only Flutter is clickable; its dialog has the command and a download", async () => {
   renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Add a macOS app" }));
-  expect(await screen.findByText("Add a macOS app")).toBeInTheDocument();
-  expect(screen.getByText("winche configure --url https://api.example.com --platforms macos")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "macOS: not available yet" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Add a Flutter app" }));
+  expect(await screen.findByText("winche configure --url https://api.example.com")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
-  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["macos"]));
+  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"]));
 });
