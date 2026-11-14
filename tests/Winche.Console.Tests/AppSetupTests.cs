@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Winche.Console.Tests;
 
-/// <summary>How an app connects: /.well-known/winche, and the Apps page's winche_options.dart.</summary>
+/// <summary>How an app connects: /.well-known/winche, and the Project settings → General's winche_options.dart.</summary>
 [Collection("postgres")]
 public class AppSetupTests(PostgresFixture fx) : IAsyncLifetime
 {

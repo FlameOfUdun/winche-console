@@ -7,7 +7,7 @@ using Winche.Console.Options;
 
 namespace Winche.Console.Api;
 
-/// <summary>The Apps page: how an app connects to this server.</summary>
+/// <summary>Project settings → General: the project, and how an app connects to this server.</summary>
 internal static class ConsoleAppsEndpoints
 {
     public static void MapConsoleAppsEndpoints(this IEndpointRouteBuilder app, ConsoleOptions options)

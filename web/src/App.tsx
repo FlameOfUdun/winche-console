@@ -1,6 +1,5 @@
 import { FunctionsPage } from "./pages/functions/FunctionsPage";
 import { HooksPage } from "./pages/hooks/HooksPage";
-import { AppsPage } from "./pages/apps/AppsPage";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
 import { KeycloakCallback } from "./auth/KeycloakCallback";
@@ -10,7 +9,7 @@ import { DataBrowserPage } from "./pages/DataBrowserPage";
 import { StorageBrowserPage } from "./pages/StorageBrowserPage";
 import { LogsPage } from "./pages/logs/LogsPage";
 import { AuthenticationPage } from "./pages/authentication/AuthenticationPage";
-import { UsersPage } from "./pages/UsersPage";
+import { ProjectSettingsPage } from "./pages/settings/ProjectSettingsPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
@@ -34,7 +33,7 @@ export function App() {
 function GatedApp() {
   const { state, user } = useSession();
   const manifest = useTabsManifest();
-  const home = homePath(state, user, manifest.data?.tabs) ?? "/database";
+  const home = homePath(state, user, manifest.data?.tabs) ?? "/settings/general";
   const caps = state?.capabilities;
   return (
     <AuthGate>
@@ -55,8 +54,10 @@ function GatedApp() {
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
           <Route path="functions" element={caps?.functions ? <FunctionsPage /> : <Navigate to={home} replace />} />
-          <Route path="apps" element={<AppsPage />} />
-          <Route path="access" element={user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
+          <Route path="settings" element={<Navigate to="/settings/general" replace />} />
+          <Route path="settings/:tab" element={<ProjectSettingsPage />} />
+          <Route path="apps" element={<Navigate to="/settings/general" replace />} />
+          <Route path="access" element={<Navigate to="/settings/users" replace />} />
           <Route path=":tabId" element={<TabPage />} />
         </Route>
       </Routes>

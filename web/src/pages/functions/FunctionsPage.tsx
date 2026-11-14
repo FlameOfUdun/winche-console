@@ -55,7 +55,7 @@ winche emulators start       # run them locally; saving reloads them
 winche login                 # once: sign in to this console in your browser
 winche functions deploy -m "what changed"`}</Code>
         <Text size="xs" c="dimmed">
-          In CI, set <Code>WINCHE_TOKEN</Code> to a CI token with the functions scope (Access → CI tokens). Each deploy is a
+          In CI, set <Code>WINCHE_TOKEN</Code> to a CI token with the functions scope (Project settings → CLI and CI). Each deploy is a
           new version, named after who deployed it.
         </Text>
       </Stack>

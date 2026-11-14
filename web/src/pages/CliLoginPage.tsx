@@ -58,7 +58,7 @@ export function CliLoginPage() {
                 <b>{name}</b> wants to use this console as you ({user?.email ?? "you"}, {user?.role ?? "your role"}) for 90 days:
                 deploying functions and rules, and anything else your role can do.
               </Text>
-              <Text size="sm" c="dimmed">Only allow it if you just ran <Code>winche login</Code>. You can end it any time with <Code>winche logout</Code>, or an admin can under Access → CI tokens.</Text>
+              <Text size="sm" c="dimmed">Only allow it if you just ran <Code>winche login</Code>. You can end it any time with <Code>winche logout</Code>, or an admin can under Project settings → CLI and CI.</Text>
               {error && <Alert color="red">{error}</Alert>}
               <Group justify="flex-end" mt="xs">
                 <Button variant="default" onClick={cancel} disabled={busy}>Cancel</Button>

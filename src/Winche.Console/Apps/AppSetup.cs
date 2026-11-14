@@ -14,7 +14,7 @@ public sealed record AppSetupProvider(string Name, string Kind, string DisplayNa
 
 /// <summary>
 /// What an app needs to know to use this server: published at <c>GET /.well-known/winche</c> (nothing in it is
-/// secret), and turned into <c>lib/winche_options.dart</c> by <c>winche configure</c> and the console's Apps page.
+/// secret), and turned into <c>lib/winche_options.dart</c> by <c>winche configure</c> and the console's Project settings → General.
 /// </summary>
 public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IReadOnlyList<AppSetupService> Services,
     IReadOnlyList<AppSetupProvider> Providers)

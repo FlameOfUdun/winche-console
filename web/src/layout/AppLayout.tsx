@@ -5,7 +5,7 @@ import {
 } from "@mantine/core";
 import {
   IconChevronRight, IconDatabase, IconFolder, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
-  IconLogout, IconShield, IconUser, IconUserCog, IconListDetails, IconUsers, IconWebhook, IconLambda, IconApps,
+  IconLogout, IconShield, IconUser, IconUserCog, IconListDetails, IconUsers, IconWebhook, IconLambda, IconSettings,
 } from "@tabler/icons-react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
@@ -25,7 +25,17 @@ export function AppLayout() {
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
-  const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook, functions: IconLambda, apps: IconApps };
+  const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook, functions: IconLambda };
+  const inSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  // Project settings: a gear beside the name, like Firebase's.
+  const settingsGear = (
+    <Tooltip label="Project settings" position="right" withArrow>
+      <ActionIcon component={Link} to="/settings/general" variant={inSettings ? "light" : "subtle"} color={inSettings ? "blue" : "gray"}
+        aria-label="Project settings">
+        <IconSettings size={19} stroke={1.7} />
+      </ActionIcon>
+    </Tooltip>
+  );
   const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon] }));
   const manifest = useTabsManifest();
   const customTabs = (manifest.data?.tabs ?? []).map((t) => ({ to: `/${t.id}`, label: t.label, icon: tabIcon(t.icon) }));
@@ -57,16 +67,20 @@ export function AppLayout() {
             )}
           </Group>
           {!collapsed && (
-            <Tooltip label="Collapse" position="right" withArrow>
-              <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(true)} aria-label="Collapse sidebar">
-                <IconLayoutSidebarLeftCollapse size={19} stroke={1.7} />
-              </ActionIcon>
-            </Tooltip>
+            <Group gap={2} wrap="nowrap">
+              {settingsGear}
+              <Tooltip label="Collapse" position="right" withArrow>
+                <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(true)} aria-label="Collapse sidebar">
+                  <IconLayoutSidebarLeftCollapse size={19} stroke={1.7} />
+                </ActionIcon>
+              </Tooltip>
+            </Group>
           )}
         </Group>
 
         {collapsed && (
           <Group justify="center" mb={4}>
+            {settingsGear}
             <Tooltip label="Expand" position="right" withArrow>
               <ActionIcon variant="subtle" color="gray" onClick={() => setCollapsed(false)} aria-label="Expand sidebar">
                 <IconLayoutSidebarLeftExpand size={19} stroke={1.7} />

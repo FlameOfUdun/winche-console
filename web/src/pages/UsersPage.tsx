@@ -1,45 +1,18 @@
 import { useState } from "react";
 import {
   ActionIcon, Badge, Box, Button, CopyButton, Group, Menu, Modal, PasswordInput, Select, Stack, Switch,
-  Table, Tabs, Text, TextInput, Tooltip,
+  Table, Text, TextInput, Tooltip,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconDots, IconKey, IconMail, IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDots, IconMail, IconPlus } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ConsoleInvite, ConsoleRole, ConsoleUserItem } from "../api/types";
 import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
-import classes from "./UsersPage.module.css";
-import { CiTokensTab } from "./access/CiTokensTab";
 
 const ROLES: ConsoleRole[] = ["Admin", "Member", "Viewer"];
 
-export function UsersPage() {
-  // Keycloak consoles manage their users in Keycloak: only CI tokens here.
-  const manageUsers = !!useSession().state?.capabilities?.manageUsers;
-  return (
-    <Stack gap="sm" h="calc(100vh - 4rem)">
-      <Tabs
-        defaultValue={manageUsers ? "users" : "tokens"}
-        keepMounted={false}
-        color="googleBlue"
-        classNames={{ list: classes.list, tab: classes.tab }}
-        style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
-      >
-        <Tabs.List>
-          {manageUsers && <Tabs.Tab value="users" leftSection={<IconUsers size={16} stroke={1.7} />}>Users</Tabs.Tab>}
-          {manageUsers && <Tabs.Tab value="invites" leftSection={<IconMail size={16} stroke={1.7} />}>Invites</Tabs.Tab>}
-          <Tabs.Tab value="tokens" leftSection={<IconKey size={16} stroke={1.7} />}>CI tokens</Tabs.Tab>
-        </Tabs.List>
-        {manageUsers && <Tabs.Panel value="users" pt="md" style={{ flex: 1, minHeight: 0 }}><UsersTab /></Tabs.Panel>}
-        {manageUsers && <Tabs.Panel value="invites" pt="md" style={{ flex: 1, minHeight: 0 }}><InvitesTab /></Tabs.Panel>}
-        <Tabs.Panel value="tokens" pt="md" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}><CiTokensTab /></Tabs.Panel>
-      </Tabs>
-    </Stack>
-  );
-}
-
-function UsersTab() {
+export function UsersTab() {
   const qc = useQueryClient();
   const { user: me } = useSession();
   const users = useQuery({ queryKey: ["users"], queryFn: () => api.listUsers() });
@@ -58,12 +31,12 @@ function UsersTab() {
   const unlock = useMutation({ mutationFn: (id: string) => api.unlockUser(id), onSuccess: invalidate });
 
   return (
-    <Stack gap="sm" h="100%">
+    <Stack gap="sm">
       <Group justify="flex-end">
         <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>New user</Button>
       </Group>
 
-      <Box style={{ flex: 1, minHeight: 0, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+      <Box style={{ maxHeight: "60vh", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         <Table verticalSpacing="sm" highlightOnHover>
           <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
             <Table.Tr>
@@ -207,7 +180,7 @@ function statusColor(s: ConsoleInvite["status"]) {
   return s === "pending" ? "blue" : s === "expired" ? "gray" : "red";
 }
 
-function InvitesTab() {
+export function InvitesTab() {
   const qc = useQueryClient();
   const invites = useQuery({ queryKey: ["invites"], queryFn: () => api.listInvites() });
   const [createOpen, setCreateOpen] = useState(false);
@@ -226,13 +199,13 @@ function InvitesTab() {
   });
 
   return (
-    <Stack gap="sm" h="100%">
+    <Stack gap="sm">
       <Group justify="flex-end">
         {copied && <Text size="xs" c="green">{copied}</Text>}
         <Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>
       </Group>
 
-      <Box style={{ flex: 1, minHeight: 0, border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
+      <Box style={{ maxHeight: "60vh", border: "1px solid #e0e0e0", borderRadius: 8, background: "#fff", overflow: "auto" }}>
         <Table verticalSpacing="sm" highlightOnHover>
           <Table.Thead style={{ background: "#fafafa", position: "sticky", top: 0 }}>
             <Table.Tr>

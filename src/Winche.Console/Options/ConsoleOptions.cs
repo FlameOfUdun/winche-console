@@ -27,7 +27,7 @@ public sealed class ConsoleOptions
 
     /// <summary>
     /// The project's id, as apps see it in <c>/.well-known/winche</c> and in the <c>winche_options.dart</c> that
-    /// <c>winche configure</c> and the console's Apps page write (default <c>winche</c>).
+    /// <c>winche configure</c> and the console's Project settings → General write (default <c>winche</c>).
     /// </summary>
     public string ProjectId { get; set; } = "winche";
 

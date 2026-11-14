@@ -49,9 +49,14 @@ endpoints). Each takes an optional builder for a minimum role and its rules edit
 `o.AddDatabaseTab(b => { b.MinRole = ConsoleRole.Member; b.UseRulesEditor(); })`. `MinRole` is the floor to
 see and read the tab (writes still require at least Member); the default is `Viewer`. Calling `AddDatabaseTab()`
 without `AddWincheDatabase()` (or `AddStorageTab()` without `AddWincheStorage()`) throws a clear startup error.
-The **Access** tab stays automatic, for Admins: the console's own users and invites (Identity mode), and **CI
-tokens**, for deploying from CI with `WINCHE_TOKEN` (named, limited to deploying functions and/or rules, expiring,
-revocable), with everyone's CLI sign-ins (`winche login`), which can be ended there. Tokens need `AddWincheConfig`.
+**Project settings** (the gear beside the console's name, like Firebase's) is always there:
+- **General** (everyone): the project (id, name, server and console addresses) and **Your apps**: how a Flutter or
+  Dart app connects, with its `winche_options.dart`.
+- **Users and permissions** (Admins): the console's own users, their roles and invites (Identity mode; with Keycloak
+  they're managed there).
+- **CLI and CI** (Admins): **CI tokens**, for deploying from CI with `WINCHE_TOKEN` (named, limited to deploying
+  functions and/or rules, expiring, revocable), and everyone's CLI sign-ins (`winche login`), which can be ended
+  there. Tokens need `AddWincheConfig`.
 
 ## Authentication & roles
 
@@ -234,7 +239,7 @@ services.AddWincheConsole(o => o.AddAuthenticationTab());
 - **Settings:** token lifetimes, issuer, signing keys (with *Rotate now*), lockout and hooks.
 
 Sign-ins, failures, lockouts and account changes appear in the Logs Explorer as resource `auth`, with a built-in
-*Failed sign-ins* query. The console's own admins are separate: they're in **Access**. Needs Winche.Auth 1.0.0.
+*Failed sign-ins* query. The console's own admins are separate: they're in **Project settings → Users and permissions**. Needs Winche.Auth 1.0.0.
 
 ### Settings: identity providers and token mapping
 

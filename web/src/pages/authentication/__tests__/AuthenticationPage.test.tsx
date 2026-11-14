@@ -161,7 +161,7 @@ test("helpers and nav", () => {
   expect(statusOf(user({ emailVerified: false }))).toBe("Not verified");
   expect(errorMessage(new Error('{"error":{"code":"EMAIL_EXISTS","message":"An account with that email already exists."}}'))).toBe("An account with that email already exists.");
   const nav = builtinNav({ capabilities: { authentication: true, database: true } } as never, null);
-  expect(nav.map((n) => n.label)).toEqual(["Database", "Authentication", "Apps"]);
+  expect(nav.map((n) => n.label)).toEqual(["Database", "Authentication"]);   // Apps and Access are in Project settings
 });
 
 test("email templates: edit with a live preview, save, test and reset", async () => {

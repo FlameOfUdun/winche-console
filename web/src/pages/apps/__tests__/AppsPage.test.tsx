@@ -4,7 +4,7 @@ import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
-import { AppsPage } from "../AppsPage";
+import { GeneralSettings as AppsPage } from "../AppsPage";
 import { api } from "../../../api/client";
 import type { AppsPageData } from "../../../api/apps";
 

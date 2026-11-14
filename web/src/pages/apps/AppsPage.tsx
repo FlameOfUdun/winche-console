@@ -6,7 +6,8 @@ import { api } from "../../api/client";
 import { PLATFORM_LABEL } from "../../api/apps";
 
 /** Apps: how a Flutter or Dart app connects to this server — the options file and the lines for main(). */
-export function AppsPage() {
+/** Project settings → General: the project, and how to connect apps to it (Firebase's "Your apps"). */
+export function GeneralSettings() {
   const [platforms, setPlatforms] = useState<string[]>(["android", "ios", "web"]);
   const page = useQuery({ queryKey: ["apps", platforms.join(",")], queryFn: () => api.apps(platforms) });
 
@@ -22,14 +23,40 @@ export function AppsPage() {
 
   return (
     <Stack gap="md">
-      <div>
-        <Title order={3}>Apps</Title>
-        <Text size="sm" c="dimmed">Connect a Flutter or Dart app to this server, the way you would add an app to a Firebase project.</Text>
-      </div>
       {page.isLoading && <Loader size="sm" />}
       {page.error && <Alert color="red">{String(page.error)}</Alert>}
       {page.data && (
         <>
+          <Paper withBorder p="md">
+            <Stack gap="xs">
+              <Text fw={600}>Your project</Text>
+              <Table withRowBorders={false} verticalSpacing={4}>
+                <Table.Tbody>
+                  <Table.Tr><Table.Td w={160}>Project</Table.Td><Table.Td><Code>{page.data.setup.projectId}</Code></Table.Td></Table.Tr>
+                  {page.data.setup.name && <Table.Tr><Table.Td>Name</Table.Td><Table.Td>{page.data.setup.name}</Table.Td></Table.Tr>}
+                  <Table.Tr><Table.Td>Server address</Table.Td><Table.Td><Code>{page.data.setup.baseUrl}</Code></Table.Td></Table.Tr>
+                  <Table.Tr><Table.Td>Console</Table.Td><Table.Td><Code>{document.baseURI.replace(/\/$/, "")}</Code></Table.Td></Table.Tr>
+                  {page.data.setup.services.map((s) => (
+                    <Table.Tr key={s.id}>
+                      <Table.Td>{s.id[0].toUpperCase() + s.id.slice(1)}</Table.Td>
+                      <Table.Td><Code>{s.path}</Code>{s.livePath && <> · live <Code>{s.livePath}</Code></>}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                  {page.data.setup.providers.map((p) => (
+                    <Table.Tr key={p.name}>
+                      <Table.Td>Sign in with {p.displayName}</Table.Td>
+                      <Table.Td>{p.clientIds.map((id) => <Code key={id} mr={4}>{id}</Code>)}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              <Text size="xs" c="dimmed">Public: apps read the same from <Code>{page.data.setup.baseUrl}/.well-known/winche</Code>.</Text>
+            </Stack>
+          </Paper>
+          <div>
+            <Title order={4}>Your apps</Title>
+            <Text size="sm" c="dimmed">Connect a Flutter or Dart app to this server, the way you would add an app to a Firebase project.</Text>
+          </div>
           <Paper withBorder p="md">
             <Stack gap="xs">
               <Text fw={600}>1. Add the packages</Text>
@@ -65,30 +92,6 @@ export function AppsPage() {
             </Stack>
           </Paper>
 
-          <Paper withBorder p="md">
-            <Stack gap="xs">
-              <Text fw={600}>This server</Text>
-              <Table withRowBorders={false} verticalSpacing={4}>
-                <Table.Tbody>
-                  <Table.Tr><Table.Td w={160}>Project</Table.Td><Table.Td><Code>{page.data.setup.projectId}</Code></Table.Td></Table.Tr>
-                  <Table.Tr><Table.Td>Address</Table.Td><Table.Td><Code>{page.data.setup.baseUrl}</Code></Table.Td></Table.Tr>
-                  {page.data.setup.services.map((s) => (
-                    <Table.Tr key={s.id}>
-                      <Table.Td>{s.id[0].toUpperCase() + s.id.slice(1)}</Table.Td>
-                      <Table.Td><Code>{s.path}</Code>{s.livePath && <> · live <Code>{s.livePath}</Code></>}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                  {page.data.setup.providers.map((p) => (
-                    <Table.Tr key={p.name}>
-                      <Table.Td>Sign in with {p.displayName}</Table.Td>
-                      <Table.Td>{p.clientIds.map((id) => <Code key={id} mr={4}>{id}</Code>)}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-              <Text size="xs" c="dimmed">Public: apps read the same from <Code>{page.data.setup.baseUrl}/.well-known/winche</Code>.</Text>
-            </Stack>
-          </Paper>
         </>
       )}
     </Stack>
