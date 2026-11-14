@@ -80,6 +80,9 @@ test("a ready-made action: when a user is deleted, delete their files — checke
   await userEvent.click(within(editor).getByRole("button", { name: "Check" }));
   expect(await within(editor).findByTestId("hook-test")).toHaveTextContent("folder = users/example-uid/");
   await userEvent.click(within(editor).getByRole("button", { name: "Done" }));
+  // The dialog hands focus back to its opener once its closing transition ends: type the reason after that.
+  await waitFor(() => expect(screen.queryByTestId("hook-editor")).toBeNull());
+  await new Promise((r) => setTimeout(r, 400));
   await userEvent.type(screen.getByLabelText("Reason for the change"), "Clean up after users");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(mock(api.saveHooks)).toHaveBeenCalled());

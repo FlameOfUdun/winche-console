@@ -15,7 +15,7 @@ const api = {
 };
 vi.mock("../../../api/client", () => ({ api, ApiError: class extends Error {} }));
 vi.mock("@mantine/notifications", () => ({ notifications: { show: vi.fn() } }));
-vi.mock("../SimulatePanel", () => ({ SimulatePanel: () => null }));
+vi.mock("../SimulateDialog", () => ({ SimulateDialog: () => null }));
 // Stand-in editor: reports an unchecked edit when `edited` is set (as typing would).
 let edited = true;
 vi.mock("../RuleSetEditor", () => ({

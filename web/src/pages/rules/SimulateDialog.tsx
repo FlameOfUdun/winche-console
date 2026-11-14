@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Accordion, ActionIcon, Alert, Badge, Button, Group, Select, Stack, Text, TextInput, Textarea,
+  ActionIcon, Alert, Badge, Button, Group, Modal, Select, Stack, Text, TextInput, Textarea,
 } from "@mantine/core";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation } from "@tanstack/react-query";
@@ -12,10 +12,12 @@ const OPERATIONS: RuleOperation[] = ["Get", "List", "Create", "Update", "Delete"
 interface ParamRow { key: string; value: string }
 
 /**
- * "Simulate a request against the draft ruleset" panel — wired to `api.rulesSimulate`. Uses the
- * `rulesJson` prop (the current, possibly-unsaved draft) so admins can test before saving.
+ * "Simulate a request against the draft ruleset" dialog — wired to `api.rulesSimulate`. Uses the `rulesJson` prop
+ * (the current, possibly-unsaved draft) so admins can test before saving. What was entered stays between openings.
  */
-export function SimulatePanel({ subsystem, rulesJson }: { subsystem: RuleSubsystem; rulesJson: string }) {
+export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
+  subsystem: RuleSubsystem; rulesJson: string; opened: boolean; onClose: () => void;
+}) {
   const [operation, setOperation] = useState<RuleOperation>("Get");
   const [documentPath, setDocumentPath] = useState("");
   const [requestJson, setRequestJson] = useState("");
@@ -45,15 +47,14 @@ export function SimulatePanel({ subsystem, rulesJson }: { subsystem: RuleSubsyst
     : null;
 
   return (
-    <Accordion variant="separated" mt="md">
-      <Accordion.Item value="simulate">
-        <Accordion.Control>Simulate request</Accordion.Control>
-        <Accordion.Panel>
+    <Modal opened={opened} onClose={onClose} size="lg" radius="lg"
+      title={<Text fw={700} fz={18}>Simulate a request</Text>}>
           <Stack gap="sm">
+            <Text size="sm" c="dimmed">Checks the rules as they are in the editor now, saved or not.</Text>
             <Group grow align="flex-start">
               <Select label="Operation" data={OPERATIONS} value={operation} allowDeselect={false}
                 onChange={(v) => v && setOperation(v as RuleOperation)} />
-              <TextInput label="Document path" placeholder="users/abc123" ff="monospace"
+              <TextInput label={subsystem === "storage" ? "File path" : "Document path"} placeholder={subsystem === "storage" ? "users/abc123/avatar.png" : "users/abc123"} ff="monospace" data-autofocus
                 value={documentPath} onChange={(e) => setDocumentPath(e.currentTarget.value)} />
             </Group>
 
@@ -87,15 +88,18 @@ export function SimulatePanel({ subsystem, rulesJson }: { subsystem: RuleSubsyst
               </Button>
             </Stack>
 
-            <Group gap={10}>
-              <Button size="xs" onClick={() => simulate.mutate()} loading={simulate.isPending} disabled={!documentPath.trim()}>
-                Simulate
-              </Button>
-              {simulate.data && (
-                <Badge color={simulate.data.allowed ? "green" : "red"} variant="light">
+            <Group justify="space-between" gap={10}>
+              {simulate.data ? (
+                <Badge size="lg" color={simulate.data.allowed ? "green" : "red"} variant="light">
                   {simulate.data.allowed ? "Allowed" : "Denied"}
                 </Badge>
-              )}
+              ) : <span />}
+              <Group gap="xs">
+                <Button variant="default" onClick={onClose}>Close</Button>
+                <Button onClick={() => simulate.mutate()} loading={simulate.isPending} disabled={!documentPath.trim()}>
+                  Simulate
+                </Button>
+              </Group>
             </Group>
 
             {simulate.data?.error && (
@@ -105,8 +109,6 @@ export function SimulatePanel({ subsystem, rulesJson }: { subsystem: RuleSubsyst
             )}
             {requestError && <Text size="sm" c="red">{requestError}</Text>}
           </Stack>
-        </Accordion.Panel>
-      </Accordion.Item>
-    </Accordion>
+    </Modal>
   );
 }

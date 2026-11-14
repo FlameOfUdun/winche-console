@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Badge, Box, Button, Group, Loader, Modal, Stack, Text, TextInput } from "@mantine/core";
-import { IconAlertTriangle, IconHistory } from "@tabler/icons-react";
+import { IconAlertTriangle, IconHistory, IconPlayerPlay } from "@tabler/icons-react";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client";
@@ -9,7 +9,7 @@ import type {
 } from "../../api/rules";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { RuleSetEditor, type RuleSetEditorHandle } from "./RuleSetEditor";
-import { SimulatePanel } from "./SimulatePanel";
+import { SimulateDialog } from "./SimulateDialog";
 import { VersionHistory } from "./VersionHistory";
 
 /** Pretty-prints rulesJson for editing; falls back to the raw text if it somehow isn't valid JSON. */
@@ -56,6 +56,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [note, setNote] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [simulateOpen, setSimulateOpen] = useState(false);
   const [revertTarget, setRevertTarget] = useState<RuleVersionSummary | null>(null);
 
   // Refetch live rules and reset the draft/baseline to match — used after save/revert/apply-head
@@ -198,6 +199,9 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
           <Button size="xs" variant="default" leftSection={<IconHistory size={15} />} onClick={() => setHistoryOpen(true)}>
             History
           </Button>
+          <Button size="xs" variant="default" leftSection={<IconPlayerPlay size={15} />} onClick={() => setSimulateOpen(true)} disabled={draftJson === null}>
+            Simulate request
+          </Button>
         </Group>
         {status && (
           <Badge variant="light" color={status.applyOnStartup ? "green" : "gray"}>
@@ -223,7 +227,7 @@ export function RulesEditor({ subsystem }: { subsystem: RuleSubsystem }) {
         )}
       </Box>
 
-      <SimulatePanel subsystem={subsystem} rulesJson={draftJson ?? ""} />
+      <SimulateDialog subsystem={subsystem} rulesJson={draftJson ?? ""} opened={simulateOpen} onClose={() => setSimulateOpen(false)} />
 
       {/* Save note prompt */}
       <Modal opened={noteModalOpen} onClose={() => setNoteModalOpen(false)} title="Save rules">
