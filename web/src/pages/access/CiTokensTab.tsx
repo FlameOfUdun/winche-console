@@ -42,7 +42,7 @@ export function CiTokensTab() {
 
   return (
     <Stack gap="lg">
-      {!available && <Alert color="yellow">Tokens need <Code>AddWincheConfig(…)</Code> in the app: that's where they're kept.</Alert>}
+      {!available && <Alert color="yellow">This console has nowhere to keep tokens.</Alert>}
       {error && <Alert color="red">{error}</Alert>}
 
       <Paper withBorder p="lg">

@@ -40,8 +40,7 @@ export function EmailTemplatesView() {
   if (!config.data?.email)
     return (
       <Alert color="gray" title="Email isn't set up">
-        Turn it on in code to send verify, reset and sign-in links: <Code>o.Email(e =&gt; e.AppName = "…")</Code> and register an
-        <Code>IAuthEmailSender</Code> over your mail service.
+        Turn it on in Settings → Email to send verify, reset and sign-in links.
       </Alert>
     );
   if (list.isLoading || !list.data) return <Loader size="sm" />;

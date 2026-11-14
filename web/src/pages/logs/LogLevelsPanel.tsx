@@ -87,8 +87,8 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
       <Stack gap="xs">
         <Text size="xs" c="dimmed">
           {data.source === "code"
-            ? `Set in the app's code (default ${data.codeDefaultLevel}). Saving here applies on every instance until you reset.`
-            : `Set in the console${data.updatedBy ? ` by ${data.updatedBy}` : ""}${data.updatedAt ? `, ${new Date(data.updatedAt).toLocaleString()}` : ""}. Applies on every instance within seconds.`}
+            ? `The defaults (${data.codeDefaultLevel} and up). Saving applies on every server within seconds.`
+            : `Changed${data.updatedBy ? ` by ${data.updatedBy}` : ""}${data.updatedAt ? `, ${new Date(data.updatedAt).toLocaleString()}` : ""}. Applies on every server within seconds.`}
         </Text>
         <Group gap="sm" align="flex-end">
           <Select label="Keep, by default" w={170} data={LEVELS} value={defaultLevel} allowDeselect={false}
@@ -135,7 +135,7 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
         {error && <Alert color="red" py={6}>{error}</Alert>}
         <Group gap="xs">
           <Button size="xs" onClick={save} loading={saving}>Save</Button>
-          {data.source === "console" && <Button size="xs" variant="default" onClick={reset}>Reset to the app's settings</Button>}
+          {data.source === "console" && <Button size="xs" variant="default" onClick={reset}>Back to the defaults</Button>}
         </Group>
       </Stack>
     </Paper>

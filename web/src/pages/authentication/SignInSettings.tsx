@@ -73,7 +73,7 @@ export function SignInSettings({ part, state }: { part: SignInPart; state: SignI
       {part === "methods" && <Methods draft={draft} set={set} editable={editable} />}
       {part === "security" && <Security draft={draft} set={set} editable={editable} />}
       {part === "email" && (
-        <EmailPart draft={draft} set={set} editable={editable} appSender={d.appSender} passwordSet={d.smtpPassword}
+        <EmailPart draft={draft} set={set} editable={editable} passwordSet={d.smtpPassword}
           secretsAvailable={d.secretsAvailable} password={smtpPassword} setPassword={setSmtpPassword} />
       )}
 
@@ -156,7 +156,7 @@ function Methods({ draft, set, editable }: PartProps) {
                 <Select label="Kind" disabled={!editable} allowDeselect={false} value={p.kind}
                   data={[{ value: "google", label: "Google" }, { value: "apple", label: "Apple" }, { value: "oidc", label: "OpenID Connect" }]}
                   onChange={(v) => setProvider(i, { kind: (v ?? "oidc") as SignInProviderSettings["kind"] })} />
-                <TextInput label="Name" description="In the app's code and users' records" disabled={!editable} value={p.name}
+                <TextInput label="Name" description="The id apps sign in with" disabled={!editable} value={p.name}
                   onChange={(e) => setProvider(i, { name: e.currentTarget.value })} />
                 <TextInput label="Shown as" disabled={!editable} value={p.displayName ?? ""} onChange={(e) => setProvider(i, { displayName: e.currentTarget.value || null })} />
               </Group>
@@ -225,8 +225,8 @@ function Security({ draft, set, editable }: PartProps) {
   );
 }
 
-function EmailPart({ draft, set, editable, appSender, passwordSet, secretsAvailable, password, setPassword }: PartProps & {
-  appSender: boolean; passwordSet: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; password: string; setPassword: (s: string) => void;
+function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, password, setPassword }: PartProps & {
+  passwordSet: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; password: string; setPassword: (s: string) => void;
 }) {
   const e = draft.email;
   const setE = (p: Partial<WincheAuthSettings["email"]>) => set({ email: { ...e, ...p } });
@@ -276,13 +276,9 @@ function EmailPart({ draft, set, editable, appSender, passwordSet, secretsAvaila
       {e.enabled && (
         <Card title="How it's sent">
           <SegmentedControl aria-label="Sender" w="fit-content" disabled={!editable} value={e.sender}
-            data={[{ value: "smtp", label: "SMTP server" }, { value: "app", label: "The app's code" }, { value: "logLinks", label: "Log only" }]}
+            data={[{ value: "smtp", label: "SMTP server" }, { value: "logLinks", label: "Log only" }]}
             onChange={(v) => setE({ sender: v as WincheAuthSettings["email"]["sender"], smtp: v === "smtp" ? smtp : e.smtp })} />
-          {e.sender === "app" && (
-            appSender
-              ? <Text size="sm" c="dimmed">The app's own sender (an IAuthEmailSender in its code) sends them.</Text>
-              : <Alert color="yellow">The app's code has no email sender: choose SMTP server, or emails will fail.</Alert>
-          )}
+          {e.sender === "app" && <Alert color="gray">Choose how emails are sent: an SMTP server, or only logged for now.</Alert>}
           {e.sender === "logLinks" && <Alert color="yellow">Nothing is sent: links go to the server's log. For local development only.</Alert>}
           {e.sender === "smtp" && (
             <Stack gap="sm">

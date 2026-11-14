@@ -15,7 +15,7 @@ import { DirectorySection } from "./DirectorySection";
 import { SignInSettings, useSignInDraft, type SignInPart } from "./SignInSettings";
 import { when } from "./UsersView";
 import { EmptyState } from "../../components/EmptyState";
-import { IconShieldCheck } from "@tabler/icons-react";
+import { IconShieldCheck, IconHistory } from "@tabler/icons-react";
 
 type Section = "providers" | "mapping" | "directory" | "history" | "keys" | SignInPart;
 const SIGN_IN: Section[] = ["methods", "security", "email"];
@@ -430,10 +430,9 @@ function HistorySection() {
     <Stack gap="md">
       <div>
         <Title order={4}>Change history</Title>
-        <Text size="sm" c="dimmed">Every saved change to these settings. Restoring one makes a new change, so nothing is lost.</Text>
       </div>
       {versions.length === 0 ? (
-        <Text size="sm" c="dimmed">Nothing changed yet: the app's code values apply.</Text>
+        <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here: who made them, when and why." />
       ) : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table verticalSpacing={8} fz="sm" miw={640}>
@@ -447,7 +446,7 @@ function HistorySection() {
                   <Table.Td>
                     <Text size="sm" fw={500}>{v.areaTitle}</Text>
                     <Text size="xs" c="dimmed">
-                      {v.reset ? "Back to the app's code values" : v.restoredFrom ? `Version ${v.number}, restored` : `Version ${v.number}`}
+                      {v.reset ? "Back to the defaults" : v.restoredFrom ? `Version ${v.number}, restored` : `Version ${v.number}`}
                     </Text>
                   </Table.Td>
                   <Table.Td><Text size="xs">{v.by ?? "—"}</Text></Table.Td>
@@ -475,7 +474,7 @@ function HistorySection() {
         <Paper withBorder p="sm" style={{ borderColor: "var(--mantine-color-blue-5)" }}>
           <Stack gap="xs">
             <Text size="sm">
-              {acting.kind === "restore" ? `Restore version ${acting.number} as a new change?` : `Put ${acting.title} back to the values in the app's code? Every console change stays in the history.`}
+              {acting.kind === "restore" ? `Restore version ${acting.number} as a new change?` : `Put ${acting.title} back to the defaults? Every change stays in the history.`}
             </Text>
             <Group gap="xs" wrap="wrap">
               <TextInput placeholder="Why?" aria-label="Reason" style={{ flex: "1 1 260px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />

@@ -264,7 +264,7 @@ test("change history: restore and reset ask why", async () => {
   await waitFor(() => expect(mock(api.restoreSettings)).toHaveBeenCalledWith(8, "That one was right"));
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Reset Identity providers" }));
-  expect(screen.getByText(/Put Identity providers back to the values in the app's code/)).toBeInTheDocument();
+  expect(screen.getByText(/Put Identity providers back to the defaults/)).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Reason"), "Start over");
   await userEvent.click(screen.getByRole("button", { name: "Reset" }));
   await waitFor(() => expect(mock(api.resetSettings)).toHaveBeenCalledWith("auth.identityProviders", "Start over"));
@@ -365,7 +365,7 @@ test("sign-in settings: SMTP with a write-only password and a test email", async
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
   await userEvent.click(await screen.findByRole("tab", { name: "Email" }));
-  expect(screen.getByText(/The app's code has no email sender/)).toBeInTheDocument();
+  expect(screen.getByText(/Choose how emails are sent/)).toBeInTheDocument();   // an app sender isn't offered
   await userEvent.click(screen.getByText("SMTP server"));
   await userEvent.type(screen.getByLabelText("Server"), "smtp.example.com");
   await userEvent.type(screen.getByLabelText("Username"), "mailer");

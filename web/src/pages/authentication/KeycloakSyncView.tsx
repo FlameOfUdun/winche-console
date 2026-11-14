@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, syncHealth, type KeycloakSync } from "../../api/appAuth";
@@ -83,7 +83,7 @@ export function KeycloakSyncView() {
       <Title order={4}>Keycloak sync</Title>
       <Text size="sm" c="dimmed">
         Users who sign in with these providers follow Keycloak, one way: changes there (profile, roles, claims, disabled,
-        deleted) reach Winche; nothing is written to Keycloak. Set in code with <Code>SyncFromKeycloak</Code>.
+        deleted) reach Winche; nothing is written to Keycloak.
       </Text>
       <SimpleGrid cols={{ base: 1, md: 2 }}>{list.map((s) => <SyncCard key={s.provider} s={s} />)}</SimpleGrid>
     </Stack>

@@ -129,7 +129,7 @@ export function AreaHistory({ area, editable, empty = true }: { area: DataArea; 
             title={
               <Group gap={8} justify="space-between" wrap="nowrap">
                 <Group gap={8}>
-                  <Text fw={600} size="sm">{v.reset ? "Back to the code's values" : `Version ${v.number}`}</Text>
+                  <Text fw={600} size="sm">{v.reset ? "Back to the defaults" : `Version ${v.number}`}</Text>
                   {v.restoredFrom && <Badge size="xs" variant="light" color="gray" tt="none">restored</Badge>}
                   {v.current && <Badge size="xs" variant="light" color="teal" tt="none">In use</Badge>}
                 </Group>

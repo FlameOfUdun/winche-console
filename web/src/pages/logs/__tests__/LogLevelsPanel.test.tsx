@@ -34,7 +34,7 @@ beforeEach(() => {
 test("adds a time-limited source level and saves it", async () => {
   (api.logLevels as ReturnType<typeof vi.fn>).mockResolvedValue(levels());
   renderPanel();
-  expect(await screen.findByText(/Set in the app's code \(default Warning\)/)).toBeInTheDocument();
+  expect(await screen.findByText(/The defaults \(Warning and up\)/)).toBeInTheDocument();
   expect(screen.getByText(/None — every source uses the default/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Add a source" }));
@@ -64,7 +64,7 @@ test("a sub-tab shows and edits only its library's overrides, keeping the rest",
     ],
   }));
   renderPanel("database");
-  expect(await screen.findByText(/Set in the console by admin@example.com/)).toBeInTheDocument();
+  expect(await screen.findByText(/Changed by admin@example.com/)).toBeInTheDocument();
   expect(screen.getAllByTestId("level-override")).toHaveLength(1);
   expect(screen.getByDisplayValue("Winche.Database.Runtime")).toBeInTheDocument();
   expect(screen.queryByDisplayValue("SmartAirway.Reports")).not.toBeInTheDocument();
@@ -73,7 +73,7 @@ test("a sub-tab shows and edits only its library's overrides, keeping the rest",
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(api.saveLogLevels).toHaveBeenCalledWith("Warning", [{ category: "SmartAirway.Reports", level: "Debug", until: null }]));
 
-  await userEvent.click(screen.getByRole("button", { name: "Reset to the app's settings" }));
+  await userEvent.click(screen.getByRole("button", { name: "Back to the defaults" }));
   expect(api.resetLogLevels).toHaveBeenCalled();
 });
 
@@ -82,7 +82,7 @@ test("errors from the server are shown", async () => {
   const { ApiError } = await import("../../../api/client");
   (api.saveLogLevels as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError(400, JSON.stringify({ errors: ["An override needs a source."] })));
   renderPanel();
-  await screen.findByText(/Set in the app's code/);
+  await screen.findByText(/The defaults/);
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByText("An override needs a source.")).toBeInTheDocument();
 });

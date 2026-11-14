@@ -1,10 +1,10 @@
-import { Alert, Badge, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Badge, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import { KeycloakSyncView } from "./KeycloakSyncView";
 
-function Method({ name, on, about, rows, code }: { name: string; on: boolean; about: string; rows: [string, string][]; code: string }) {
+function Method({ name, on, about, rows }: { name: string; on: boolean; about: string; rows: [string, string][]; code?: string }) {
   return (
     <Paper withBorder p="md" data-testid="sign-in-method">
       <Stack gap={8}>
@@ -19,13 +19,12 @@ function Method({ name, on, about, rows, code }: { name: string; on: boolean; ab
             <Text size="sm" fw={500} ta="right" style={{ wordBreak: "break-all" }}>{v}</Text>
           </Group>
         ))}
-        <Code block fz="xs">{code}</Code>
       </Stack>
     </Paper>
   );
 }
 
-/** How users sign in: set in code (AddWincheAuth / AddWincheTokens), shown here. */
+/** How users sign in: what's on, and its details. */
 export function MethodsView() {
   const config = useQuery({ queryKey: ["app-auth-config"], queryFn: api.appAuthConfig });
   if (config.isLoading) return <Loader size="sm" />;
@@ -33,9 +32,7 @@ export function MethodsView() {
   const c = config.data;
   return (
     <Stack gap="sm">
-      {c.signInSettings
-        ? <Text size="sm" c="dimmed">What's in force now. Change it in Settings → Sign-in methods, Sessions and security, and Email.</Text>
-        : <Text size="sm" c="dimmed">Set in code with <Code>AddWincheAuth(o =&gt; …)</Code> and <Code>AddWincheTokens(t =&gt; …)</Code>; shown here so you can see what's on.</Text>}
+      {c.signInSettings && <Text size="sm" c="dimmed">What's in force now. Change it in Settings.</Text>}
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
         <Method name="Email and password" on={!!c.emailPassword}
           about="Sign up and sign in with an email address and a password."
@@ -43,12 +40,10 @@ export function MethodsView() {
             ["Minimum length", `${c.emailPassword.minLength} characters`],
             ["Verified email required", c.emailPassword.requireVerifiedEmail ? "Yes" : "No"],
             ...(c.protection ? [["Lockout", `${c.protection.maxFailedSignIns} failures → ${c.protection.lockoutMinutes} minutes`] as [string, string]] : []),
-          ] : []}
-          code={c.emailPassword ? `o.EmailPassword(p => p.MinLength = ${c.emailPassword.minLength});` : "o.EmailPassword();"} />
+          ] : []} />
         <Method name="Email link" on={!!c.emailLink}
           about="A one-time sign-in link sent by email: no password. The first use makes the account."
-          rows={c.emailLink ? [["Finishes in", c.emailLink.linkUrl]] : []}
-          code={'o.EmailLink(l => l.LinkUrl = "https://app.example.com/finish-sign-in");'} />
+          rows={c.emailLink ? [["Finishes in", c.emailLink.linkUrl]] : []} />
         <Method name="Anonymous" on={c.anonymous}
           about="A guest user with a uid, upgraded later by linking an email and password."
           rows={[]} code="o.Anonymous();" />
@@ -63,14 +58,11 @@ export function MethodsView() {
               ["uid", p.useSubjectAsUid ? "the provider's own id" : "a new Winche uid"],
               ...(p.copiedClaims.length ? [["Claims copied", p.copiedClaims.join(", ")] as [string, string]] : []),
               ...(p.testingOnly ? [["Unsigned tokens", "accepted (testing only)"] as [string, string]] : []),
-            ]}
-            code={p.kind === "oidc" ? `o.OpenIdConnect("${p.name}", k => { k.Authority = "…"; k.Audiences = ["…"]; });`
-              : p.kind === "google" ? 'o.Google(g => g.Audiences = ["…apps.googleusercontent.com"]);' : 'o.Apple(a => a.Audiences = ["com.example.app"]);'} />
+            ]} />
         ))}
         <Method name="Two-step sign-in" on={!!c.mfa}
           about="Users may add an authenticator app; then every sign-in also asks for its code (or a recovery code). Their tokens carry mfa: true."
-          rows={c.mfa ? [["Shown in apps as", c.mfa.issuer], ["Recovery codes", String(c.mfa.recoveryCodes)], ["Time for the code", `${c.mfa.pendingMinutes} minutes`]] : []}
-          code='o.Mfa(m => m.Issuer = "SmartAirway");' />
+          rows={c.mfa ? [["Shown in apps as", c.mfa.issuer], ["Recovery codes", String(c.mfa.recoveryCodes)], ["Time for the code", `${c.mfa.pendingMinutes} minutes`]] : []} />
         <Method name="Winche tokens" on={c.trustsWincheTokens}
           about="Database, Storage and your endpoints accept the tokens Winche Auth issues."
           rows={c.tokens ? [["Issuer", c.tokens.issuer]] : []} code="AddWincheTokens(t => t.TrustWincheAuth());" />
@@ -82,8 +74,7 @@ export function MethodsView() {
               ["Audience", i.audience ?? "not checked"],
               ["uid from", i.uidClaim],
               ["Claims passed on", i.claims ? i.claims.join(", ") || "none" : "all"],
-            ]}
-            code={`t.TrustIssuer("${i.name}", i => { i.Authority = "…"; i.Audience = "…"; });`} />
+            ]} />
         ))}
       </SimpleGrid>
       {c.identityProviders.length > 0 && <KeycloakSyncView />}
