@@ -66,6 +66,24 @@ public class ConsoleDataSettingsTests(PostgresFixture fx) : IAsyncLifetime
         var catalog = app.Services.GetRequiredService<Winche.Database.Schema.IndexCatalog>();
         Assert.Contains(catalog.Indexes, i => i.CollectionId == "visits");
 
+        // As text: read, checked, and saved (merged into the settings, with a reason).
+        var asText = await Json(await client.GetAsync("/_console/api/settings/database/indexes"));
+        Assert.Contains("expire when expiresAt", asText.GetProperty("text").GetString());
+        var parsed = await Json(await client.PostAsJsonAsync("/_console/api/settings/database/indexes/parse", new { text = "collection s {\n  index (a b)\n}" }));
+        Assert.False(parsed.GetProperty("ok").GetBoolean());
+        Assert.Equal(2, parsed.GetProperty("error").GetProperty("line").GetInt32());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/_console/api/settings/database/indexes", new { text = "collection {", reason = "x" })).StatusCode);
+        await Json(await client.PutAsJsonAsync("/_console/api/settings/database/indexes", new
+        {
+            text = "collection visits {\n  index (patientId, at desc)\n}\n\ncollection sessions {\n  expire when endsAt\n}\n",
+            reason = "Visits per patient",
+        }));
+        var saved = await Json(await client.GetAsync("/_console/api/settings/database"));
+        Assert.Equal("endsAt", saved.GetProperty("settings").GetProperty("ttl")[0].GetProperty("field").GetString());
+        Assert.Equal(1, saved.GetProperty("settings").GetProperty("indexes").GetArrayLength());
+        Assert.Equal("Visits per patient", saved.GetProperty("version").GetProperty("reason").GetString());
+        settings = JsonNode.Parse(saved.GetProperty("settings").GetRawText())!.AsObject();
+
         var bad = settings.DeepClone();
         bad["writeLimits"]!["maxDocumentKb"] = 0;
         var refused = await client.PutAsJsonAsync("/_console/api/settings/database", new { settings = bad, reason = "x" });
@@ -80,7 +98,7 @@ public class ConsoleDataSettingsTests(PostgresFixture fx) : IAsyncLifetime
         Assert.Equal(5 * 1048576, app.Services.GetRequiredService<Winche.Storage.Models.StorageLimits>().MaxFileSizeBytes);
 
         var history = await Json(await client.GetAsync("/_console/api/settings/history?area=database"));
-        Assert.Single(history.GetProperty("versions").EnumerateArray());
+        Assert.Equal(2, history.GetProperty("versions").GetArrayLength());   // the form, then the text
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/_console/api/settings/auth.signIn")).StatusCode);   // auth has its own screens
         await Json(await client.GetAsync("/_console/api/settings/database/suggestions"));
     }

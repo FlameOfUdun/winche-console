@@ -1,13 +1,13 @@
-import { useState } from "react";
-import { ActionIcon, Badge, Button, Group, Modal, Paper, SegmentedControl, Stack, Switch, Text, TextInput, Title, Tooltip } from "@mantine/core";
+import { useEffect, useRef, useState } from "react";
+import { Badge, Button, Group, Paper, Stack, Switch, Text, Title, Box } from "@mantine/core";
 import {
-  IconAlertTriangle, IconArrowDown, IconArrowUp, IconBolt, IconBroadcast, IconCalendarTime, IconClockHour4, IconClockOff, IconFileText,
-  IconGauge, IconHistory, IconLink, IconListDetails, IconListSearch, IconMessage, IconPercentage, IconPlus, IconStack2, IconTrash,
-  IconUsers, IconWand,
+  IconAlertTriangle, IconArrowDown, IconArrowUp, IconBolt, IconBroadcast, IconCalendarTime, IconClockHour4, IconFileText, IconGauge, IconHistory, IconLink, IconListDetails, IconListSearch, IconMessage, IconPercentage, IconStack2, IconUsers, IconWand,
 } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
-import { parseFields, sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
+import { sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
+import { addToBlock, formatIndexText, indexLine, type IndexTextError } from "../../api/indexText";
+import { IndexesCodeEditor } from "./IndexesCodeEditor";
 import { when } from "../authentication/UsersView";
 import { AreaHistory, AreaSettingsView, num } from "./AreaSettings";
 import { SettingsLayout } from "../../components/SettingsLayout";
@@ -15,9 +15,9 @@ import { SettingRow, SettingsCard, UnitInput } from "../../components/SettingRow
 import { EmptyState } from "../../components/EmptyState";
 import { surface } from "../../theme";
 
-type DbSection = "indexes" | "expiry" | "history" | "limits" | "logging" | "live" | "changes";
+type DbSection = "indexes" | "history" | "limits" | "logging" | "live" | "changes";
 const DB_SECTIONS: { id: DbSection; label: string }[] = [
-  { id: "indexes", label: "Indexes" }, { id: "expiry", label: "Expiry" }, { id: "history", label: "Document history" },
+  { id: "indexes", label: "Indexes and expiry" }, { id: "history", label: "Document history" },
   { id: "limits", label: "Limits" }, { id: "logging", label: "Logging" }, { id: "live", label: "Live connections" },
   { id: "changes", label: "Change history" },
 ];
@@ -31,7 +31,7 @@ export function DatabaseSettingsView() {
       {section === "live" ? <LiveConnections /> : section === "changes" ? <DatabaseChanges /> : (
         // One draft for every section of the "database" area: switching sections keeps unsaved changes.
         <AreaSettingsView<DatabaseSettings> area="database" title={label} history={false}>
-          {(draft, set, editable) => <DatabaseSection section={section} draft={draft} set={set} editable={editable} />}
+          {(draft, set, editable, block) => <DatabaseSection section={section} draft={draft} set={set} editable={editable} block={block} />}
         </AreaSettingsView>
       )}
     </SettingsLayout>
@@ -97,10 +97,9 @@ function LiveConnections() {
 
 type Props = { draft: DatabaseSettings; set: (d: DatabaseSettings) => void; editable: boolean };
 
-function DatabaseSection({ section, draft, set, editable }: Props & { section: DbSection }) {
+function DatabaseSection({ section, draft, set, editable, block }: Props & { section: DbSection; block: (why: string | null) => void }) {
   switch (section) {
-    case "indexes": return <Indexes draft={draft} set={set} editable={editable} />;
-    case "expiry": return <Expiry draft={draft} set={set} editable={editable} />;
+    case "indexes": return <IndexesAndExpiry draft={draft} set={set} editable={editable} block={block} />;
     case "history": return (
       <SettingsCard>
         <SettingRow icon={IconHistory} label="Keep document history">
@@ -162,9 +161,7 @@ function DatabaseSection({ section, draft, set, editable }: Props & { section: D
   }
 }
 
-const NEW_INDEX = { collection: "", fields: "", kind: "ordered" as IndexSettings["kind"], collectionGroup: false };
-
-/** An index's fields as chips, each with its direction. */
+/** An index's fields as chips, each with its direction (the slow-query suggestions). */
 function FieldChips({ index }: { index: IndexSettings }) {
   if (index.kind === "array") {
     return <Badge variant="outline" color="gray" tt="none" radius="sm" ff="monospace">{index.fields[0]?.path} contains</Badge>;
@@ -179,12 +176,75 @@ function FieldChips({ index }: { index: IndexSettings }) {
   );
 }
 
-function Indexes({ draft, set, editable }: Props) {
+const sameRules = (d: Pick<DatabaseSettings, "indexes" | "ttl">) => JSON.stringify({ i: d.indexes, t: d.ttl });
+
+/**
+ * Indexes and expiry, written like rules (Indexes.IndexText on the server): one block per collection. The text is
+ * checked as you type; while it has a mistake, saving waits and the mistake is underlined.
+ */
+function IndexesAndExpiry({ draft, set, editable, block }: Props & { block: (why: string | null) => void }) {
   const suggestions = useQuery({ queryKey: ["index-suggestions"], queryFn: api.indexSuggestions });
-  const [adding, setAdding] = useState<typeof NEW_INDEX | null>(null);
-  const add = (index: IndexSettings) => set({ ...draft, indexes: [...draft.indexes, index] });
+  const initial = formatIndexText(draft.indexes, draft.ttl);
+  const [text, setText] = useState(initial);
+  const [error, setError] = useState<IndexTextError | null>(null);
+  const [checking, setChecking] = useState(false);
+  const applied = useRef(sameRules(draft));     // the indexes and expiry the text last produced
+  const checkedText = useRef(initial);           // the text last checked
+  const latest = useRef(draft);
+  latest.current = draft;
+  const fieldCache = useRef(new Map<string, Promise<string[]>>());
+
+  // Changed from outside (Discard, a restored version): show it.
+  useEffect(() => {
+    const now = sameRules(draft);
+    if (now === applied.current) return;
+    applied.current = now;
+    const t = formatIndexText(draft.indexes, draft.ttl);
+    checkedText.current = t;
+    setText(t);
+    setError(null);
+    block(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.indexes, draft.ttl]);
+
+  // Checked as you type (a moment after you stop).
+  useEffect(() => {
+    if (text === checkedText.current) return;
+    setChecking(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await api.parseIndexText(text);
+        checkedText.current = text;
+        if (r.ok && r.indexes && r.ttl) {
+          const next = { ...latest.current, indexes: r.indexes, ttl: r.ttl };
+          applied.current = sameRules(next);
+          set(next);
+          setError(null);
+          block(null);
+        } else if (r.error) {
+          setError(r.error);
+          block(`Line ${r.error.line}: ${r.error.message}`);
+        }
+      } finally {
+        setChecking(false);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text]);
+
+  const fieldsFor = (collection: string) => {
+    let f = fieldCache.current.get(collection);
+    if (!f) {
+      f = api.rulesFields("database", `/${collection}/{id}`).then((r) => r.fields.map((x) => x.path));
+      fieldCache.current.set(collection, f);
+      f.catch(() => fieldCache.current.delete(collection));
+    }
+    return f;
+  };
+
   const open = (suggestions.data?.suggestions ?? []).filter((s) => !draft.indexes.some((i) => sameIndex(i, s)));
-  const addButton = editable && <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setAdding({ ...NEW_INDEX })}>Add index</Button>;
+  const expiring = draft.ttl.length;
 
   return (
     <Stack gap="md">
@@ -204,7 +264,7 @@ function Indexes({ draft, set, editable }: Props) {
                   {s.collectionGroup && <Badge size="xs" variant="light" tt="none">group</Badge>}
                   <Text size="xs" c="dimmed">{s.elapsedMs} ms · {when(s.at)}</Text>
                 </Group>
-                {editable && <Button size="xs" variant="default" onClick={() => add({ collection: s.collection, fields: s.fields, kind: s.kind, collectionGroup: s.collectionGroup })}>Add</Button>}
+                {editable && <Button size="xs" variant="default" onClick={() => setText(addToBlock(text, s.collection, s.collectionGroup, indexLine(s)))}>Add</Button>}
               </Group>
             ))}
           </Stack>
@@ -212,120 +272,31 @@ function Indexes({ draft, set, editable }: Props) {
       )}
 
       <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
-        {draft.indexes.length === 0 ? (
-          <EmptyState bordered={false} icon={IconListSearch} title="No indexes of your own"
-            description="Every query still works. Slow ones are suggested here when they need one." action={addButton || undefined} />
-        ) : (
-          <>
-            <Group justify="space-between" px="md" py="sm" style={{ borderBottom: `1px solid ${surface.subtle}` }}>
-              <Text size="sm" c={surface.muted}>{draft.indexes.length} index{draft.indexes.length === 1 ? "" : "es"}</Text>
-              {addButton}
-            </Group>
-            {draft.indexes.map((i, n) => (
-              <Group key={n} justify="space-between" wrap="nowrap" px="md" py={12} className="winche-setting-row" data-testid="db-index">
-                <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", flexShrink: 0,
-                    background: "var(--mantine-color-winche-0)", color: "var(--mantine-color-winche-6)" }}>
-                    <IconListSearch size={17} stroke={1.8} />
-                  </div>
-                  <Stack gap={4} style={{ minWidth: 0 }}>
-                    <Group gap={6}>
-                      <Text size="sm" fw={600} ff="monospace">{i.collection}</Text>
-                      {i.collectionGroup && <Badge size="xs" variant="light" tt="none">every {i.collection}</Badge>}
-                      <Badge size="xs" variant="light" color="gray" tt="none">{i.kind === "array" ? "array contains" : "filter and sort"}</Badge>
-                    </Group>
-                    <FieldChips index={i} />
-                  </Stack>
-                </Group>
-                {editable && (
-                  <Tooltip label="Remove index" withArrow>
-                    <ActionIcon variant="subtle" color="gray" aria-label={`Remove index on ${i.collection}`}
-                      onClick={() => set({ ...draft, indexes: draft.indexes.filter((_, j) => j !== n) })}>
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
-                )}
-              </Group>
-            ))}
-          </>
-        )}
-      </Paper>
-
-      <Modal opened={!!adding} onClose={() => setAdding(null)} title={<Text fw={700} fz={18}>Add an index</Text>} radius="lg">
-        {adding && (
-          <Stack gap="md">
-            <SegmentedControl fullWidth value={adding.kind} aria-label="Index kind"
-              data={[{ value: "ordered", label: "Filter and sort" }, { value: "array", label: "Array contains" }]}
-              onChange={(v) => setAdding({ ...adding, kind: v as IndexSettings["kind"] })} />
-            <TextInput label="Collection" placeholder="sessions" data-autofocus value={adding.collection}
-              onChange={(e) => setAdding({ ...adding, collection: e.currentTarget.value.trim() })} />
-            <TextInput label={adding.kind === "array" ? "Array field" : "Fields, in order"} placeholder={adding.kind === "array" ? "tags" : "userId, startedAt desc"}
-              styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-              value={adding.fields} onChange={(e) => setAdding({ ...adding, fields: e.currentTarget.value })} />
-            {adding.kind === "ordered" && parseFields(adding.fields).length > 0 && (
-              <FieldChips index={{ collection: adding.collection, fields: parseFields(adding.fields), kind: "ordered", collectionGroup: false }} />
+        <Group justify="space-between" px="md" py={10} style={{ borderBottom: `1px solid ${surface.subtle}` }}>
+          <Group gap="xs" data-testid="index-status">
+            {error ? (
+              <Badge color="red" variant="light" tt="none" leftSection={<IconAlertTriangle size={12} />}>Line {error.line}: {error.message}</Badge>
+            ) : checking ? (
+              <Badge color="gray" variant="light" tt="none">Checking…</Badge>
+            ) : (
+              <>
+                <Badge color="winche" variant="light" tt="none" leftSection={<IconListSearch size={12} />}>
+                  {draft.indexes.length} index{draft.indexes.length === 1 ? "" : "es"}
+                </Badge>
+                <Badge color="red" variant="light" tt="none" leftSection={<IconClockHour4 size={12} />}>
+                  {expiring} expir{expiring === 1 ? "y" : "ies"}
+                </Badge>
+              </>
             )}
-            <Switch label="Every collection with this name, wherever it is" checked={adding.collectionGroup}
-              onChange={(e) => setAdding({ ...adding, collectionGroup: e.currentTarget.checked })} />
-            <Group justify="flex-end" gap="xs">
-              <Button variant="default" onClick={() => setAdding(null)}>Cancel</Button>
-              <Button disabled={!adding.collection || parseFields(adding.fields).length === 0}
-                onClick={() => { add({ collection: adding.collection, fields: parseFields(adding.fields), kind: adding.kind, collectionGroup: adding.collectionGroup }); setAdding(null); }}>Add index</Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
+          </Group>
+          {editable && (
+            <Button size="xs" variant="default" disabled={!!error || checking} onClick={() => setText(formatIndexText(draft.indexes, draft.ttl))}>Format</Button>
+          )}
+        </Group>
+        <Box p={8}>
+          <IndexesCodeEditor value={text} onChange={setText} error={error} fieldsFor={fieldsFor} readOnly={!editable} />
+        </Box>
+      </Paper>
     </Stack>
-  );
-}
-
-function Expiry({ draft, set, editable }: Props) {
-  const [adding, setAdding] = useState(false);
-  const [collection, setCollection] = useState("");
-  const [field, setField] = useState("");
-  const close = () => { setAdding(false); setCollection(""); setField(""); };
-  const addButton = editable && <Button size="xs" leftSection={<IconPlus size={14} />} onClick={() => setAdding(true)}>Add expiry</Button>;
-  return (
-    <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
-      {draft.ttl.length === 0 ? (
-        <EmptyState bordered={false} icon={IconClockOff} title="Nothing expires"
-          description="Pick a collection and a timestamp field to delete its documents once that time has passed." action={addButton || undefined} />
-      ) : (
-        <>
-          <Group justify="space-between" px="md" py="sm" style={{ borderBottom: `1px solid ${surface.subtle}` }}>
-            <Text size="sm" c={surface.muted}>{draft.ttl.length} collection{draft.ttl.length === 1 ? "" : "s"} expire</Text>
-            {addButton}
-          </Group>
-          {draft.ttl.map((t, n) => (
-            <Group key={n} justify="space-between" wrap="nowrap" px="md" py={12} className="winche-setting-row" data-testid="db-ttl">
-              <Group gap="sm" wrap="nowrap">
-                <div style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", flexShrink: 0, background: "#FEF3F2", color: "#B42318" }}>
-                  <IconClockHour4 size={17} stroke={1.8} />
-                </div>
-                <Text size="sm"><Text span fw={600} ff="monospace">{t.collection}</Text> <Text span c={surface.muted}>when</Text> <Badge variant="outline" color="gray" tt="none" radius="sm" ff="monospace">{t.field}</Badge> <Text span c={surface.muted}>has passed</Text></Text>
-              </Group>
-              {editable && (
-                <Tooltip label="Remove" withArrow>
-                  <ActionIcon variant="subtle" color="gray" aria-label={`Remove expiry on ${t.collection}`} onClick={() => set({ ...draft, ttl: draft.ttl.filter((_, j) => j !== n) })}>
-                    <IconTrash size={16} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-            </Group>
-          ))}
-        </>
-      )}
-      <Modal opened={adding} onClose={close} title={<Text fw={700} fz={18}>Add an expiry</Text>} radius="lg">
-        <Stack gap="md">
-          <TextInput label="Collection" placeholder="sessions" data-autofocus value={collection} onChange={(e) => setCollection(e.currentTarget.value.trim())} />
-          <TextInput label="Timestamp field" placeholder="expiresAt" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-            value={field} onChange={(e) => setField(e.currentTarget.value.trim())} />
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={close}>Cancel</Button>
-            <Button disabled={!collection || !field} onClick={() => { set({ ...draft, ttl: [...draft.ttl, { collection, field }] }); close(); }}>Add expiry</Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </Paper>
   );
 }

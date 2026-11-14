@@ -18,7 +18,7 @@ vi.mock("../../../api/client", async (orig) => {
     api: {
       ...actual.api, rulesSubsystems: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(), dataSettingsHistory: vi.fn(),
       restoreDataSettings: vi.fn(), indexSuggestions: vi.fn(), storageLocation: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(),
-      storageMoveStep: vi.fn(),
+      storageMoveStep: vi.fn(), parseIndexText: vi.fn(), rulesFields: vi.fn(),
     },
   };
 });
@@ -73,31 +73,25 @@ test("the Settings sub-tab shows for admins when the database uses settings", as
   await waitFor(() => expect(screen.getAllByRole("tab", { name: "Settings" })).toHaveLength(1));
 });
 
-test("an index is added by hand, an expiry policy too, and history turned on, saved with a reason", async () => {
+test("indexes and expiry are a text: shown from the settings, then history turned on and saved", async () => {
+  mock(api.dataSettings).mockImplementation((a: string) =>
+    a === "database.live" ? Promise.reject(Object.assign(new Error("Not Found"), { status: 404 }))
+      : Promise.resolve(area(a === "database" ? { ...db, ttl: [{ collection: "sessions", field: "expiresAt" }] } : storage)));
   renderIt(<DatabaseSettingsView />);
-  await userEvent.click(await screen.findByRole("button", { name: "Add index" }));
-  let dialog = await screen.findByRole("dialog");
-  await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
-  await userEvent.type(within(dialog).getByLabelText("Fields, in order"), "userId, startedAt desc");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Add index" }));
-  expect(screen.getAllByTestId("db-index")).toHaveLength(2);
-  // Each part is its own section on the left; the draft carries across them.
-  await userEvent.click(screen.getByRole("tab", { name: "Expiry" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Add expiry" }));
-  dialog = await waitFor(() => { const d = screen.getAllByRole("dialog").at(-1)!; within(d).getByPlaceholderText("expiresAt"); return d; });
-  await userEvent.type(within(dialog).getByPlaceholderText("expiresAt"), "expiresAt");
-  await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Add expiry" }));
+  // The editor shows the indexes and expiry as text, one block per collection.
+  const editor = await screen.findByRole("textbox", { name: "Indexes and expiry" });
+  expect(editor.textContent).toContain("collection patients {");
+  expect(editor.textContent).toContain("index (ward)");
+  expect(editor.textContent).toContain("expire when expiresAt");
+  expect(screen.getByTestId("index-status")).toHaveTextContent("1 index");
+  expect(screen.getByTestId("index-status")).toHaveTextContent("1 expiry");
+
   await userEvent.click(screen.getByRole("tab", { name: "Document history" }));
   await userEvent.click(await screen.findByLabelText("Keep document history"));
-  await userEvent.type(screen.getByLabelText("Reason for the change"), "Session lists");
+  await userEvent.type(screen.getByLabelText("Reason for the change"), "Audit trail");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
-  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database", {
-    ...db,
-    indexes: [...db.indexes, { collection: "sessions", fields: [{ path: "userId", direction: "asc" }, { path: "startedAt", direction: "desc" }], kind: "ordered", collectionGroup: false }],
-    ttl: [{ collection: "sessions", field: "expiresAt" }],
-    history: { enabled: true, retentionDays: 30 },
-  }, "Session lists"));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database",
+    expect.objectContaining({ history: { enabled: true, retentionDays: 30 }, ttl: [{ collection: "sessions", field: "expiresAt" }] }), "Audit trail"));
 });
 
 test("a slow query's suggested index is added with one click", async () => {
@@ -105,14 +99,17 @@ test("a slow query's suggested index is added with one click", async () => {
     { collection: "visits", fields: [{ path: "patientId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false,
       elapsedMs: 840, at: "2026-11-12T20:00:00Z", code: "ib.Add(...)" },
   ] });
+  mock(api.parseIndexText).mockResolvedValue({
+    ok: true, error: null, ttl: [],
+    indexes: [...db.indexes, { collection: "visits", fields: [{ path: "patientId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false }],
+  });
   renderIt(<DatabaseSettingsView />);
   const box = await screen.findByTestId("index-suggestions");
-  // Shown as the collection and its fields as chips (each with its direction).
   expect(within(box).getByText("visits")).toBeInTheDocument();
-  expect(within(box).getByText("patientId")).toBeInTheDocument();
-  expect(within(box).getByText("at")).toBeInTheDocument();
   await userEvent.click(within(box).getByRole("button", { name: "Add" }));
-  expect(screen.getAllByTestId("db-index")).toHaveLength(2);
+  // The line goes into the text, which is checked; the result is what gets saved.
+  await waitFor(() => expect(api.parseIndexText).toHaveBeenCalledWith(expect.stringContaining("collection visits {\n  index (patientId, at desc)\n}")));
+  await waitFor(() => expect(screen.getByTestId("index-status")).toHaveTextContent("2 indexes"));
   expect(screen.queryByTestId("index-suggestions")).toBeNull();   // already listed now
 });
 
@@ -192,4 +189,13 @@ test("live-connection limits show when the app has them", async () => {
   const saves = screen.getAllByRole("button", { name: "Save changes" });
   await userEvent.click(saves[saves.length - 1]);
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database.live", { ...live, maxConnectionsPerUser: 3 }, "Fewer tabs per user"));
+});
+
+test("a mistake in the text is shown and stops formatting until it's fixed", async () => {
+  mock(api.parseIndexText).mockResolvedValue({ ok: false, indexes: null, ttl: null, error: { message: "Expected ',' or ')', found 'b'.", line: 2, column: 12, offset: 30 } });
+  mock(api.indexSuggestions).mockResolvedValue({ suggestions: [{ collection: "visits", fields: [{ path: "at", direction: "asc" }], kind: "ordered", collectionGroup: false, elapsedMs: 900, at: "2026-11-14T10:00:00Z", code: "x" }] });
+  renderIt(<DatabaseSettingsView />);
+  await userEvent.click(await within(await screen.findByTestId("index-suggestions")).findByRole("button", { name: "Add" }));
+  expect(await screen.findByText(/Line 2: Expected ',' or '\)'/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Format" })).toBeDisabled();
 });

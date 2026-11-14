@@ -28,6 +28,7 @@ public static class ConsoleSettingsEndpoints
     };
 
     public sealed record SaveRequest(JsonElement? Settings, string? Reason);
+    public sealed record IndexTextRequest(string? Text, string? Reason);
 
     /// <summary>Which subsystems have settings the console can change, for an admin.</summary>
     internal static object Capabilities(IServiceProvider sp, ConsoleRole? role) => new
@@ -76,6 +77,44 @@ public static class ConsoleSettingsEndpoints
                 // The console is the only place indexes are declared: one it no longer lists is always dropped.
                 if (area == "database") settings["dropUndeclaredIndexes"] = true;
                 var v = await store.SaveAsync(area, settings, Who(http.User), body.Reason, ct);
+                return Results.Json(new { id = v.Id, area = v.Area, number = v.Number, at = v.At, by = v.By, reason = v.Reason });
+            }
+            catch (SettingsValidationException ex) { return Problem("These settings can't be saved.", ex.Errors); }
+        });
+
+        // The database's indexes and expiry as text (Indexes.IndexText): read, checked, saved. CI tokens with "indexes" may too.
+        var indexes = group.MapGroup("/database/indexes").WithMetadata(new ConsoleCiScope(ConsoleCiScope.Indexes));
+        indexes.MapGet("", (IServiceProvider sp) =>
+        {
+            if (Area(sp, "database") is not { } a) return Results.NotFound();
+            var current = a.CurrentJson.Deserialize<Winche.Database.Settings.DatabaseSettings>(SettingsArea.Json)!;
+            return Results.Json(new
+            {
+                text = Indexes.IndexText.Format(current.Indexes, current.Ttl),
+                editable = sp.GetService<SettingsStore>() is not null,
+                version = a.Version is { } v ? new { number = v.Number, at = v.At, by = v.By, reason = v.Reason } : null,
+            }, SettingsArea.Json);
+        });
+        indexes.MapPost("/parse", (IndexTextRequest body) =>
+        {
+            var (result, error) = Indexes.IndexText.Parse(body.Text ?? "");
+            return Results.Json(new { ok = error is null, indexes = result?.Indexes, ttl = result?.Ttl, error }, SettingsArea.Json);
+        });
+        indexes.MapPut("", async (IndexTextRequest body, HttpContext http, IServiceProvider sp, CancellationToken ct) =>
+        {
+            if (await ConsoleAuthSettingsEndpoints.RequireTwoFactorAsync(http) is { } refused) return refused;
+            if (Area(sp, "database") is not { } a) return Results.NotFound();
+            if (sp.GetService<SettingsStore>() is not { } store) return Problem("The app needs AddWincheConfig(…) to save settings.");
+            if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're making this change: it goes in the history.");
+            var (result, error) = Indexes.IndexText.Parse(body.Text ?? "");
+            if (error is not null) return Problem($"Line {error.Line}, column {error.Column}: {error.Message}");
+            var settings = a.CurrentJson.DeepClone().AsObject();
+            settings["indexes"] = JsonSerializer.SerializeToNode(result!.Indexes, SettingsArea.Json);
+            settings["ttl"] = JsonSerializer.SerializeToNode(result.Ttl, SettingsArea.Json);
+            settings["dropUndeclaredIndexes"] = true;
+            try
+            {
+                var v = await store.SaveAsync("database", settings, Who(http.User), body.Reason, ct);
                 return Results.Json(new { id = v.Id, area = v.Area, number = v.Number, at = v.At, by = v.By, reason = v.Reason });
             }
             catch (SettingsValidationException ex) { return Problem("These settings can't be saved.", ex.Errors); }

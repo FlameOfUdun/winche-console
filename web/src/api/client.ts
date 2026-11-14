@@ -215,6 +215,7 @@ export const api = {
     http<unknown>("POST", "api/settings/storage/location/move", { location, secretKey, reason }),
   storageMoveStep: (step: "switch" | "finish" | "cancel", reason: string) =>
     http<void>("POST", `api/settings/storage/location/move/${step}`, { reason }),
+  parseIndexText: (text: string) => http<import("./indexText").IndexTextParse>("POST", "api/settings/database/indexes/parse", { text }),
   indexSuggestions: () => http<{ suggestions: IndexSuggestion[] }>("GET", "api/settings/database/suggestions"),
   settingsHistory: (area?: string) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/app-auth/settings/history${area ? `?area=${encodeURIComponent(area)}` : ""}`),

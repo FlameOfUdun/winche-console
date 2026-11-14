@@ -24,8 +24,8 @@ public sealed record ConsoleToken(string Id, string Kind, string Name, string Us
 /// <summary>Marks an endpoint a CI token with <see cref="Scope"/> may call (CI tokens can call nothing else).</summary>
 public sealed record ConsoleCiScope(string Scope)
 {
-    public const string Functions = "functions", Rules = "rules";
-    public static readonly string[] All = [Functions, Rules];
+    public const string Functions = "functions", Rules = "rules", Indexes = "indexes";
+    public static readonly string[] All = [Functions, Rules, Indexes];
 }
 
 /// <summary>

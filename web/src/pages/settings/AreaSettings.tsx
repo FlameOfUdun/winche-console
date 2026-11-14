@@ -25,7 +25,8 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
   title: string;
   /** Show the change history under it (off where a settings tab lists it on its own). */
   history?: boolean;
-  children: (draft: T, set: (next: T) => void, editable: boolean) => ReactNode;
+  /** The body; `block` stops saving with a reason (an unparsable text), or lets it again with null. */
+  children: (draft: T, set: (next: T) => void, editable: boolean, block: (why: string | null) => void) => ReactNode;
 }) {
   const qc = useQueryClient();
   const saved = useQuery({ queryKey: ["data-settings", area], queryFn: () => api.dataSettings<T>(area) });
@@ -34,6 +35,7 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [blocked, setBlocked] = useState<string | null>(null);
 
   useEffect(() => {
     if (saved.data) setDraft(clone(saved.data.settings));
@@ -68,7 +70,7 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
       </div>
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 
-      {children(draft, setDraft, d.editable)}
+      {children(draft, setDraft, d.editable, setBlocked)}
 
       {d.editable && (dirty || error || notice) && (
         <Paper withBorder p="sm" data-testid="area-save-bar" style={{ borderColor: dirty ? "var(--mantine-color-blue-5)" : undefined, position: "sticky", bottom: 8 }}>
@@ -79,7 +81,7 @@ export function AreaSettingsView<T>({ area, title, children, optional = false, h
               <Group gap="xs" wrap="wrap">
                 <TextInput placeholder="Why are you making this change?" aria-label="Reason for the change" style={{ flex: "1 1 280px" }}
                   value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
-                <Button loading={busy} disabled={!reason.trim()} onClick={save}>Save changes</Button>
+                <Button loading={busy} disabled={!reason.trim() || !!blocked} onClick={save} title={blocked ?? undefined}>Save changes</Button>
                 <Button variant="subtle" disabled={busy} onClick={() => { setDraft(clone(d.settings)); setError(null); }}>Discard</Button>
               </Group>
             )}
