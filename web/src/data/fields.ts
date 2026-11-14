@@ -2,11 +2,11 @@
 // (incl. nested array/map) to/from an editable tree — no JSON entry required.
 
 export type ValueType =
-  | "string" | "integer" | "double" | "boolean" | "timestamp" | "reference" | "geopoint" | "null" | "array" | "map";
+  | "string" | "integer" | "double" | "boolean" | "timestamp" | "reference" | "fileRef" | "userRef" | "geopoint" | "null" | "array" | "map";
 
 export interface EditValue {
   type: ValueType;
-  text?: string;                                   // string/integer/double/timestamp/reference
+  text?: string;                                   // string/integer/double/timestamp/reference/fileRef/userRef
   bool?: boolean;                                  // boolean
   lat?: string; lng?: string;                      // geopoint
   items?: EditValue[];                             // array
@@ -21,7 +21,9 @@ export const valueTypeOptions: { value: ValueType; label: string }[] = [
   { value: "double", label: "number (double)" },
   { value: "boolean", label: "boolean" },
   { value: "timestamp", label: "timestamp" },
-  { value: "reference", label: "reference" },
+  { value: "reference", label: "document reference" },
+  { value: "fileRef", label: "file reference" },
+  { value: "userRef", label: "user reference" },
   { value: "geopoint", label: "geopoint" },
   { value: "null", label: "null" },
   { value: "array", label: "array" },
@@ -62,7 +64,10 @@ export function parseValue(v: unknown): EditValue {
   if ("doubleValue" in o) return { type: "double", text: String(o.doubleValue ?? "0") };
   if ("booleanValue" in o) return { type: "boolean", bool: !!o.booleanValue };
   if ("timestampValue" in o) return { type: "timestamp", text: String(o.timestampValue ?? "") };
-  if ("referenceValue" in o) return { type: "reference", text: String(o.referenceValue ?? "") };
+  if ("docRefValue" in o) return { type: "reference", text: String(o.docRefValue ?? "") };
+  if ("referenceValue" in o) return { type: "reference", text: String(o.referenceValue ?? "") };  // stored before 1.0
+  if ("fileRefValue" in o) return { type: "fileRef", text: String(o.fileRefValue ?? "") };
+  if ("userRefValue" in o) return { type: "userRef", text: String(o.userRefValue ?? "") };
   if ("geoPointValue" in o) {
     const g = o.geoPointValue as { latitude?: number; longitude?: number };
     return { type: "geopoint", lat: String(g?.latitude ?? 0), lng: String(g?.longitude ?? 0) };
@@ -86,7 +91,9 @@ export function serializeValue(ev: EditValue): unknown {
     case "double": return { doubleValue: Number(ev.text || "0") };
     case "boolean": return { booleanValue: !!ev.bool };
     case "timestamp": return { timestampValue: ev.text ?? "" };
-    case "reference": return { referenceValue: ev.text ?? "" };
+    case "reference": return { docRefValue: ev.text ?? "" };
+    case "fileRef": return { fileRefValue: ev.text ?? "" };
+    case "userRef": return { userRefValue: ev.text ?? "" };
     case "geopoint": return { geoPointValue: { latitude: Number(ev.lat || "0"), longitude: Number(ev.lng || "0") } };
     case "null": return { nullValue: null };
     case "array": return { arrayValue: { values: (ev.items ?? []).map(serializeValue) } };

@@ -16,7 +16,10 @@ export function formatValue(v: unknown): DisplayValue {
   if ("timestampValue" in o) return { text: String(o.timestampValue), type: "timestamp" };
   if ("nullValue" in o) return { text: "null", type: "null" };
   if ("bytesValue" in o) return { text: "<bytes>", type: "bytes" };
+  if ("docRefValue" in o) return { text: String(o.docRefValue), type: "reference" };
   if ("referenceValue" in o) return { text: String(o.referenceValue), type: "reference" };
+  if ("fileRefValue" in o) return { text: String(o.fileRefValue), type: "fileRef" };
+  if ("userRefValue" in o) return { text: String(o.userRefValue), type: "userRef" };
   if ("geoPointValue" in o) {
     const g = o.geoPointValue as { latitude?: number; longitude?: number };
     return { text: `[${g.latitude}, ${g.longitude}]`, type: "geopoint" };

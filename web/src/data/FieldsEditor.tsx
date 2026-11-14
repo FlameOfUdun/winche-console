@@ -57,7 +57,7 @@ function ValueInput({ value, onChange, onEnter }: {
       return (
         <TextInput
           size="xs" style={{ flex: 1, minWidth: 180 }} value={value.text ?? ""}
-          placeholder={value.type === "reference" ? "users/alice" : value.type === "timestamp" ? "2026-01-01T00:00:00Z" : "value"}
+          placeholder={value.type === "reference" ? "users/alice" : value.type === "fileRef" ? "scans/a.png" : value.type === "userRef" ? "uid" : value.type === "timestamp" ? "2026-01-01T00:00:00Z" : "value"}
           inputMode={value.type === "integer" || value.type === "double" ? "decimal" : undefined}
           onChange={(e) => onChange({ ...value, text: e.currentTarget.value })}
           onKeyDown={(e) => { if (e.key === "Enter") onEnter(); }} />

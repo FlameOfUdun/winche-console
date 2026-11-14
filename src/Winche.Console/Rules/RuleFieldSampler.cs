@@ -188,6 +188,8 @@ public sealed class RuleFieldSampler(DocumentDatabase db)
         StringValue => "string",
         BytesValue => "bytes",
         ReferenceValue => "path",
+        FileRefValue => "fileRef",
+        UserRefValue => "userRef",
         ArrayValue => "list",
         _ => "map",   // map, geopoint
     };
