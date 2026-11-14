@@ -29,6 +29,9 @@ public static class ConsoleOverviewEndpoints
             var role = ConsoleRolePolicy.Highest(http.User, options);
             var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("Winche.Console.Overview");
             var products = new List<Product>();
+            var project = sp.GetRequiredService<Project.ProjectSetup>().Current;
+            // With project setup, a product is on once started; without, as before.
+            bool On(string product, bool otherwise) => project.SetupEnabled ? project.IsStarted(product) : otherwise;
             var changes = new List<Change>();
 
             // Each part is best-effort: one failing source leaves its numbers out, not the page.
@@ -58,7 +61,7 @@ public static class ConsoleOverviewEndpoints
                 var versions = dt.RulesEditor is not null ? await Try("database rules", () => RuleVersions("database")) ?? [] : [];
                 if (versions.FirstOrDefault(v => v.IsActive) is { } active) stats.Add(new("rules", $"v{active.Version}"));
                 stats.Add(new("history", dt.History ? "on" : "off"));
-                products.Add(new("database", "Database", "/database", true, "Documents, live queries and rules", stats));
+                products.Add(new("database", "Database", "/database", On("database", true), "Documents, live queries and rules", stats));
                 changes.AddRange(versions.Take(5).Select(v => new Change(v.CreatedAtUtc, $"Database rules v{v.Version}{Note(v.Note)}", v.CreatedBy)));
             }
 
@@ -67,7 +70,7 @@ public static class ConsoleOverviewEndpoints
                 var stats = new List<Stat>();
                 var versions = st.RulesEditor is not null ? await Try("storage rules", () => RuleVersions("storage")) ?? [] : [];
                 if (versions.FirstOrDefault(v => v.IsActive) is { } active) stats.Add(new("rules", $"v{active.Version}"));
-                products.Add(new("storage", "Storage", "/storage", true, "Files, uploads and downloads", stats));
+                products.Add(new("storage", "Storage", "/storage", On("storage", true), "Files, uploads and downloads", stats));
                 changes.AddRange(versions.Take(5).Select(v => new Change(v.CreatedAtUtc, $"Storage rules v{v.Version}{Note(v.Note)}", v.CreatedBy)));
             }
 
@@ -84,7 +87,7 @@ public static class ConsoleOverviewEndpoints
                         + ao.IdentityProviders.Count;
                     stats.Add(new("sign-in methods", methods.ToString()));
                 }
-                products.Add(new("authentication", "Authentication", "/authentication", true, "Sign-in for your apps' users", stats));
+                products.Add(new("authentication", "Authentication", "/authentication", On("authentication", true), "Sign-in for your apps' users", stats));
             }
 
             if (ConsoleFunctionsEndpoints.Capability(sp, role) && sp.GetService<Winche.Functions.FunctionStore>() is { } fstore)
@@ -92,7 +95,7 @@ public static class ConsoleOverviewEndpoints
                 var deploys = await Try("functions", () => fstore.ListAsync(5, ct)) ?? [];
                 var live = deploys.FirstOrDefault();
                 var stats = live is null ? new List<Stat>() : [new("functions", live.Functions.Count.ToString()), new("version", $"v{live.Version}")];
-                products.Add(new("functions", "Functions", "/functions", live is not null, "Your TypeScript, run on this server", stats));
+                products.Add(new("functions", "Functions", "/functions", On("functions", live is not null), "Your TypeScript, run on this server", stats));
                 changes.AddRange(deploys.Select(d => new Change(d.At, $"Functions v{d.Version}{Note(d.Note)}", d.By)));
             }
 
@@ -102,7 +105,7 @@ public static class ConsoleOverviewEndpoints
                 var stats = new List<Stat> { new("hooks", hooks.Count.ToString()) };
                 if (sp.GetService<Winche.Webhooks.HookOutbox>() is { } outbox && await Try("deliveries", () => outbox.CountsAsync(ct)) is { } counts)
                     stats.Add(new("failing", counts.Values.Sum(c => c.GetValueOrDefault("failed")).ToString()));
-                products.Add(new("hooks", "Hooks", "/hooks", hooks.Count > 0, "Webhooks and ready-made actions", stats));
+                products.Add(new("hooks", "Hooks", "/hooks", On("hooks", hooks.Count > 0), "Webhooks and ready-made actions", stats));
             }
 
             if (role >= ConsoleRole.Admin && sp.GetService<SettingsStore>() is { } store
@@ -114,7 +117,7 @@ public static class ConsoleOverviewEndpoints
 
             return Results.Json(new
             {
-                project = new { id = options.ProjectId, name = options.ProjectName ?? options.ProjectId },
+                project = new { id = project.Id, name = project.Name, created = project.Created, setup = project.SetupEnabled },
                 products = products.Select(p => new
                 {
                     id = p.Id, name = p.Name, path = p.Path, on = p.On, about = p.About,

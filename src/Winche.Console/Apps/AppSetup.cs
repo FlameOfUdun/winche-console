@@ -27,11 +27,14 @@ public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IR
     {
         var isService = services.GetService<IServiceProviderIsService>();
         bool Has(Type t) => isService?.IsService(t) == true;
+        // With project setup, only the products that have been started.
+        var project = services.GetService<Project.ProjectSetup>()?.Current;
+        bool Started(string product) => project is null || !project.SetupEnabled || project.IsStarted(product);
         var list = new List<AppSetupService>();
-        if (Has(typeof(Winche.Database.Runtime.DocumentDatabase))) list.Add(new("database", "/documents/v1", "/documents/v1/ws"));
-        if (Has(typeof(Winche.Storage.Services.FileStorage))) list.Add(new("storage", "/files/v1"));
-        if (Has(typeof(Winche.Auth.IWincheAuth))) list.Add(new("auth", "/auth/v1"));
-        if (Has(typeof(Winche.Functions.WincheFunctions))) list.Add(new("functions", "/functions/v1"));
+        if (Has(typeof(Winche.Database.Runtime.DocumentDatabase)) && Started("database")) list.Add(new("database", "/documents/v1", "/documents/v1/ws"));
+        if (Has(typeof(Winche.Storage.Services.FileStorage)) && Started("storage")) list.Add(new("storage", "/files/v1"));
+        if (Has(typeof(Winche.Auth.IWincheAuth)) && Started("authentication")) list.Add(new("auth", "/auth/v1"));
+        if (Has(typeof(Winche.Functions.WincheFunctions)) && Started("functions")) list.Add(new("functions", "/functions/v1"));
         var providers = services.GetService<Winche.Auth.WincheAuthOptions>()?.IdentityProviders
             .Select(p => new AppSetupProvider(p.Name, p.Kind, p.DisplayName ?? p.Name, [.. p.Audiences]))
             .ToList() ?? [];
@@ -114,7 +117,7 @@ public static class AppSetupEndpoints
     public static IEndpointConventionBuilder MapWincheAppSetup(this IEndpointRouteBuilder endpoints) =>
         endpoints.MapGet("/.well-known/winche", (HttpContext http) =>
         {
-            var options = http.RequestServices.GetService<Options.ConsoleOptions>();
-            return Results.Json(AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), options?.ProjectId ?? "winche", options?.ProjectName));
+            var project = http.RequestServices.GetService<Project.ProjectSetup>()?.Current;
+            return Results.Json(AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), project?.Id ?? "winche", project?.Name));
         }).AllowAnonymous();
 }

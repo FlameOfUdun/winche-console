@@ -15,7 +15,9 @@ public static class AuthConfigEndpoints
     public static IEndpointRouteBuilder MapAuthConfigEndpoint(this IEndpointRouteBuilder app, ConsoleOptions options)
     {
         // The project's name, so the sign-in page can say which console this is.
-        object Project() => new { id = options.ProjectId, name = options.ProjectName ?? options.ProjectId };
+        object Project() => app.ServiceProvider.GetService<Project.ProjectSetup>()?.Current is { } p
+            ? new { id = p.Id, name = p.Name }
+            : new { id = options.ProjectId, name = options.ProjectName ?? options.ProjectId };
         app.MapGet("/api/auth/config", (HttpContext http) =>
         {
             var kc = http.RequestServices.GetService<KeycloakRuntime>();

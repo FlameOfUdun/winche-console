@@ -107,6 +107,8 @@ else
     {
         o.ConnectionString = authConn;   // no seed: tests use /setup
         o.AddAuthenticationTab();
+        // Firebase-like setup (Sample:ProjectSetup): create the project, start products one by one.
+        if (string.Equals(builder.Configuration["Sample:ProjectSetup"], "true", StringComparison.OrdinalIgnoreCase)) o.UseProjectSetup();
         // Tests turn this on to check it; the rest change settings without enrolling an authenticator.
         o.RequireTwoFactorForSettings = string.Equals(builder.Configuration["Sample:RequireTwoFactor"], "true", StringComparison.OrdinalIgnoreCase);
 
@@ -159,6 +161,7 @@ var app = builder.Build();
 
 await app.InitializeWincheDatabaseAsync();
 await app.InitializeWincheStorageAsync();
+Winche.Console.Project.ProjectEndpoints.UseWincheProjectGate(app);   // products not started refuse their APIs (with UseProjectSetup)
 
 if (app.Services.GetService<IServiceProviderIsService>()?.IsService(typeof(Winche.Auth.IWincheAuth)) == true)
     app.MapWincheAuth();   // the app's sign-in API (/auth/v1)

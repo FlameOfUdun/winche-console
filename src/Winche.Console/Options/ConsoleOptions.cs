@@ -34,6 +34,21 @@ public sealed class ConsoleOptions
     /// <summary>The project's name for people, if different from <see cref="ProjectId"/>.</summary>
     public string? ProjectName { get; set; }
 
+    /// <summary>
+    /// Firebase-like setup, for a server run on its own (Winche Server): after the first admin, the console asks to
+    /// create the project (name, id) and which products to start; every product is off until started, and its public
+    /// API refuses requests until then (<c>app.UseWincheProjectGate()</c>). Needs <c>AddWincheConfig</c>. A console that
+    /// was already in use keeps every product on. <see cref="ProjectId"/> and <see cref="ProjectName"/> become the
+    /// suggestions the setup starts from.
+    /// </summary>
+    public ConsoleOptions UseProjectSetup()
+    {
+        ProjectSetup = true;
+        return this;
+    }
+
+    internal bool ProjectSetup { get; private set; }
+
     /// <summary>Optional first-admin seed; applied on startup only when no users exist.</summary>
     public string? SeedAdminEmail { get; set; }
     public string? SeedAdminPassword { get; set; }

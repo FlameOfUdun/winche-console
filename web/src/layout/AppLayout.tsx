@@ -17,6 +17,7 @@ import { TwoFactorSetup } from "../auth/TwoFactorSetup";
 import { useTabsManifest, tabIcon } from "../tabs/useTabsManifest";
 import { builtinNav } from "./nav";
 import logoUrl from "../assets/winche-logo.png";
+import { StatusPill } from "../components/PageHeader";
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -29,6 +30,14 @@ export function AppLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const overview = useQuery({ queryKey: ["overview"], queryFn: api.overview, staleTime: 60_000 });
   const project = overview.data?.project;
+  const projectState = useQuery({ queryKey: ["project"], queryFn: api.project, staleTime: 30_000 });
+  // With project setup: products not started yet carry an "Off" mark.
+  const off = (to: string) => {
+    const p = projectState.data;
+    if (!p?.setup) return false;
+    const id = to.slice(1);
+    return !p.created || p.products.some((x) => x.id === id && !x.started);
+  };
   const iconFor = { database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers, hooks: IconWebhook, functions: IconLambda };
   const builtins = builtinNav(state, user).map((n) => ({ to: n.to, label: n.label, icon: iconFor[n.icon], group: n.group }));
   const manifest = useTabsManifest();
@@ -46,12 +55,13 @@ export function AppLayout() {
     window.location.assign(document.baseURI);
   };
 
-  const link = (to: string, label: string, Icon: React.ElementType) => {
+  const link = (to: string, label: string, Icon: React.ElementType, dimmed = false) => {
     const active = pathname === to || pathname.startsWith(to + "/");
     const item = (
       <NavLink component={Link} to={to} active={active}
         aria-current={active ? "page" : undefined}
         label={collapsed ? undefined : label}
+        rightSection={!collapsed && dimmed ? <StatusPill tone="off">Off</StatusPill> : undefined}
         aria-label={collapsed ? label : undefined}
         leftSection={<Icon size={18} stroke={1.8} />}
         styles={{
@@ -105,7 +115,7 @@ export function AppLayout() {
               {collapsed
                 ? <Box my={8} style={{ borderTop: `1px solid ${surface.subtle}` }} />
                 : <Text size="11px" fw={600} c={surface.faint} px={10} pt={16} pb={6} style={{ letterSpacing: "0.06em", textTransform: "uppercase" }}>{g.label}</Text>}
-              {g.items.map((n) => link(n.to, n.label, n.icon))}
+              {g.items.map((n) => link(n.to, n.label, n.icon, n.group === "build" && off(n.to)))}
             </Fragment>
           ))}
         </Stack>

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -15,7 +16,8 @@ internal static class ConsoleAppsEndpoints
         // GET api/apps?platforms=android,ios → the setup, lib/winche_options.dart for those platforms, and main().
         app.MapGet("/api/apps", (HttpContext http, string? platforms) =>
         {
-            var setup = AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), options.ProjectId, options.ProjectName);
+            var project = http.RequestServices.GetRequiredService<Project.ProjectSetup>().Current;
+            var setup = AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), project.Id, project.Name);
             var chosen = string.IsNullOrWhiteSpace(platforms) ? null : platforms.Split(',', StringSplitOptions.RemoveEmptyEntries);
             return Results.Json(new
             {

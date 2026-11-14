@@ -1,5 +1,5 @@
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconApps, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconApps, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPlus, IconRocket, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -19,6 +19,17 @@ export function OverviewPage() {
   if (overview.isLoading) return <Loader size="sm" />;
   if (overview.isError || !overview.data) return <Alert color="red">Couldn't load the overview: {errorMessage(overview.error)}</Alert>;
   const { project, products, changes } = overview.data;
+
+  if (project.setup && !project.created) {
+    return (
+      <Stack gap="xl">
+        <PageHeader eyebrow="Project overview" title="Welcome to Winche" />
+        <EmptyState icon={IconRocket} title="Create your project"
+          description="Name it, then start the products you need: database, storage, sign-in, functions and hooks. Everything stays off until you start it."
+          action={<Button component={Link} to="/create-project" size="md">Create your project</Button>} />
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="xl">
@@ -43,9 +54,9 @@ export function OverviewPage() {
                     <Text fw={600}>{p.name}</Text>
                     <Text size="sm" c={surface.faint} lineClamp={2}>{p.about}</Text>
                   </div>
-                  <StatusPill tone={p.on ? "on" : "off"}>{p.on ? "On" : "Not set up"}</StatusPill>
+                  <StatusPill tone={p.on ? "on" : "off"}>{p.on ? "On" : project.setup ? "Not started" : "Not set up"}</StatusPill>
                 </Group>
-                {p.stats.length > 0 && (
+                {p.stats.length > 0 && (p.on || !project.setup) && (
                   <SimpleGrid cols={3} spacing="xs">
                     {p.stats.map((s) => (
                       <div key={s.label}>
@@ -55,7 +66,7 @@ export function OverviewPage() {
                     ))}
                   </SimpleGrid>
                 )}
-                <Anchor component={Link} to={p.path} fw={600} size="sm" mt="auto">Open {p.name} →</Anchor>
+                <Anchor component={Link} to={p.path} fw={600} size="sm" mt="auto">{p.on || !project.setup ? `Open ${p.name} →` : "Get started →"}</Anchor>
               </Paper>
             );
           })}

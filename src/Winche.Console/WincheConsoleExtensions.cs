@@ -105,6 +105,12 @@ public static class WincheConsoleExtensions
 
         // Console API tokens (winche login in Identity mode, and CI tokens), in either mode.
         services.AddSingleton<ConsoleTokenStore>();
+        services.AddSingleton<Project.ProjectSetup>();
+        if (options.ProjectSetup)
+        {
+            Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectSettings.Area, "Project", new Project.ProjectSettings(), s => s.Problems());
+            services.AddHostedService<Project.ProjectStartupService>();
+        }
         services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ConsoleTokenHandler>(ConsoleTokenHandler.Scheme, null);
 
         if (options.Provider == ConsoleAuthProvider.Keycloak)
@@ -209,6 +215,7 @@ public static class WincheConsoleExtensions
         group.MapConsoleFeedsEndpoints();
         group.MapConsoleTokenEndpoints(options);
         group.MapConsoleOverviewEndpoints(options);
+        Project.ProjectEndpoints.MapConsoleProjectEndpoints(group);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 

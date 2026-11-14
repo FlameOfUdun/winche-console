@@ -130,14 +130,31 @@ function Command({ value }: { value: string }) {
   );
 }
 
-/**
- * Adding an app: pick its SDK (Flutter today; the others are greyed out until they exist), then the steps to connect it:
- * packages, the options file (by the CLI, or downloaded), main().
- */
-function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
+/** Picks the SDK (Flutter today; the others greyed out until they exist). */
+export function SdkPicker({ onPick }: { onPick: (sdk: string) => void }) {
+  return (
+    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
+      {SDKS.map((x) => {
+        const Icon = x.icon;
+        const tile = (
+          <UnstyledButton key={x.id} disabled={!x.ready} onClick={() => onPick(x.id)}
+            aria-label={x.ready ? x.label : `${x.label}: not available yet`}
+            style={{ border: `1px solid ${surface.border}`, borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column",
+              alignItems: "center", gap: 8, opacity: x.ready ? 1 : 0.45, cursor: x.ready ? "pointer" : "not-allowed",
+              background: x.ready ? surface.card : surface.page }}>
+            <Icon size={26} stroke={1.6} color={x.ready ? "var(--mantine-color-winche-6)" : surface.faint} />
+            <Text size="sm" fw={600}>{x.label}</Text>
+          </UnstyledButton>
+        );
+        return x.ready ? tile : <Tooltip key={x.id} label="Not available yet" withArrow>{tile}</Tooltip>;
+      })}
+    </SimpleGrid>
+  );
+}
+
+/** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main(). */
+export function FlutterSteps({ baseUrl, snippet }: { baseUrl: string; snippet: string }) {
   const [busy, setBusy] = useState(false);
-  const [sdk, setSdk] = useState<string | null>(null);
-  const close = () => { setSdk(null); onClose(); };
   const download = async () => {
     setBusy(true);
     try {
@@ -153,43 +170,39 @@ function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; 
     }
   };
   return (
+    <Stack gap="xl">
+      <Step n={1} title="Add the packages">
+        <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions" />
+      </Step>
+      <Step n={2} title="Add lib/winche_options.dart">
+        <Command value={`winche configure --url ${baseUrl}`} />
+        <Group gap="xs">
+          <Text size="sm" c={surface.faint}>or</Text>
+          <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
+        </Group>
+      </Step>
+      <Step n={3} title="Start Winche in main()">
+        <Command value={snippet} />
+      </Step>
+    </Stack>
+  );
+}
+
+/** Adding an app: pick its SDK, then the steps to connect it. */
+function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
+  const [sdk, setSdk] = useState<string | null>(null);
+  const close = () => { setSdk(null); onClose(); };
+  return (
     <Modal opened={opened} onClose={close} size="lg" radius="lg"
       title={<Text fw={700} fz={18}>{sdk ? "Add a Flutter app" : "Add an app"}</Text>}>
       {!sdk ? (
         <Stack gap="md">
           <Text size="sm" c={surface.muted}>What's your app built with?</Text>
-          <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-            {SDKS.map((x) => {
-              const Icon = x.icon;
-              const tile = (
-                <UnstyledButton key={x.id} disabled={!x.ready} onClick={() => setSdk(x.id)}
-                  aria-label={x.ready ? x.label : `${x.label}: not available yet`}
-                  style={{ border: `1px solid ${surface.border}`, borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column",
-                    alignItems: "center", gap: 8, opacity: x.ready ? 1 : 0.45, cursor: x.ready ? "pointer" : "not-allowed",
-                    background: x.ready ? surface.card : surface.page }}>
-                  <Icon size={26} stroke={1.6} color={x.ready ? "var(--mantine-color-winche-6)" : surface.faint} />
-                  <Text size="sm" fw={600}>{x.label}</Text>
-                </UnstyledButton>
-              );
-              return x.ready ? tile : <Tooltip key={x.id} label="Not available yet" withArrow>{tile}</Tooltip>;
-            })}
-          </SimpleGrid>
+          <SdkPicker onPick={setSdk} />
         </Stack>
       ) : (
         <Stack gap="xl" pt="xs">
-          <Step n={1} title="Add the packages">
-            <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions" />
-          </Step>
-          <Step n={2} title="Add lib/winche_options.dart">
-            <Command value={`winche configure --url ${baseUrl}`} />
-            <Group gap="xs">
-              <Text size="sm" c={surface.faint}>or</Text>
-              <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
-            </Group>
-          </Step>
-          <Step n={3} title="Start Winche in main()">
-            <Command value={snippet} />
-          </Step>
+          <FlutterSteps baseUrl={baseUrl} snippet={snippet} />
           <Group justify="space-between">
             <Button variant="subtle" color="gray" onClick={() => setSdk(null)}>← Back</Button>
             <Button onClick={close}>Done</Button>

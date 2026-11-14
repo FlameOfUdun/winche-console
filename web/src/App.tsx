@@ -18,6 +18,8 @@ import { CliLoginPage } from "./pages/CliLoginPage";
 import { TabPage } from "./tabs/TabPage";
 import { useTabsManifest } from "./tabs/useTabsManifest";
 import { homePath } from "./layout/nav";
+import { Onboarding } from "./pages/onboarding/Onboarding";
+import { ProductGate } from "./pages/onboarding/ProductGate";
 
 export function App() {
   return (
@@ -40,21 +42,22 @@ function GatedApp() {
     <AuthGate>
       <Routes>
         <Route path="cli-login" element={<CliLoginPage />} />
+        <Route path="create-project" element={<Onboarding mode="create" />} />
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
-          <Route path="database" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="database/rules" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="storage" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="storage/rules" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="database/logs" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="database/history" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="storage/logs" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="database/settings" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="storage/settings" element={caps?.storage ? <StorageBrowserPage /> : <Navigate to={home} replace />} />
-          <Route path="authentication" element={caps?.authentication ? <AuthenticationPage /> : <Navigate to={home} replace />} />
+          <Route path="database" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="database/rules" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="storage" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="storage/rules" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="database/logs" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="database/history" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="storage/logs" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="database/settings" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="storage/settings" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="authentication" element={caps?.authentication ? <ProductGate product="authentication"><AuthenticationPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
-          <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
-          <Route path="functions" element={caps?.functions ? <FunctionsPage /> : <Navigate to={home} replace />} />
+          <Route path="hooks" element={caps?.hooks ? <ProductGate product="hooks"><HooksPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="functions" element={caps?.functions ? <ProductGate product="functions"><FunctionsPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />
           <Route path="settings/:tab" element={<ProjectSettingsPage />} />
