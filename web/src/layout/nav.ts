@@ -14,7 +14,7 @@ export function builtinNav(state: AuthState | null, user: SessionUser | null): B
   if (c?.hooks) out.push({ to: "/hooks", label: "Hooks", icon: "hooks" });
   if (c?.logs?.app) out.push({ to: "/logs", label: "Logs", icon: "logs" });
   if (state) out.push({ to: "/apps", label: "Apps", icon: "apps" });
-  if (c?.manageUsers && user?.role === "Admin") out.push({ to: "/access", label: "Access", icon: "shield" });
+  if (user?.role === "Admin") out.push({ to: "/access", label: "Access", icon: "shield" });   // console users (own accounts), CI tokens
   return out;
 }
 

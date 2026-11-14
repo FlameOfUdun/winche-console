@@ -54,13 +54,13 @@ internal static class ConsoleAuth
 
         services.AddAuthorizationBuilder()
             .AddPolicy(ConsoleRoles.ViewerPolicy, p => p
-                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme)
+                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(ConsoleRoles.Viewer, ConsoleRoles.Member, ConsoleRoles.Admin))
             .AddPolicy(ConsoleRoles.MemberPolicy, p => p
-                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme)
+                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(ConsoleRoles.Member, ConsoleRoles.Admin))
             .AddPolicy(ConsoleRoles.AdminPolicy, p => p
-                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme)
+                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(ConsoleRoles.Admin));
 
         return services;

@@ -103,6 +103,10 @@ public static class WincheConsoleExtensions
             services.AddHostedService<ConsoleLogWriter>();
         }
 
+        // Console API tokens (winche login in Identity mode, and CI tokens), in either mode.
+        services.AddSingleton<ConsoleTokenStore>();
+        services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ConsoleTokenHandler>(ConsoleTokenHandler.Scheme, null);
+
         if (options.Provider == ConsoleAuthProvider.Keycloak)
         {
             services.AddConsoleKeycloak(options);
@@ -203,6 +207,7 @@ public static class WincheConsoleExtensions
         if (isService?.IsService(typeof(Winche.Webhooks.HookCatalog)) == true) group.MapConsoleHooksEndpoints();
         // Background deliveries (hooks inside the app) of every package that has them.
         group.MapConsoleFeedsEndpoints();
+        group.MapConsoleTokenEndpoints(options);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 

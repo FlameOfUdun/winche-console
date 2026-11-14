@@ -81,11 +81,11 @@ internal static class ConsoleKeycloak
         // The SAME three policy names as Identity mode, now bound to the console scheme and the host-mapped
         // Keycloak role names. Endpoints that reference ConsoleRoles.*Policy are untouched.
         services.AddAuthorizationBuilder()
-            .AddPolicy(ConsoleRoles.ViewerPolicy, p => p.AddAuthenticationSchemes(scheme)
+            .AddPolicy(ConsoleRoles.ViewerPolicy, p => p.AddAuthenticationSchemes(scheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(k.ViewerRole, k.MemberRole, k.AdminRole))
-            .AddPolicy(ConsoleRoles.MemberPolicy, p => p.AddAuthenticationSchemes(scheme)
+            .AddPolicy(ConsoleRoles.MemberPolicy, p => p.AddAuthenticationSchemes(scheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(k.MemberRole, k.AdminRole))
-            .AddPolicy(ConsoleRoles.AdminPolicy, p => p.AddAuthenticationSchemes(scheme)
+            .AddPolicy(ConsoleRoles.AdminPolicy, p => p.AddAuthenticationSchemes(scheme, ConsoleTokenHandler.Scheme)
                 .RequireRole(k.AdminRole))
             .AddPolicy(AuthenticatedPolicy, p => p.AddAuthenticationSchemes(scheme)
                 .RequireAuthenticatedUser());

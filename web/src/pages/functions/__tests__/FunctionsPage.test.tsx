@@ -6,13 +6,13 @@ import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
 import { FunctionsPage } from "../FunctionsPage";
 import { api } from "../../../api/client";
-import { STARTER, type FunctionsPageData, type FunctionVersion } from "../../../api/functions";
+import type { FunctionsPageData, FunctionVersion } from "../../../api/functions";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return {
     ...actual,
-    api: { ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), functionVersion: vi.fn(), deployFunctions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(), newDeployKey: vi.fn() },
+    api: { ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn() },
   };
 });
 
@@ -25,7 +25,7 @@ const v1: FunctionVersion = {
   ],
 };
 const page = (over: Partial<FunctionsPageData> = {}): FunctionsPageData => ({
-  current: v1, files: { "index.ts": "export const hello = 1;" }, runtimeProblem: null, deployKey: null, secretsAvailable: true, ...over,
+  current: v1, files: ["index.ts"], runtimeProblem: null, ...over,
 });
 
 function renderPage() {
@@ -44,26 +44,13 @@ beforeEach(() => {
   mock(api.functionVersions).mockResolvedValue({ versions: [{ ...v1, version: 2, note: "Second" }, v1] });
 });
 
-test("a first project starts from the example, and deploying needs a note", async () => {
-  mock(api.functions).mockResolvedValueOnce(page({ current: null, files: {} })).mockResolvedValue(page({ files: STARTER }));
-  mock(api.deployFunctions).mockResolvedValue({ ...v1, version: 1 });
+test("the page shows what's live and how to deploy from the CLI; there's no editor", async () => {
+  mock(api.functions).mockResolvedValue(page({ current: null, files: [] }));
   renderPage();
   expect(await screen.findByText("Nothing deployed yet.")).toBeInTheDocument();
-  await userEvent.type(screen.getByLabelText("What changed"), "First functions");
-  await userEvent.click(screen.getByRole("button", { name: "Deploy" }));
-  await waitFor(() => expect(mock(api.deployFunctions)).toHaveBeenCalledWith(STARTER, "First functions"));
-  expect(await screen.findByText("Version 1 is live: hello, onVisit.")).toBeInTheDocument();
-});
-
-test("files can be added, and build problems are shown", async () => {
-  mock(api.deployFunctions).mockRejectedValue(new Error(JSON.stringify({ error: { message: "The code doesn't build.", errors: ["index.ts:1: Expected ';'"] } })));
-  renderPage();
-  await userEvent.type(await screen.findByLabelText("New file"), "lib/greet.ts");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
-  await userEvent.type(screen.getByLabelText("What changed"), "Split");
-  await userEvent.click(screen.getByRole("button", { name: "Deploy" }));
-  expect(await screen.findByText(/Expected ';'/)).toBeInTheDocument();
-  expect(mock(api.deployFunctions).mock.calls[0][0]).toEqual({ "index.ts": "export const hello = 1;", "lib/greet.ts": "" });
+  expect(screen.getByText(/winche functions deploy/)).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: /Code of/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: "VS Code" })).not.toBeInTheDocument();
 });
 
 test("a callable runs from the page with its result and logs", async () => {
@@ -85,9 +72,8 @@ test("a callable runs from the page with its result and logs", async () => {
   expect(screen.queryAllByTestId("function")[1]).not.toHaveTextContent("Run");   // only callables run from here
 });
 
-test("versions: roll back an older one; the deploy key is shown once", async () => {
+test("versions: roll back an older one", async () => {
   mock(api.rollBackFunctions).mockResolvedValue({ ...v1, version: 3 });
-  mock(api.newDeployKey).mockResolvedValue({ key: "wfd_secret" });
   vi.spyOn(window, "confirm").mockReturnValue(true);
   renderPage();
   await userEvent.click(await screen.findByRole("tab", { name: "Versions" }));
@@ -95,7 +81,4 @@ test("versions: roll back an older one; the deploy key is shown once", async () 
   expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
   await userEvent.click(within(rows[1]).getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, null));
-  await userEvent.click(screen.getByRole("tab", { name: "VS Code" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Make a deploy key" }));
-  expect(await screen.findByTestId("deploy-key")).toHaveTextContent("wfd_secret");
 });

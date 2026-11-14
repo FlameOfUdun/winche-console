@@ -76,12 +76,15 @@ public class ConsoleFunctionsTests(PostgresFixture fx) : IAsyncLifetime
         var versions = await Json(await client.GetAsync("/_console/api/functions/versions"));
         Assert.Equal([3, 2, 1], versions.GetProperty("versions").EnumerateArray().Select(v => v.GetProperty("version").GetInt32()));
 
-        var key = (await Json(await client.PostAsync("/_console/api/functions/deploy-key", null))).GetProperty("key").GetString()!;
-        using var cli = app.CreateClient();
-        cli.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
-        var deployed = await Json(await cli.PostAsJsonAsync("/functions/v1/deploy", new { files = new Dictionary<string, string> { ["index.ts"] = Code("Hey") }, note = "From VS Code" }));
-        Assert.Equal(4, deployed.GetProperty("version").GetInt32());
-        cli.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "wrong");
-        Assert.Equal(HttpStatusCode.Unauthorized, (await cli.PostAsJsonAsync("/functions/v1/deploy", new { files = new Dictionary<string, string>(), note = "x" })).StatusCode);
+        // CI: a token with the functions scope deploys (named in the versions); it can't run functions or do anything else.
+        var made = await Json(await client.PostAsJsonAsync("/_console/api/tokens", new { name = "gitlab-main", scopes = new[] { "functions" }, days = 30 }));
+        using var ci = app.CreateClient();
+        ci.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", made.GetProperty("secret").GetString());
+        var deployed = await Json(await ci.PostAsJsonAsync("/_console/api/functions/deploy", new { files = new Dictionary<string, string> { ["index.ts"] = Code("Hey") }, note = "From CI" }));
+        Assert.Equal((4, "gitlab-main (CI token by admin@example.com)"), (deployed.GetProperty("version").GetInt32(), deployed.GetProperty("by").GetString()));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await ci.PostAsJsonAsync("/_console/api/functions/run", new { name = "hello" })).StatusCode);
+        // Deploy keys are gone (nothing answers there: the SPA's fallback only serves GET).
+        Assert.Contains((await client.PostAsync("/_console/api/functions/deploy-key", null)).StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
+        Assert.Contains((await ci.PostAsJsonAsync("/functions/v1/deploy", new { files = new Dictionary<string, string>() })).StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
     }
 }

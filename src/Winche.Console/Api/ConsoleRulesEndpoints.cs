@@ -80,7 +80,7 @@ public static class ConsoleRulesEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapConsoleRulesEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/rules");
+        var group = app.MapGroup("/api/rules").WithMetadata(new ConsoleCiScope(ConsoleCiScope.Rules));   // CI tokens may deploy rules
 
         group.MapGet("/subsystems", async (
             [FromServices] IEnumerable<RuleSubsystemRegistration> registrations,

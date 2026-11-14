@@ -14,6 +14,7 @@ import { UsersPage } from "./pages/UsersPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
+import { CliLoginPage } from "./pages/CliLoginPage";
 import { TabPage } from "./tabs/TabPage";
 import { useTabsManifest } from "./tabs/useTabsManifest";
 import { homePath } from "./layout/nav";
@@ -38,6 +39,7 @@ function GatedApp() {
   return (
     <AuthGate>
       <Routes>
+        <Route path="cli-login" element={<CliLoginPage />} />
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
           <Route path="database" element={caps?.database ? <DataBrowserPage /> : <Navigate to={home} replace />} />
@@ -54,7 +56,7 @@ function GatedApp() {
           <Route path="hooks" element={caps?.hooks ? <HooksPage /> : <Navigate to={home} replace />} />
           <Route path="functions" element={caps?.functions ? <FunctionsPage /> : <Navigate to={home} replace />} />
           <Route path="apps" element={<AppsPage />} />
-          <Route path="access" element={caps?.manageUsers && user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
+          <Route path="access" element={user?.role === "Admin" ? <UsersPage /> : <Navigate to={home} replace />} />
           <Route path=":tabId" element={<TabPage />} />
         </Route>
       </Routes>

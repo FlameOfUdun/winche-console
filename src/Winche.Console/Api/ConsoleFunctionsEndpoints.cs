@@ -13,8 +13,10 @@ using Winche.Functions;
 namespace Winche.Console.Api;
 
 /// <summary>
-/// The Functions page: edit the code, deploy it with a note (two-step sign-in, since it runs with the server's
-/// rights), see versions and roll back, run a callable, and make the deploy key for VS Code.
+/// The Functions page and <c>winche functions deploy</c>: what's deployed, versions and rollback, running a callable.
+/// The code lives in the app's repository; the CLI deploys it here (as the signed-in admin, or a CI token with the
+/// <c>functions</c> scope), with a note. Deploying needs two-step sign-in where settings do, since it runs with the
+/// server's rights.
 /// </summary>
 public static class ConsoleFunctionsEndpoints
 {
@@ -43,6 +45,7 @@ public static class ConsoleFunctionsEndpoints
     public static IEndpointRouteBuilder MapConsoleFunctionsEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/functions").RequireAuthorization(ConsoleRoles.AdminPolicy);
+        var ci = new ConsoleCiScope(ConsoleCiScope.Functions);   // what a CI token may call
 
         group.MapGet("", async (WincheFunctions functions, FunctionsOptions options, IServiceProvider sp, CancellationToken ct) =>
         {
@@ -50,24 +53,17 @@ public static class ConsoleFunctionsEndpoints
             string? runtimeProblem = null;
             try { DenoRuntime.Locate(options); }
             catch (FunctionsUnavailableException ex) { runtimeProblem = ex.Message; }
-            var secrets = sp.GetService<SecretStore>();
-            var key = secrets is null ? null : await secrets.InfoAsync(FunctionsEndpoints.DeployKeySecret, ct);
             var current = functions.Current;
             return Results.Json(new
             {
                 current = current is null ? null : Version(current),
-                files = current?.Files ?? new Dictionary<string, string>(),
+                files = current?.Files.Keys.Order(StringComparer.Ordinal) ?? Enumerable.Empty<string>(),   // names only: the code is in the repository
                 runtimeProblem,
-                deployKey = key is null ? null : new { setAt = key.SetAt, setBy = key.SetBy },
-                secretsAvailable = secrets?.Available ?? false,
             });
-        });
+        }).WithMetadata(ci);
 
         group.MapGet("/versions", async (FunctionStore store, CancellationToken ct) =>
-            Results.Json(new { versions = (await store.ListAsync(50, ct)).Select(Version) }));
-
-        group.MapGet("/versions/{version:int}", async (int version, FunctionStore store, CancellationToken ct) =>
-            await store.GetAsync(version, ct) is { } d ? Results.Json(new { version = Version(d), files = d.Files }) : Results.NotFound());
+            Results.Json(new { versions = (await store.ListAsync(50, ct)).Select(Version) })).WithMetadata(ci);
 
         group.MapPost("/deploy", async (DeployRequest body, HttpContext http, WincheFunctions functions, CancellationToken ct) =>
         {
@@ -76,7 +72,7 @@ public static class ConsoleFunctionsEndpoints
             try { return Results.Json(Version(await functions.DeployAsync(body.Files ?? [], body.Note.Trim(), Who(http.User), ct))); }
             catch (FunctionDeployException ex) { return Problem(ex.Message, ex.Problems); }
             catch (FunctionsUnavailableException ex) { return Problem(ex.Message); }
-        });
+        }).WithMetadata(ci);
 
         group.MapPost("/versions/{version:int}/rollback", async (int version, NoteRequest body, HttpContext http, WincheFunctions functions, CancellationToken ct) =>
         {
@@ -84,7 +80,7 @@ public static class ConsoleFunctionsEndpoints
             try { return Results.Json(Version(await functions.RollBackAsync(version, string.IsNullOrWhiteSpace(body.Note) ? null : body.Note.Trim(), Who(http.User), ct))); }
             catch (FunctionDeployException ex) { return Problem(ex.Message, ex.Problems); }
             catch (FunctionsUnavailableException ex) { return Problem(ex.Message); }
-        });
+        }).WithMetadata(ci);
 
         // Runs a callable now, as a signed-out caller or as a given user id, showing its result and what it logged.
         group.MapPost("/run", async (RunRequest body, WincheFunctions functions, CancellationToken ct) =>
@@ -99,23 +95,6 @@ public static class ConsoleFunctionsEndpoints
                 ok = r.Ok, result = r.Result, error = r.Ok ? null : new { code = r.ErrorCode, message = r.ErrorMessage }, durationMs = r.DurationMs,
                 logs = r.Logs.Select(l => new { level = l.Level, message = l.Message, at = l.At }),
             });
-        });
-
-        // The key VS Code (winche functions deploy) uses; shown once.
-        group.MapPost("/deploy-key", async (HttpContext http, IServiceProvider sp, CancellationToken ct) =>
-        {
-            if (await ConsoleAuthSettingsEndpoints.RequireTwoFactorAsync(http) is { } refused) return refused;
-            if (sp.GetService<SecretStore>() is not { Available: true } secrets) return Problem("Keys need AddWincheConfig(…) with a master key.");
-            var key = FunctionsEndpoints.NewDeployKey();
-            await secrets.SetAsync(FunctionsEndpoints.DeployKeySecret, key, Who(http.User), ct);
-            return Results.Json(new { key });
-        });
-
-        group.MapDelete("/deploy-key", async (HttpContext http, IServiceProvider sp, CancellationToken ct) =>
-        {
-            if (await ConsoleAuthSettingsEndpoints.RequireTwoFactorAsync(http) is { } refused) return refused;
-            if (sp.GetService<SecretStore>() is { } secrets) await secrets.DeleteAsync(FunctionsEndpoints.DeployKeySecret, ct);
-            return Results.NoContent();
         });
 
         return app;

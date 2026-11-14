@@ -3,32 +3,37 @@ import {
   ActionIcon, Badge, Box, Button, CopyButton, Group, Menu, Modal, PasswordInput, Select, Stack, Switch,
   Table, Tabs, Text, TextInput, Tooltip,
 } from "@mantine/core";
-import { IconCheck, IconCopy, IconDots, IconMail, IconPlus, IconUsers } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconDots, IconKey, IconMail, IconPlus, IconUsers } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ConsoleInvite, ConsoleRole, ConsoleUserItem } from "../api/types";
 import { useSession } from "../auth/session";
 import { ConfirmModal } from "../components/ConfirmModal";
 import classes from "./UsersPage.module.css";
+import { CiTokensTab } from "./access/CiTokensTab";
 
 const ROLES: ConsoleRole[] = ["Admin", "Member", "Viewer"];
 
 export function UsersPage() {
+  // Keycloak consoles manage their users in Keycloak: only CI tokens here.
+  const manageUsers = !!useSession().state?.capabilities?.manageUsers;
   return (
     <Stack gap="sm" h="calc(100vh - 4rem)">
       <Tabs
-        defaultValue="users"
+        defaultValue={manageUsers ? "users" : "tokens"}
         keepMounted={false}
         color="googleBlue"
         classNames={{ list: classes.list, tab: classes.tab }}
         style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}
       >
         <Tabs.List>
-          <Tabs.Tab value="users" leftSection={<IconUsers size={16} stroke={1.7} />}>Users</Tabs.Tab>
-          <Tabs.Tab value="invites" leftSection={<IconMail size={16} stroke={1.7} />}>Invites</Tabs.Tab>
+          {manageUsers && <Tabs.Tab value="users" leftSection={<IconUsers size={16} stroke={1.7} />}>Users</Tabs.Tab>}
+          {manageUsers && <Tabs.Tab value="invites" leftSection={<IconMail size={16} stroke={1.7} />}>Invites</Tabs.Tab>}
+          <Tabs.Tab value="tokens" leftSection={<IconKey size={16} stroke={1.7} />}>CI tokens</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="users" pt="md" style={{ flex: 1, minHeight: 0 }}><UsersTab /></Tabs.Panel>
-        <Tabs.Panel value="invites" pt="md" style={{ flex: 1, minHeight: 0 }}><InvitesTab /></Tabs.Panel>
+        {manageUsers && <Tabs.Panel value="users" pt="md" style={{ flex: 1, minHeight: 0 }}><UsersTab /></Tabs.Panel>}
+        {manageUsers && <Tabs.Panel value="invites" pt="md" style={{ flex: 1, minHeight: 0 }}><InvitesTab /></Tabs.Panel>}
+        <Tabs.Panel value="tokens" pt="md" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}><CiTokensTab /></Tabs.Panel>
       </Tabs>
     </Stack>
   );

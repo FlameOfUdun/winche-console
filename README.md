@@ -49,8 +49,9 @@ endpoints). Each takes an optional builder for a minimum role and its rules edit
 `o.AddDatabaseTab(b => { b.MinRole = ConsoleRole.Member; b.UseRulesEditor(); })`. `MinRole` is the floor to
 see and read the tab (writes still require at least Member); the default is `Viewer`. Calling `AddDatabaseTab()`
 without `AddWincheDatabase()` (or `AddStorageTab()` without `AddWincheStorage()`) throws a clear startup error.
-The **Access** tab (user management) stays automatic — it's the console's own auth, shown to Admins in
-Identity mode.
+The **Access** tab stays automatic, for Admins: the console's own users and invites (Identity mode), and **CI
+tokens**, for deploying from CI with `WINCHE_TOKEN` (named, limited to deploying functions and/or rules, expiring,
+revocable), with everyone's CLI sign-ins (`winche login`), which can be ended there. Tokens need `AddWincheConfig`.
 
 ## Authentication & roles
 
