@@ -1,13 +1,12 @@
 import { useState, type ReactNode } from "react";
 import { Alert, Anchor, Button, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Title, UnstyledButton } from "@mantine/core";
-import { IconDatabase, IconFolder, IconLambda, IconRocket, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconDatabase, IconFolder, IconLambda, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import { testModeRules, type ProductId, type RulesMode } from "../../api/project";
 import { useSession } from "../../auth/session";
-import { EmptyState } from "../../components/EmptyState";
 import { PageHeader } from "../../components/PageHeader";
 import { surface } from "../../theme";
 
@@ -35,23 +34,12 @@ const INFO: Record<ProductId, { name: string; title: string; about: ReactNode; i
   },
 };
 
-/** Whether a product's page can show: started (or no project setup on this console). Otherwise its Get started page. */
+/** Whether a product's page can show: started (or no project setup on this console). Otherwise its Get started page. (The project itself always exists here: RequireProject sees to it.) */
 export function ProductGate({ product, children }: { product: ProductId; children: ReactNode }) {
   const project = useQuery({ queryKey: ["project"], queryFn: api.project, staleTime: 30_000 });
   if (project.isLoading) return <Loader size="sm" />;
   const p = project.data;
   if (!p || !p.setup) return <>{children}</>;
-  const info = INFO[product];
-  if (!p.created) {
-    return (
-      <>
-        <PageHeader eyebrow="Build" title={info.name} />
-        <EmptyState icon={IconRocket} title="Create your project first"
-          description={`${info.name} starts once the project exists.`}
-          action={<Button component={Link} to="/create-project">Create your project</Button>} />
-      </>
-    );
-  }
   if (p.products.find((x) => x.id === product)?.started) return <>{children}</>;
   return <GetStarted product={product} />;
 }

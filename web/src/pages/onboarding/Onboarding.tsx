@@ -35,8 +35,8 @@ const PRODUCTS: { id: ProductId; name: string; about: string; icon: typeof IconD
 
 /**
  * Setup, in three parts: console access (the first admin, then two-step sign-in), the project (name, id, products to
- * start; skippable), and a first app (skippable). `first-run` starts at the account; `create` (from the overview's
- * Create your project) starts at the project.
+ * start; required), and a first app (skippable). `first-run` starts at the account; `create` starts at the project
+ * (an admin signing in to a console whose project doesn't exist yet).
  */
 export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const { state, refresh } = useSession();
@@ -166,9 +166,8 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
               <TextInput label="Project name" size="lg" value={name} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
               <TextInput label="Project id" size="md" ff="monospace" value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
                 onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
-              <Nav onBack={mode === "create" ? () => navigate("/overview") : undefined} backLabel={mode === "create" ? "Cancel" : undefined}
-                onSkip={mode === "first-run" ? () => finish() : undefined} skipLabel="Skip: create it later"
-                onNext={() => setStep("products")} disabled={!name.trim() || !isProjectId(id)} />
+              {/* The project is required: no skipping, no cancelling. */}
+              <Nav onNext={() => setStep("products")} disabled={!name.trim() || !isProjectId(id)} />
             </Screen>
           )}
 

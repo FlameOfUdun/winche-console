@@ -68,12 +68,24 @@ test("first run: the account, then the project with its products (test mode rule
   expect(await screen.findByRole("button", { name: "Go to the console" })).toBeInTheDocument();
 });
 
-test("the project step can be skipped: it's created later", async () => {
+test("the project can't be skipped", async () => {
   sessionStorage.setItem("winche.onboarding", "project");
   renderIt(<Onboarding mode="first-run" />);
-  await userEvent.click(await screen.findByRole("button", { name: "Skip: create it later" }));
-  expect(api.createProject).not.toHaveBeenCalled();
-  expect(sessionStorage.getItem("winche.onboarding")).toBeNull();
+  expect(await screen.findByLabelText("Project name")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /Skip/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
+});
+
+test("until the project exists, admins are taken to create it and others wait", async () => {
+  const { RequireProject } = await import("../RequireProject");
+  const { unmount } = renderIt(<RequireProject><div>CONSOLE</div></RequireProject>);
+  expect(await screen.findByText("Name your project")).toBeInTheDocument();
+  expect(screen.queryByText("CONSOLE")).not.toBeInTheDocument();
+  unmount();
+  mock(useSession).mockReturnValue({ state: { initialized: true, capabilities: {} }, user: { role: "Member" }, refresh: vi.fn() });
+  renderIt(<RequireProject><div>CONSOLE</div></RequireProject>);
+  expect(await screen.findByText("Almost ready")).toBeInTheDocument();
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
 });
 
 test("a product not started shows Get started, and starting it calls the server", async () => {

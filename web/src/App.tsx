@@ -18,8 +18,8 @@ import { CliLoginPage } from "./pages/CliLoginPage";
 import { TabPage } from "./tabs/TabPage";
 import { useTabsManifest } from "./tabs/useTabsManifest";
 import { homePath } from "./layout/nav";
-import { Onboarding } from "./pages/onboarding/Onboarding";
 import { ProductGate } from "./pages/onboarding/ProductGate";
+import { RequireProject } from "./pages/onboarding/RequireProject";
 
 export function App() {
   return (
@@ -40,9 +40,9 @@ function GatedApp() {
   const caps = state?.capabilities;
   return (
     <AuthGate>
+      <RequireProject>
       <Routes>
         <Route path="cli-login" element={<CliLoginPage />} />
-        <Route path="create-project" element={<Onboarding mode="create" />} />
         <Route element={<AppLayout />}>
           <Route index element={<Navigate to={home} replace />} />
           <Route path="database" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
@@ -66,6 +66,7 @@ function GatedApp() {
           <Route path=":tabId" element={<TabPage />} />
         </Route>
       </Routes>
+      </RequireProject>
     </AuthGate>
   );
 }

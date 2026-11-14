@@ -1,5 +1,5 @@
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconApps, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPlus, IconRocket, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconApps, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -20,16 +20,6 @@ export function OverviewPage() {
   if (overview.isError || !overview.data) return <Alert color="red">Couldn't load the overview: {errorMessage(overview.error)}</Alert>;
   const { project, products, changes } = overview.data;
 
-  if (project.setup && !project.created) {
-    return (
-      <Stack gap="xl">
-        <PageHeader eyebrow="Project overview" title="Welcome to Winche" />
-        <EmptyState icon={IconRocket} title="Create your project"
-          description="Name it, then start the products you need: database, storage, sign-in, functions and hooks. Everything stays off until you start it."
-          action={<Button component={Link} to="/create-project" size="md">Create your project</Button>} />
-      </Stack>
-    );
-  }
 
   return (
     <Stack gap="xl">
