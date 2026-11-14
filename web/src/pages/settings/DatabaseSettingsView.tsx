@@ -251,13 +251,6 @@ function Indexes({ draft, set, editable }: Props) {
         )}
       </Paper>
 
-      <SettingsCard>
-        <SettingRow icon={IconTrash} label="Drop indexes no longer listed here">
-          <Switch aria-label="Drop indexes no longer listed here" disabled={!editable} checked={draft.dropUndeclaredIndexes}
-            onChange={(e) => set({ ...draft, dropUndeclaredIndexes: e.currentTarget.checked })} />
-        </SettingRow>
-      </SettingsCard>
-
       <Modal opened={!!adding} onClose={() => setAdding(null)} title={<Text fw={700} fz={18}>Add an index</Text>} radius="lg">
         {adding && (
           <Stack gap="md">

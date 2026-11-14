@@ -72,7 +72,10 @@ public static class ConsoleSettingsEndpoints
             if (string.IsNullOrWhiteSpace(body.Reason)) return Problem("Say why you're making this change: it goes in the history.");
             try
             {
-                var v = await store.SaveAsync(area, JsonNode.Parse(doc.GetRawText())!, Who(http.User), body.Reason, ct);
+                var settings = JsonNode.Parse(doc.GetRawText())!;
+                // The console is the only place indexes are declared: one it no longer lists is always dropped.
+                if (area == "database") settings["dropUndeclaredIndexes"] = true;
+                var v = await store.SaveAsync(area, settings, Who(http.User), body.Reason, ct);
                 return Results.Json(new { id = v.Id, area = v.Area, number = v.Number, at = v.At, by = v.By, reason = v.Reason });
             }
             catch (SettingsValidationException ex) { return Problem("These settings can't be saved.", ex.Errors); }

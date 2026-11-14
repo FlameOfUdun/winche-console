@@ -59,7 +59,10 @@ public class ConsoleDataSettingsTests(PostgresFixture fx) : IAsyncLifetime
         });
         settings["ttl"] = new JsonArray(new JsonObject { ["collection"] = "sessions", ["field"] = "expiresAt" });
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/_console/api/settings/database", new { settings, reason = "" })).StatusCode);
+        settings["dropUndeclaredIndexes"] = false;   // the console always drops indexes it no longer lists
         await Json(await client.PutAsJsonAsync("/_console/api/settings/database", new { settings, reason = "Visits by date; expire sessions" }));
+        settings["dropUndeclaredIndexes"] = true;
+        Assert.True((await Json(await client.GetAsync("/_console/api/settings/database"))).GetProperty("settings").GetProperty("dropUndeclaredIndexes").GetBoolean());
         var catalog = app.Services.GetRequiredService<Winche.Database.Schema.IndexCatalog>();
         Assert.Contains(catalog.Indexes, i => i.CollectionId == "visits");
 
