@@ -54,7 +54,6 @@ function plain(v: unknown): unknown {
   if ("nullValue" in o) return null;
   if ("timestampValue" in o) return o.timestampValue;
   if ("docRefValue" in o) return o.docRefValue;
-  if ("referenceValue" in o) return o.referenceValue;
   if ("fileRefValue" in o) return o.fileRefValue;
   if ("userRefValue" in o) return o.userRefValue;
   if ("bytesValue" in o) return "<bytes>";

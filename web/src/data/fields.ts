@@ -65,7 +65,6 @@ export function parseValue(v: unknown): EditValue {
   if ("booleanValue" in o) return { type: "boolean", bool: !!o.booleanValue };
   if ("timestampValue" in o) return { type: "timestamp", text: String(o.timestampValue ?? "") };
   if ("docRefValue" in o) return { type: "reference", text: String(o.docRefValue ?? "") };
-  if ("referenceValue" in o) return { type: "reference", text: String(o.referenceValue ?? "") };  // stored before 1.0
   if ("fileRefValue" in o) return { type: "fileRef", text: String(o.fileRefValue ?? "") };
   if ("userRefValue" in o) return { type: "userRef", text: String(o.userRefValue ?? "") };
   if ("geoPointValue" in o) {
