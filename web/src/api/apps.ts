@@ -19,3 +19,19 @@ export interface AppsPageData {
 export const PLATFORM_LABEL: Record<string, string> = {
   android: "Android", ios: "iOS", macos: "macOS", web: "Web", windows: "Windows", linux: "Linux",
 };
+
+export interface AppUsage { today: number; last7Days: number; lastSeen: string | null }
+
+/** An app registered in the project (Project settings → Your apps). */
+export interface RegisteredApp {
+  id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[];
+  createdAt: string; usage: AppUsage | null;
+}
+
+export interface RegisteredAppsData {
+  available: boolean; editable: boolean; registeredOnly: boolean; apps: RegisteredApp[];
+  /** Requests that named no registered app. */
+  unregistered: AppUsage | null;
+}
+
+export interface AppFields { name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[] }

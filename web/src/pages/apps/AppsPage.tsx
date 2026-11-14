@@ -1,14 +1,17 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Button, CopyButton, Group, Loader, Modal, Paper, SimpleGrid, Stack, Table, Text, Title, Tooltip,
-  UnstyledButton,
+  ActionIcon, Alert, Badge, Button, CopyButton, Group, Loader, Menu, Modal, Paper, SimpleGrid, Stack, Switch, Table, TagsInput, Text, TextInput,
+  Title, Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
-  IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop, IconDownload,
-  IconPlus, IconWorld,
+  IconApps, IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop,
+  IconDots, IconDownload, IconPencil, IconPlus, IconTrash, IconWorld,
 } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { errorMessage } from "../../api/appAuth";
+import type { AppFields, RegisteredApp, AppUsage } from "../../api/apps";
+import { EmptyState } from "../../components/EmptyState";
 import { surface } from "../../theme";
 
 /** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
@@ -59,10 +62,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Project settings → General: the project's details, and adding an app to it. */
+/** Project settings → General: the project's details, its apps, and what apps see. */
 export function GeneralSettings() {
   const page = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]) });
-  const [adding, setAdding] = useState(false);
   if (page.isLoading) return <Loader size="sm" />;
   if (page.error || !page.data) return <Alert color="red">Couldn't load the project: {String(page.error)}</Alert>;
   const { setup } = page.data;
@@ -77,12 +79,7 @@ export function GeneralSettings() {
         <Fact label="Console" value={consoleUrl} />
       </Section>
 
-      <Paper withBorder p="lg">
-        <Group justify="space-between" align="center" gap="sm">
-          <Title order={2} fz={16}>Your apps</Title>
-          <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add app</Button>
-        </Group>
-      </Paper>
+      <YourApps baseUrl={setup.baseUrl} snippet={page.data.snippet} />
 
       <Section title="What apps see">
         <Table verticalSpacing={8} fz="sm">
@@ -102,9 +99,172 @@ export function GeneralSettings() {
           </Table.Tbody>
         </Table>
       </Section>
-
-      <AddAppDialog opened={adding} baseUrl={setup.baseUrl} snippet={page.data.snippet} onClose={() => setAdding(false)} />
     </Stack>
+  );
+}
+
+const ago = (iso: string | null) => {
+  if (!iso) return "never";
+  const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 90) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return `${Math.round(s / 86400)} d ago`;
+};
+const usageLine = (u: AppUsage | null) =>
+  !u ? "No requests yet" : `${u.today.toLocaleString()} requests today · ${u.last7Days.toLocaleString()} this week · last seen ${ago(u.lastSeen)}`;
+
+/** The project's apps: an empty state until the first is registered, then the list. */
+function YourApps({ baseUrl, snippet }: { baseUrl: string; snippet: string }) {
+  const qc = useQueryClient();
+  const apps = useQuery({ queryKey: ["registered-apps"], queryFn: api.registeredApps });
+  const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<RegisteredApp | null>(null);
+  const [connecting, setConnecting] = useState<RegisteredApp | null>(null);
+  const [removing, setRemoving] = useState<RegisteredApp | null>(null);
+  const [policyError, setPolicyError] = useState<string | null>(null);
+  const data = apps.data;
+  const list = data?.apps ?? [];
+  const editable = !!data?.editable;
+  const refresh = () => qc.invalidateQueries({ queryKey: ["registered-apps"] });
+
+  const setPolicy = async (on: boolean) => {
+    setPolicyError(null);
+    try { await api.setAppsPolicy(on); await refresh(); } catch (e) { setPolicyError(errorMessage(e)); }
+  };
+
+  return (
+    <Paper withBorder p="lg">
+      <Group justify="space-between" align="center" gap="sm" mb={list.length ? "md" : "sm"}>
+        <Title order={2} fz={16}>Your apps</Title>
+        {editable && list.length > 0 && <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add app</Button>}
+      </Group>
+
+      {apps.isLoading && <Loader size="sm" />}
+      {data && !data.available && <Text size="sm" c={surface.muted}>Apps can be registered once this console runs project setup.</Text>}
+      {data?.available && list.length === 0 && (
+        <EmptyState icon={IconApps} title="No apps yet"
+          description="Register your app to get its winche_options.dart. Its requests then show here."
+          action={editable ? <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add app</Button> : undefined} />
+      )}
+
+      {list.length > 0 && (
+        <Stack gap={0}>
+          {list.map((a) => (
+            <Group key={a.id} justify="space-between" wrap="nowrap" gap="md" py={14} data-testid="registered-app"
+              style={{ borderTop: `1px solid ${surface.subtle}` }}>
+              <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--mantine-color-winche-0)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+                  <IconBrandFlutter size={22} color="var(--mantine-color-winche-6)" />
+                </div>
+                <Stack gap={2} style={{ minWidth: 0 }}>
+                  <Group gap={8} wrap="nowrap">
+                    <Text fw={600} truncate>{a.name}</Text>
+                    <Text size="xs" ff="monospace" c={surface.faint}>{a.id}</Text>
+                    <Copy value={a.id} label="app id" />
+                  </Group>
+                  <Group gap={6}>
+                    {a.androidPackage && <Badge variant="light" color="gray" tt="none" leftSection={<IconBrandAndroid size={12} />}>{a.androidPackage}</Badge>}
+                    {a.appleBundleId && <Badge variant="light" color="gray" tt="none" leftSection={<IconBrandApple size={12} />}>{a.appleBundleId}</Badge>}
+                    {a.webOrigins.map((o) => <Badge key={o} variant="light" color="gray" tt="none" leftSection={<IconWorld size={12} />}>{o}</Badge>)}
+                  </Group>
+                  <Text size="xs" c={surface.muted}>{usageLine(a.usage)}</Text>
+                </Stack>
+              </Group>
+              <Group gap={6} wrap="nowrap">
+                <Button size="xs" variant="default" onClick={() => setConnecting(a)}>Connect</Button>
+                {editable && (
+                  <Menu position="bottom-end" withinPortal>
+                    <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`More for ${a.name}`}><IconDots size={16} /></ActionIcon></Menu.Target>
+                    <Menu.Dropdown>
+                      <Menu.Item leftSection={<IconPencil size={14} />} onClick={() => setEditing(a)}>Edit</Menu.Item>
+                      <Menu.Item leftSection={<IconTrash size={14} />} color="red" onClick={() => setRemoving(a)}>Remove</Menu.Item>
+                    </Menu.Dropdown>
+                  </Menu>
+                )}
+              </Group>
+            </Group>
+          ))}
+          <Group justify="space-between" wrap="nowrap" gap="md" pt={14} style={{ borderTop: `1px solid ${surface.subtle}` }}>
+            <div>
+              <Switch label="Only registered apps may call" checked={!!data?.registeredOnly} disabled={!editable}
+                onChange={(e) => setPolicy(e.currentTarget.checked)} />
+              <Text size="xs" c={surface.muted} mt={4} pl={52}>
+                {data?.unregistered ? `Without an app id: ${usageLine(data.unregistered).toLowerCase()}.` : "Every request so far named a registered app."}
+              </Text>
+            </div>
+          </Group>
+          {policyError && <Alert color="red" p="xs" mt="xs">{policyError}</Alert>}
+        </Stack>
+      )}
+
+      <AddAppDialog opened={adding} baseUrl={baseUrl} snippet={snippet} onClose={() => setAdding(false)} />
+      <AppFormDialog app={editing} onClose={() => setEditing(null)} />
+      <Modal opened={!!connecting} onClose={() => setConnecting(null)} size="lg" radius="lg" title={<Text fw={700} fz={18}>Connect {connecting?.name}</Text>}>
+        {connecting && (
+          <Stack gap="xl" pt="xs">
+            <FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={connecting.id} />
+            <Group justify="flex-end"><Button onClick={() => setConnecting(null)}>Done</Button></Group>
+          </Stack>
+        )}
+      </Modal>
+      <Modal opened={!!removing} onClose={() => setRemoving(null)} radius="lg" title={<Text fw={700} fz={18}>Remove {removing?.name}?</Text>}>
+        <Stack gap="md">
+          <Text size="sm" c={surface.muted}>
+            Copies of it already installed keep sending its id.{data?.registeredOnly ? " With only registered apps allowed, they'll be refused." : ""}
+          </Text>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={() => setRemoving(null)}>Cancel</Button>
+            <Button color="red" onClick={async () => { if (removing) await api.removeApp(removing.id); setRemoving(null); await refresh(); }}>Remove app</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Paper>
+  );
+}
+
+const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, webOrigins: [] };
+
+/** Name and identifiers of an app (registering or editing). */
+function AppFieldsForm({ value, onChange }: { value: AppFields; onChange: (v: AppFields) => void }) {
+  return (
+    <Stack gap="sm">
+      <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name} onChange={(e) => onChange({ ...value, name: e.currentTarget.value })} />
+      <TextInput label="Android package" placeholder="com.example.clinic (optional)" leftSection={<IconBrandAndroid size={16} />}
+        value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
+      <TextInput label="Apple bundle id" placeholder="com.example.clinic (optional)" leftSection={<IconBrandApple size={16} />}
+        value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
+      <TagsInput label="Web addresses" placeholder="https://app.example.com, then Enter (optional)" leftSection={<IconWorld size={16} />}
+        description="Browsers there may call this server."
+        value={value.webOrigins} onChange={(v) => onChange({ ...value, webOrigins: v })} />
+    </Stack>
+  );
+}
+
+function AppFormDialog({ app, onClose }: { app: RegisteredApp | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [value, setValue] = useState<AppFields | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, webOrigins: app.webOrigins } : EMPTY);
+  const close = () => { setValue(null); setError(null); onClose(); };
+  const save = async () => {
+    if (!app) return;
+    setBusy(true); setError(null);
+    try { await api.updateApp(app.id, v); await qc.invalidateQueries({ queryKey: ["registered-apps"] }); close(); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal opened={!!app} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
+      <Stack gap="md">
+        <AppFieldsForm value={v} onChange={setValue} />
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={close}>Cancel</Button>
+          <Button onClick={save} loading={busy} disabled={!v.name.trim()}>Save</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 
@@ -153,12 +313,12 @@ export function SdkPicker({ onPick }: { onPick: (sdk: string) => void }) {
 }
 
 /** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main(). */
-export function FlutterSteps({ baseUrl, snippet }: { baseUrl: string; snippet: string }) {
+export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
   const [busy, setBusy] = useState(false);
   const download = async () => {
     setBusy(true);
     try {
-      const data = await api.apps(ALL_PLATFORMS);
+      const data = await api.apps(ALL_PLATFORMS, appId);
       const url = URL.createObjectURL(new Blob([data.file], { type: "text/plain" }));
       const a = document.createElement("a");
       a.href = url;
@@ -175,7 +335,7 @@ export function FlutterSteps({ baseUrl, snippet }: { baseUrl: string; snippet: s
         <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions" />
       </Step>
       <Step n={2} title="Add lib/winche_options.dart">
-        <Command value={`winche configure --url ${baseUrl}`} />
+        <Command value={`winche configure --url ${baseUrl}${appId ? ` --app ${appId}` : ""}`} />
         <Group gap="xs">
           <Text size="sm" c={surface.faint}>or</Text>
           <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
@@ -188,25 +348,58 @@ export function FlutterSteps({ baseUrl, snippet }: { baseUrl: string; snippet: s
   );
 }
 
-/** Adding an app: pick its SDK, then the steps to connect it. */
-function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
+/**
+ * Adding an app: pick its SDK, name it (and its package, bundle id, web addresses), then the steps to connect it with
+ * its own options file. Used from Project settings and the setup wizard.
+ */
+export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
+  const qc = useQueryClient();
   const [sdk, setSdk] = useState<string | null>(null);
-  const close = () => { setSdk(null); onClose(); };
+  const [fields, setFields] = useState<AppFields>(EMPTY);
+  const [appId, setAppId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const close = () => { setSdk(null); setFields(EMPTY); setAppId(null); setError(null); onClose(); };
+  const register = async () => {
+    setBusy(true); setError(null);
+    try {
+      const { id } = await api.registerApp({ ...fields, sdk: sdk ?? "flutter" });
+      setAppId(id);
+      await qc.invalidateQueries({ queryKey: ["registered-apps"] });
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const title = appId ? `Connect ${fields.name.trim()}` : sdk ? "Register a Flutter app" : "Add an app";
   return (
-    <Modal opened={opened} onClose={close} size="lg" radius="lg"
-      title={<Text fw={700} fz={18}>{sdk ? "Add a Flutter app" : "Add an app"}</Text>}>
-      {!sdk ? (
+    <Modal opened={opened} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>{title}</Text>}>
+      {!sdk && (
         <Stack gap="md">
           <Text size="sm" c={surface.muted}>What's your app built with?</Text>
           <SdkPicker onPick={setSdk} />
         </Stack>
-      ) : (
-        <Stack gap="xl" pt="xs">
-          <FlutterSteps baseUrl={baseUrl} snippet={snippet} />
+      )}
+      {sdk && !appId && (
+        <Stack gap="md">
+          <AppFieldsForm value={fields} onChange={setFields} />
+          {error && <Alert color="red" p="xs">{error}</Alert>}
           <Group justify="space-between">
             <Button variant="subtle" color="gray" onClick={() => setSdk(null)}>← Back</Button>
-            <Button onClick={close}>Done</Button>
+            <Button onClick={register} loading={busy} disabled={!fields.name.trim()}>Register app</Button>
           </Group>
+        </Stack>
+      )}
+      {appId && (
+        <Stack gap="xl" pt="xs">
+          <Group gap={6}>
+            <Text size="sm" c={surface.muted}>App id</Text>
+            <Text size="sm" ff="monospace" fw={500}>{appId}</Text>
+            <Copy value={appId} label="app id" />
+          </Group>
+          <FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={appId} />
+          <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
         </Stack>
       )}
     </Modal>

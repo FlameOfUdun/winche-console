@@ -106,11 +106,15 @@ public static class WincheConsoleExtensions
         // Console API tokens (winche login in Identity mode, and CI tokens), in either mode.
         services.AddSingleton<ConsoleTokenStore>();
         services.AddSingleton<Project.ProjectSetup>();
+        services.AddSingleton<Apps.RegisteredApps>();
+        services.AddSingleton<Apps.AppUsage>();
         if (options.ProjectSetup)
         {
             Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectSettings.Area, "Project", new Project.ProjectSettings(), s => s.Problems());
             services.AddHostedService<Project.ProjectStartupService>();
             Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectLinksSettings.Area, "Projects", new Project.ProjectLinksSettings(), s => s.Problems());
+            Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Apps.AppsSettings.Area, "Apps", new Apps.AppsSettings(), s => s.Problems());
+            services.AddHostedService<Apps.AppUsageFlusher>();
         }
         services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ConsoleTokenHandler>(ConsoleTokenHandler.Scheme, null);
 
@@ -218,6 +222,7 @@ public static class WincheConsoleExtensions
         group.MapConsoleOverviewEndpoints(options);
         Project.ProjectEndpoints.MapConsoleProjectEndpoints(group);
         Project.ProjectLinkEndpoints.MapConsoleProjectLinkEndpoints(group);
+        Apps.RegisteredAppEndpoints.MapConsoleRegisteredAppEndpoints(group, options);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 

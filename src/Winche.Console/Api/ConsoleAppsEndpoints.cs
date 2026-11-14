@@ -14,10 +14,15 @@ internal static class ConsoleAppsEndpoints
     public static void MapConsoleAppsEndpoints(this IEndpointRouteBuilder app, ConsoleOptions options)
     {
         // GET api/apps?platforms=android,ios → the setup, lib/winche_options.dart for those platforms, and main().
-        app.MapGet("/api/apps", (HttpContext http, string? platforms) =>
+        app.MapGet("/api/apps", (HttpContext http, string? platforms, string? app) =>
         {
             var project = http.RequestServices.GetRequiredService<Project.ProjectSetup>().Current;
             var setup = AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), project.Id, project.Name);
+            if (app is not null)
+            {
+                if (http.RequestServices.GetRequiredService<RegisteredApps>().Find(app) is not { } registered) return Results.NotFound();
+                setup = setup with { App = new(registered.Id, registered.Name) };
+            }
             var chosen = string.IsNullOrWhiteSpace(platforms) ? null : platforms.Split(',', StringSplitOptions.RemoveEmptyEntries);
             return Results.Json(new
             {

@@ -18,6 +18,7 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
         await using var cmd = new NpgsqlCommand("""
             DO $$ BEGIN
               IF to_regclass('winche_settings') IS NOT NULL THEN TRUNCATE winche_settings; END IF;
+              IF to_regclass('winche_console_app_usage') IS NOT NULL THEN TRUNCATE winche_console_app_usage; END IF;
             END $$;
             """, conn);
         await cmd.ExecuteNonQueryAsync();
@@ -96,6 +97,56 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
         links = await Json(await client.DeleteAsync("/_console/api/project/links?url=" + Uri.EscapeDataString("https://staging.example.com/_console")));
         Assert.Equal(["Production"], links.GetProperty("links").EnumerateArray().Select(l => l.GetProperty("name").GetString()));
         Assert.Equal(["Production"], (await Json(await client.GetAsync("/_console/api/project/links"))).GetProperty("links").EnumerateArray().Select(l => l.GetProperty("name").GetString()));
+    }
+
+    [Fact]
+    public async Task Apps_are_registered_named_in_their_options_counted_and_others_can_be_refused()
+    {
+        using var app = new ConsoleAppFactory(fx, ("Sample:ProjectSetup", "true"));
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+        await Json(await client.PostAsJsonAsync("/_console/api/project", new { name = "Clinic records", id = "clinic-records", products = new[] { "authentication" } }));
+
+        var empty = await Json(await client.GetAsync("/_console/api/apps/registered"));
+        Assert.True(empty.GetProperty("available").GetBoolean());
+        Assert.Equal(0, empty.GetProperty("apps").GetArrayLength());
+        // Refusing unregistered apps needs one registered first.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync("/_console/api/apps/policy", new { registeredOnly = true })).StatusCode);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/apps/registered", new { name = "Clinic", androidPackage = "not a package" })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/apps/registered", new { name = "Clinic", webOrigins = new[] { "https://app.example.com/path" } })).StatusCode);
+        var id = (await Json(await client.PostAsJsonAsync("/_console/api/apps/registered",
+            new { name = "Clinic app", androidPackage = "com.example.clinic", webOrigins = new[] { "HTTPS://App.Example.com/" } }))).GetProperty("id").GetString()!;
+        Assert.Matches("^app-[a-z2-9]{12}$", id);
+
+        // Its options file and /.well-known/winche?app= name it; an unknown id is a 404.
+        Assert.Contains($"appId: '{id}'", (await Json(await client.GetAsync($"/_console/api/apps?platforms=android&app={id}"))).GetProperty("file").GetString());
+        Assert.Equal(id, (await Json(await client.GetAsync($"/.well-known/winche?app={id}"))).GetProperty("app").GetProperty("id").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/.well-known/winche?app=app-nope")).StatusCode);
+
+        // Requests are counted per app (unnamed ones apart).
+        var email = $"ann-{Guid.NewGuid():N}@example.com";
+        var signUp = new HttpRequestMessage(HttpMethod.Post, "/auth/v1/signUp") { Content = JsonContent.Create(new { email = email, password = "correct horse battery" }) };
+        signUp.Headers.Add("X-Winche-App", id);
+        await Json(await client.SendAsync(signUp));
+        await client.PostAsJsonAsync("/auth/v1/signIn", new { email = email, password = "correct horse battery" });
+        var listed = await Json(await client.GetAsync("/_console/api/apps/registered"));
+        var registered = listed.GetProperty("apps")[0];
+        Assert.Equal("https://app.example.com", registered.GetProperty("webOrigins")[0].GetString());
+        Assert.Equal(1, registered.GetProperty("usage").GetProperty("today").GetInt64());
+        Assert.Equal(1, listed.GetProperty("unregistered").GetProperty("today").GetInt64());
+
+        // Only registered apps: the unnamed request is refused, the named one goes through.
+        await Json(await client.PutAsJsonAsync("/_console/api/apps/policy", new { registeredOnly = true }));
+        var refused = await client.PostAsJsonAsync("/auth/v1/signIn", new { email = email, password = "correct horse battery" });
+        Assert.Contains("app-not-registered", await refused.Content.ReadAsStringAsync());
+        var named = new HttpRequestMessage(HttpMethod.Post, $"/auth/v1/signIn?winche_app={id}") { Content = JsonContent.Create(new { email = email, password = "correct horse battery" }) };
+        Assert.DoesNotContain("app-not-registered", await (await client.SendAsync(named)).Content.ReadAsStringAsync());
+
+        // Removing the last app turns the refusal off with it.
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/_console/api/apps/registered/{id}")).StatusCode);
+        Assert.False((await Json(await client.GetAsync("/_console/api/apps/registered"))).GetProperty("registeredOnly").GetBoolean());
     }
 
     [Fact]

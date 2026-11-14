@@ -221,11 +221,27 @@ public static class ProjectEndpoints
             foreach (var (prefix, product) in WincheProducts.Paths)
             {
                 if (!path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) || (path.Length > prefix.Length && path[prefix.Length] != '/')) continue;
-                if (setup.Current.IsStarted(product)) break;
-                await new WincheError(WincheErrorCode.FailedPrecondition,
-                    $"{char.ToUpperInvariant(product[0])}{product[1..]} isn't started on this server: start it in the console.", "service-disabled")
-                    .ToResult().ExecuteAsync(http);
-                return;
+                if (!setup.Current.IsStarted(product))
+                {
+                    await new WincheError(WincheErrorCode.FailedPrecondition,
+                        $"{char.ToUpperInvariant(product[0])}{product[1..]} isn't started on this server: start it in the console.", "service-disabled")
+                        .ToResult().ExecuteAsync(http);
+                    return;
+                }
+                // Which app is calling: counted, and refused when only registered apps may call. CORS preflights pass.
+                if (HttpMethods.IsOptions(http.Request.Method)) break;
+                var apps = http.RequestServices.GetService<Apps.RegisteredApps>();
+                if (apps is not { Available: true }) break;
+                var app = apps.Find(Apps.RegisteredApps.AppIdOf(http.Request));
+                http.RequestServices.GetService<Apps.AppUsage>()?.Count(app?.Id ?? Apps.AppUsage.Unregistered);
+                if (app is null && apps.Current.RegisteredOnly)
+                {
+                    await new WincheError(WincheErrorCode.FailedPrecondition,
+                        "This app isn't registered in the project: register it in the console and use its winche_options.dart.", "app-not-registered")
+                        .ToResult().ExecuteAsync(http);
+                    return;
+                }
+                break;
             }
         }
         await next(http);

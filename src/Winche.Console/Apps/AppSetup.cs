@@ -9,6 +9,9 @@ namespace Winche.Console.Apps;
 /// <summary>One Winche service an app can use, and where it is under the server's address.</summary>
 public sealed record AppSetupService(string Id, string Path, string? LivePath = null);
 
+/// <summary>The registered app a setup is for (<c>?app=</c>).</summary>
+public sealed record AppSetupApp(string Id, string Name);
+
 /// <summary>A sign-in provider an app can offer, with its public client ids.</summary>
 public sealed record AppSetupProvider(string Name, string Kind, string DisplayName, IReadOnlyList<string> ClientIds);
 
@@ -17,7 +20,7 @@ public sealed record AppSetupProvider(string Name, string Kind, string DisplayNa
 /// secret), and turned into <c>lib/winche_options.dart</c> by <c>winche configure</c> and the console's Project settings → General.
 /// </summary>
 public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IReadOnlyList<AppSetupService> Services,
-    IReadOnlyList<AppSetupProvider> Providers)
+    IReadOnlyList<AppSetupProvider> Providers, AppSetupApp? App = null)
 {
     /// <summary>The platforms <see cref="DartOptionsFile"/> writes when not told which.</summary>
     public static readonly IReadOnlyList<string> AllPlatforms = ["android", "ios", "macos", "web", "windows", "linux"];
@@ -57,6 +60,7 @@ public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IR
         var b = new StringBuilder();
         b.Append("// Written by `winche configure` from ").Append(BaseUrl).Append(".\n");
         b.Append("// Run it again after adding a platform or a sign-in provider.\n");
+        if (App is null) b.Append("// No app id: register the app in the console, then `winche configure --app <its id>`.\n");
         b.Append("//\n// ignore_for_file: type=lint\n");
         b.Append("import 'package:winche_flutter/winche_flutter.dart';\n\n");
         b.Append("/// Winche options for each platform this app runs on, for project `").Append(ProjectId).Append("`.\n");
@@ -73,6 +77,7 @@ public sealed record AppSetup(string ProjectId, string? Name, string BaseUrl, IR
         {
             b.Append("\n  static final ").Append(p).Append(" = WincheOptions(\n");
             b.Append("    projectId: '").Append(Escape(ProjectId)).Append("',\n");
+            if (App is not null) b.Append("    appId: '").Append(Escape(App.Id)).Append("',   // ").Append(App.Name.Replace("\n", " ")).Append('\n');
             b.Append("    baseUrl: Uri.parse('").Append(Escape(BaseUrl)).Append("'),\n");
             var single = Providers.Where(x => x.ClientIds.Count == 1).ToList();
             var several = Providers.Where(x => x.ClientIds.Count > 1).ToList();
@@ -118,6 +123,14 @@ public static class AppSetupEndpoints
         endpoints.MapGet("/.well-known/winche", (HttpContext http) =>
         {
             var project = http.RequestServices.GetService<Project.ProjectSetup>()?.Current;
-            return Results.Json(AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), project?.Id ?? "winche", project?.Name));
+            var setup = AppSetup.For(http.RequestServices, AppSetup.BaseUrlOf(http.Request), project?.Id ?? "winche", project?.Name);
+            // ?app=<id>: the setup for that registered app (its id goes in winche_options.dart). Unknown ids: 404.
+            if (http.Request.Query["app"].FirstOrDefault() is { Length: > 0 } id)
+            {
+                if (http.RequestServices.GetService<RegisteredApps>()?.Find(id) is not { } app)
+                    return Results.Json(new { error = $"No app {id} is registered in project {setup.ProjectId}." }, statusCode: 404);
+                setup = setup with { App = new(app.Id, app.Name) };
+            }
+            return Results.Json(setup);
         }).AllowAnonymous();
 }

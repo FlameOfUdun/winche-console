@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -6,11 +6,11 @@ import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
 import { GeneralSettings as AppsPage } from "../AppsPage";
 import { api } from "../../../api/client";
-import type { AppsPageData } from "../../../api/apps";
+import type { AppsPageData, RegisteredApp } from "../../../api/apps";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, apps: vi.fn() } };
+  return { ...actual, api: { ...actual.api, apps: vi.fn(), registeredApps: vi.fn(), registerApp: vi.fn(), removeApp: vi.fn(), setAppsPolicy: vi.fn() } };
 });
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
@@ -25,9 +25,16 @@ const data = (platforms: string[]): AppsPageData => ({
   snippet: "WincheFlutter.initializeApp(options: DefaultWincheOptions.currentPlatform)",
 });
 
+const clinic: RegisteredApp = {
+  id: "app-abc234def567", name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null,
+  webOrigins: ["https://app.example.com"], createdAt: "2026-11-14T10:00:00Z",
+  usage: { today: 12, last7Days: 80, lastSeen: new Date().toISOString() },
+};
+
 beforeEach(() => {
-  mock(api.apps).mockReset();
+  vi.clearAllMocks();
   mock(api.apps).mockImplementation(async (platforms: string[]) => data(platforms));
+  mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [], unregistered: null });
 });
 
 function renderPage() {
@@ -49,12 +56,36 @@ test("shows the project's details and what apps see, without the options file", 
   expect(screen.queryByTestId("options-file")).not.toBeInTheDocument();
 });
 
-test("Add app asks for the SDK (only Flutter for now), then shows the command and a download", async () => {
+test("no apps: an empty state; Add app asks for the SDK (only Flutter), registers it, then shows its own command and download", async () => {
+  mock(api.registerApp).mockResolvedValue({ id: "app-abc234def567" });
   renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Add app" }));
+  expect(await screen.findByText("No apps yet")).toBeInTheDocument();
+  expect(screen.queryByTestId("registered-app")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Add app" }));
   expect(await screen.findByRole("button", { name: "macOS: not available yet" })).toBeDisabled();
   await userEvent.click(screen.getByRole("button", { name: "Flutter" }));
-  expect(await screen.findByText("winche configure --url https://api.example.com")).toBeInTheDocument();
+  const dialog = screen.getByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("App name"), "Clinic app");
+  await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Register app" }));
+  await waitFor(() => expect(api.registerApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, webOrigins: [] }));
+  expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
-  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"]));
+  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
+});
+
+test("with apps: the list with each app's identifiers and requests, and the registered-only switch", async () => {
+  mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [clinic],
+    unregistered: { today: 3, last7Days: 5, lastSeen: null } });
+  mock(api.setAppsPolicy).mockResolvedValue({ registeredOnly: true });
+  renderPage();
+  const row = await screen.findByTestId("registered-app");
+  expect(screen.queryByText("No apps yet")).toBeNull();
+  expect(within(row).getByText("Clinic app")).toBeInTheDocument();
+  expect(within(row).getByText("com.example.clinic")).toBeInTheDocument();
+  expect(within(row).getByText("https://app.example.com")).toBeInTheDocument();
+  expect(within(row).getByText(/12 requests today · 80 this week · last seen just now/)).toBeInTheDocument();
+  expect(screen.getByText(/Without an app id: 3 requests today/)).toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("Only registered apps may call"));
+  await waitFor(() => expect(api.setAppsPolicy).toHaveBeenCalledWith(true));
 });

@@ -3,7 +3,7 @@ import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemS
 import type { TabNav, TabLayout, TabDataResponse } from "./tabs";
 import type { FeedDeadLetter, FeedInfo, Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { FunctionsPageData, FunctionRun, FunctionVersion } from "./functions";
-import type { AppsPageData } from "./apps";
+import type { AppsPageData, AppFields, RegisteredAppsData } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { DirectoryResponse, DirectoryTestResult, SignInSettingsResponse, UserDirectorySettings, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
@@ -155,7 +155,13 @@ export const api = {
   dataSettingsHistory: (area: DataArea) =>
     http<{ versions: SettingsVersionInfo[]; editable?: boolean }>("GET", `api/settings/history?area=${area}`),
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `api/settings/history/${id}/restore`, { reason }),
-  apps: (platforms: string[]) => http<AppsPageData>("GET", `api/apps?platforms=${encodeURIComponent(platforms.join(","))}`),
+  apps: (platforms: string[], app?: string) =>
+    http<AppsPageData>("GET", `api/apps?platforms=${encodeURIComponent(platforms.join(","))}${app ? `&app=${encodeURIComponent(app)}` : ""}`),
+  registeredApps: () => http<RegisteredAppsData>("GET", "api/apps/registered"),
+  registerApp: (app: AppFields) => http<{ id: string }>("POST", "api/apps/registered", app),
+  updateApp: (id: string, app: AppFields) => http<{ id: string }>("PUT", `api/apps/registered/${encodeURIComponent(id)}`, app),
+  removeApp: (id: string) => http<void>("DELETE", `api/apps/registered/${encodeURIComponent(id)}`),
+  setAppsPolicy: (registeredOnly: boolean) => http<{ registeredOnly: boolean }>("PUT", "api/apps/policy", { registeredOnly }),
   functions: () => http<FunctionsPageData>("GET", "api/functions"),
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "api/functions/versions"),
   rollBackFunctions: (v: number, note: string | null) => http<FunctionVersion>("POST", `api/functions/versions/${v}/rollback`, { note }),

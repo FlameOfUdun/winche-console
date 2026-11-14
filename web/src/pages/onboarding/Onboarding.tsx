@@ -10,7 +10,7 @@ import { errorMessage } from "../../api/appAuth";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { useSession } from "../../auth/session";
 import { TwoFactorSetup } from "../../auth/TwoFactorSetup";
-import { FlutterSteps, SdkPicker } from "../apps/AppsPage";
+import { AddAppDialog } from "../apps/AppsPage";
 import { surface } from "../../theme";
 import logoUrl from "../../assets/winche-logo.png";
 
@@ -46,7 +46,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const [idEdited, setIdEdited] = useState(false);
   const [created, setCreated] = useState(false);
   // App
-  const [sdk, setSdk] = useState<string | null>(null);
+  const [addingApp, setAddingApp] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,11 +156,17 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "app" && (
-            <Screen title="Add your first app" subtitle={sdk ? undefined : "What's it built with?"}>
-              {!sdk && <SdkPicker onPick={setSdk} />}
-              {sdk && (apps.data ? <FlutterSteps baseUrl={apps.data.setup.baseUrl} snippet={apps.data.snippet} /> : <Loader size="sm" />)}
-              <Nav onBack={sdk ? () => setSdk(null) : undefined} onSkip={sdk ? undefined : () => setStep("done")} skipLabel="Skip for now"
-                onNext={sdk ? () => setStep("done") : undefined} nextLabel="Done" />
+            <Screen title="Add your first app" subtitle="Register it to get its winche_options.dart. You can add apps later in Project settings.">
+              {!apps.data ? <Loader size="sm" /> : (
+                <AddAppDialog opened={addingApp} baseUrl={apps.data.setup.baseUrl} snippet={apps.data.snippet}
+                  onClose={async () => {
+                    setAddingApp(false);
+                    // Registered one: on to the end. Closed without: stay, to add or skip.
+                    const registered = await qc.fetchQuery({ queryKey: ["registered-apps"], queryFn: api.registeredApps, staleTime: 0 });
+                    if (registered.apps.length > 0) setStep("done");
+                  }} />
+              )}
+              <Nav onSkip={() => setStep("done")} skipLabel="Skip for now" onNext={() => setAddingApp(true)} nextLabel="Add an app" disabled={!apps.data} />
             </Screen>
           )}
 
