@@ -102,8 +102,12 @@ test("no apps: an empty state; Add app asks for the SDK (only Flutter), register
   const dialog = screen.getByRole("dialog");
   await userEvent.type(within(dialog).getByLabelText("App name"), "Clinic app");
   await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
+  // The id follows the name until it's edited; it's sent as chosen.
+  expect(within(dialog).getByLabelText("App id")).toHaveValue("clinic-app");
+  await userEvent.clear(within(dialog).getByLabelText("App id"));
+  await userEvent.type(within(dialog).getByLabelText("App id"), "clinic-ios");
   await userEvent.click(within(dialog).getByRole("button", { name: "Register app" }));
-  await waitFor(() => expect(api.registerApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, webOrigins: [] }));
+  await waitFor(() => expect(api.registerApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, webOrigins: [], id: "clinic-ios" }));
   expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));

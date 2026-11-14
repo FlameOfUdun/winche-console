@@ -34,4 +34,8 @@ export interface RegisteredAppsData {
   unregistered: AppUsage | null;
 }
 
-export interface AppFields { name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[] }
+export interface AppFields {
+  name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[];
+  /** Chosen when registering (blank: one is made); fixed after. */
+  id?: string;
+}

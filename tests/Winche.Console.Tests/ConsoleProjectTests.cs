@@ -109,6 +109,15 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
             new { name = "Clinic app", androidPackage = "com.example.clinic", webOrigins = new[] { "HTTPS://App.Example.com/" } }))).GetProperty("id").GetString()!;
         Assert.Matches("^app-[a-z2-9]{12}$", id);
 
+        // An id can be chosen when registering: valid, and not taken. Editing never changes it.
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/apps/registered", new { name = "Bad", id = "Not An Id" })).StatusCode);
+        Assert.Equal("clinic-web", (await Json(await client.PostAsJsonAsync("/_console/api/apps/registered", new { name = "Clinic web", id = "clinic-web" }))).GetProperty("id").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/apps/registered", new { name = "Again", id = "clinic-web" })).StatusCode);
+        await Json(await client.PutAsJsonAsync("/_console/api/apps/registered/clinic-web", new { name = "Clinic web app", id = "renamed" }));
+        Assert.Contains((await Json(await client.GetAsync("/_console/api/apps/registered"))).GetProperty("apps").EnumerateArray(),
+            a => a.GetProperty("id").GetString() == "clinic-web" && a.GetProperty("name").GetString() == "Clinic web app");
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/_console/api/apps/registered/clinic-web")).StatusCode);
+
         // Its options file and /.well-known/winche?app= name it; an unknown id is a 404.
         Assert.Contains($"appId: '{id}'", (await Json(await client.GetAsync($"/_console/api/apps?platforms=android&app={id}"))).GetProperty("file").GetString());
         Assert.Equal(id, (await Json(await client.GetAsync($"/.well-known/winche?app={id}"))).GetProperty("app").GetProperty("id").GetString());

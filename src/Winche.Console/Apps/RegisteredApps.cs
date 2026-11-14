@@ -104,6 +104,9 @@ public sealed class RegisteredApps(IServiceProvider services)
         request.Headers[Header].FirstOrDefault() is { Length: > 0 } h ? h.Trim()
         : request.Query[QueryParameter].FirstOrDefault() is { Length: > 0 } q ? q.Trim() : null;
 
+    /// <summary>A chosen app id: like a project id, 3 to 40 lower-case letters, digits and dashes, starting with a letter.</summary>
+    public static bool IsValidId(string? id) => Project.ProjectSetup.IsValidId(id);
+
     /// <summary>A new app id: <c>app-</c> and 12 lower-case letters and digits.</summary>
     public static string NewId()
     {
@@ -235,7 +238,8 @@ internal sealed class AppUsageFlusher(AppUsage usage, ILogger<AppUsageFlusher> l
 
 public static class RegisteredAppEndpoints
 {
-    public sealed record AppRequest(string? Name, string? Sdk, string? AndroidPackage, string? AppleBundleId, string[]? WebOrigins);
+    /// <summary>An app's fields. <see cref="Id"/> is chosen when registering (blank: one is made) and never changes after.</summary>
+    public sealed record AppRequest(string? Name, string? Sdk, string? AndroidPackage, string? AppleBundleId, string[]? WebOrigins, string? Id = null);
     public sealed record PolicyRequest(bool RegisteredOnly);
 
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
@@ -278,7 +282,10 @@ public static class RegisteredAppEndpoints
             if (!apps.Available) return Problem("Apps can be registered once the console runs project setup (UseProjectSetup).");
             var current = apps.Current;
             if (current.Apps.Count >= AppsSettings.Max) return Problem($"At most {AppsSettings.Max} apps.");
-            var added = From(body, null) with { Id = RegisteredApps.NewId(), CreatedAt = DateTimeOffset.UtcNow };
+            var id = Blank(body.Id) ?? RegisteredApps.NewId();
+            if (!RegisteredApps.IsValidId(id)) return Problem("An app id is 3 to 40 lower-case letters, digits and dashes, starting with a letter.");
+            if (apps.Find(id) is not null) return Problem($"There's already an app {id}.");
+            var added = From(body, null) with { Id = id, CreatedAt = DateTimeOffset.UtcNow };
             if (AppsSettings.ProblemsOf(added).FirstOrDefault() is { } problem) return Problem(problem);
             await apps.SaveAsync(current with { Apps = [.. current.Apps, added] }, Who(http.User), $"Registered the app {added.Name}", ct);
             return Results.Json(new { id = added.Id });

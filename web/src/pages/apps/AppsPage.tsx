@@ -5,7 +5,7 @@ import {
 } from "@mantine/core";
 import {
   IconApps, IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop,
-  IconDots, IconDownload, IconPencil, IconPhoto, IconPlus, IconTrash, IconWorld,
+  IconDots, IconDownload, IconLock, IconPencil, IconPhoto, IconPlus, IconTrash, IconWorld,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -14,6 +14,7 @@ import type { AppFields, RegisteredApp, AppUsage } from "../../api/apps";
 import { EmptyState } from "../../components/EmptyState";
 import { ProjectAvatar, squareThumbnail } from "../../components/ProjectAvatar";
 import { useSession } from "../../auth/session";
+import { isProjectId, projectIdFrom } from "../../api/project";
 import { ConfirmByIdDialog } from "../../components/ProjectDangerDialogs";
 import { surface } from "../../theme";
 
@@ -294,11 +295,29 @@ function YourApps({ baseUrl, snippet }: { baseUrl: string; snippet: string }) {
 
 const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, webOrigins: [] };
 
-/** Name and identifiers of an app (registering or editing). */
-function AppFieldsForm({ value, onChange }: { value: AppFields; onChange: (v: AppFields) => void }) {
+/**
+ * Name, id and identifiers of an app. The id is chosen when registering (filled in from the name until edited) and
+ * shown locked when editing: apps send it with every request.
+ */
+function AppFieldsForm({ value, onChange, fixedId }: { value: AppFields; onChange: (v: AppFields) => void; fixedId?: string }) {
+  const [idEdited, setIdEdited] = useState(false);
+  const id = value.id ?? "";
   return (
     <Stack gap="sm">
-      <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name} onChange={(e) => onChange({ ...value, name: e.currentTarget.value })} />
+      <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name}
+        onChange={(e) => {
+          const name = e.currentTarget.value;
+          onChange({ ...value, name, ...(fixedId || idEdited ? {} : { id: name.trim() ? projectIdFrom(name) : "" }) });
+        }} />
+      {fixedId ? (
+        <TextInput label="App id" value={fixedId} disabled leftSection={<IconLock size={14} />}
+          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} />
+      ) : (
+        <TextInput label="App id" placeholder="Blank: one is made" value={id}
+          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+          error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
+          onChange={(e) => { setIdEdited(true); onChange({ ...value, id: e.currentTarget.value.toLowerCase() }); }} />
+      )}
       <TextInput label="Android package" placeholder="com.example.clinic (optional)" leftSection={<IconBrandAndroid size={16} />}
         value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
       <TextInput label="Apple bundle id" placeholder="com.example.clinic (optional)" leftSection={<IconBrandApple size={16} />}
@@ -326,7 +345,7 @@ function AppFormDialog({ app, onClose }: { app: RegisteredApp | null; onClose: (
   return (
     <Modal opened={!!app} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
       <Stack gap="md">
-        <AppFieldsForm value={v} onChange={setValue} />
+        <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
         <Group justify="flex-end" gap="xs">
           <Button variant="default" onClick={close}>Cancel</Button>
@@ -432,7 +451,7 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
   const register = async () => {
     setBusy(true); setError(null);
     try {
-      const { id } = await api.registerApp({ ...fields, sdk: sdk ?? "flutter" });
+      const { id } = await api.registerApp({ ...fields, id: fields.id?.trim() || undefined, sdk: sdk ?? "flutter" });
       setAppId(id);
       await qc.invalidateQueries({ queryKey: ["registered-apps"] });
     } catch (e) {
@@ -456,7 +475,7 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
           {error && <Alert color="red" p="xs">{error}</Alert>}
           <Group justify="space-between">
             <Button variant="subtle" color="gray" onClick={() => setSdk(null)}>← Back</Button>
-            <Button onClick={register} loading={busy} disabled={!fields.name.trim()}>Register app</Button>
+            <Button onClick={register} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>Register app</Button>
           </Group>
         </Stack>
       )}
