@@ -39,7 +39,6 @@ export const wincheTheme = createTheme({
         panel: { flex: "1 1 auto", minHeight: 0, overflow: "auto", paddingBottom: 28 },
       },
     },
-    Stack: { styles: { root: { minHeight: 0 } } },
   },
 });
 

@@ -19,6 +19,7 @@ import { builtinNav } from "./nav";
 import logoUrl from "../assets/winche-logo.png";
 import { StatusPill } from "../components/PageHeader";
 import "./layout.css";
+import { ProjectSwitcher } from "./ProjectSwitcher";
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -96,15 +97,8 @@ export function AppLayout() {
       <AppShell.Navbar p="sm" style={{ background: surface.card, borderRight: `1px solid ${surface.border}` }}>
         {/* Project */}
         <Group justify={collapsed ? "center" : "space-between"} gap={8} px={collapsed ? 0 : 4} pt={4} pb={12} wrap="nowrap">
-          <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
-            <img src={logoUrl} alt="Winche" width={32} height={32} style={{ borderRadius: 8, display: "block", flexShrink: 0 }} />
-            {!collapsed && (
-              <div style={{ minWidth: 0 }}>
-                <Text fw={600} size="sm" lh={1.2} c={surface.text} truncate>{project?.name ?? "Winche"}</Text>
-                <Text size="xs" lh={1.3} c={surface.faint} truncate>{project?.id ?? "Console"}</Text>
-              </div>
-            )}
-          </Group>
+          <ProjectSwitcher name={project?.name ?? "Winche"} id={project?.id ?? "Console"} collapsed={collapsed}
+            logo={<img src={logoUrl} alt="Winche" width={32} height={32} style={{ borderRadius: 8, display: "block", flexShrink: 0 }} />} />
           {!collapsed && settingsGear}
         </Group>
         {collapsed && <Group justify="center" mb={6}>{settingsGear}</Group>}

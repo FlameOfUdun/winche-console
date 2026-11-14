@@ -110,6 +110,7 @@ public static class WincheConsoleExtensions
         {
             Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectSettings.Area, "Project", new Project.ProjectSettings(), s => s.Problems());
             services.AddHostedService<Project.ProjectStartupService>();
+            Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectLinksSettings.Area, "Projects", new Project.ProjectLinksSettings(), s => s.Problems());
         }
         services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ConsoleTokenHandler>(ConsoleTokenHandler.Scheme, null);
 
@@ -216,6 +217,7 @@ public static class WincheConsoleExtensions
         group.MapConsoleTokenEndpoints(options);
         group.MapConsoleOverviewEndpoints(options);
         Project.ProjectEndpoints.MapConsoleProjectEndpoints(group);
+        Project.ProjectLinkEndpoints.MapConsoleProjectLinkEndpoints(group);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();
 
