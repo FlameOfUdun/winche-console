@@ -87,7 +87,7 @@ test("saves the query, and opening a saved one loads it into the explorer", asyn
   await screen.findAllByTestId("log-row");
 
   await userEvent.click(screen.getByText("Save this query"));
-  await userEvent.type(screen.getByLabelText("Query name"), "everything{Enter}");
+  await userEvent.type(await screen.findByLabelText("Query name"), "everything{Enter}");
   await waitFor(() => expect(mock(api.saveLogQuery)).toHaveBeenCalledWith("everything", { resource: null, minimumLevel: "Trace", filters: [], search: null }));
 
   await userEvent.click(screen.getByRole("tab", { name: "Saved queries" }));

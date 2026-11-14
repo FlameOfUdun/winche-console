@@ -213,7 +213,7 @@ test("Keycloak-only apps: settings first; providers, mapping with the token test
 
   // Add a provider: check its address first.
   await userEvent.click(screen.getByText("Add provider"));
-  const form = screen.getByLabelText("Provider");
+  const form = await screen.findByLabelText("Provider");
   await userEvent.type(within(form).getByLabelText("Address (issuer)"), "https://auth-staging.trucorp.com/realms/smartairway");
   await userEvent.click(within(form).getByText("Check address"));
   expect(await within(form).findByText(/Found it: .*2 signing keys \(RS256\)/)).toBeInTheDocument();

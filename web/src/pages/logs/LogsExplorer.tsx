@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Paper, SegmentedControl, Select, Stack, Switch, Table, Text, TextInput,
+  ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Switch, Table, Text, TextInput,
 } from "@mantine/core";
 import { IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -201,16 +201,19 @@ export function LogsExplorer({ scope, state, onChange, onSaved }: {
             <Text size="xs" c="dimmed">Query</Text>
             <Code data-testid="query-text" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{queryText(state)}</Code>
           </Group>
-          {saving === null ? (
-            <Button size="xs" variant="subtle" onClick={() => setSaving("")}>Save this query</Button>
-          ) : (
-            <Group gap={6} wrap="nowrap">
-              <TextInput size="xs" placeholder="Name" aria-label="Query name" value={saving} autoFocus error={saveError}
+          <Button size="xs" variant="subtle" onClick={() => setSaving("")}>Save this query</Button>
+          <Modal opened={saving !== null} onClose={() => { setSaving(null); setSaveError(null); }} radius="lg"
+            title={<Text fw={700} fz={18}>Save this query</Text>}>
+            <Stack gap="md">
+              <Code block>{queryText(state)}</Code>
+              <TextInput label="Name" aria-label="Query name" data-autofocus value={saving ?? ""} error={saveError}
                 onChange={(e) => setSaving(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && save()} />
-              <Button size="xs" onClick={save} disabled={!saving.trim()}>Save</Button>
-              <Button size="xs" variant="subtle" onClick={() => { setSaving(null); setSaveError(null); }}>Cancel</Button>
-            </Group>
-          )}
+              <Group justify="flex-end" gap="xs">
+                <Button variant="default" onClick={() => { setSaving(null); setSaveError(null); }}>Cancel</Button>
+                <Button onClick={save} disabled={!saving?.trim()}>Save</Button>
+              </Group>
+            </Stack>
+          </Modal>
         </Group>
       </Paper>
 

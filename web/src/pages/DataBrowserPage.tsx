@@ -1,7 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import {
-  ActionIcon, Anchor, Box, Button, Divider, Group, Stack, Text, TextInput, Tooltip,
-} from "@mantine/core";
+import { ActionIcon, Anchor, Box, Button, Divider, Group, Modal, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconChevronRight, IconDatabase, IconHistory, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -12,7 +10,7 @@ import { FieldsEditor } from "../data/FieldsEditor";
 import { parseFields, serializeFields, type FieldEntry } from "../data/fields";
 import { SubsystemTabs } from "./rules/SubsystemTabs";
 import { EmptyState } from "../components/EmptyState";
-import { IconFileText, IconFolderOpen } from "@tabler/icons-react";
+import { IconFileText, IconFolderOpen, IconPlus } from "@tabler/icons-react";
 
 export function DataBrowserPage() {
   return (
@@ -70,17 +68,33 @@ function Row({ active, onClick, label, onDelete, deleteLabel }: {
   );
 }
 
-function AddInline({ placeholder, label, onAdd }: { placeholder: string; label: string; onAdd: (value: string) => void }) {
+/** "+ Add …" that opens a dialog asking for the id (blank = a generated one). */
+function AddInline({ placeholder, label, onAdd, what, optional = false }: {
+  placeholder: string; label: string; onAdd: (value: string) => void; what: string; optional?: boolean;
+}) {
   const { user } = useSession();
+  const [open, setOpen] = useState(false);
   const [value, setValue] = useState("");
-  const submit = () => { onAdd(value.trim()); setValue(""); };
   if (user?.role === "Viewer") return null;
+  const close = () => { setOpen(false); setValue(""); };
+  const submit = () => { if (!optional && !value.trim()) return; onAdd(value.trim()); close(); };
   return (
-    <Group gap={6} p="sm" style={{ borderBottom: "1px solid #F2F4F7" }}>
-      <TextInput size="xs" placeholder={placeholder} value={value}
-        onChange={(e) => setValue(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={{ flex: 1 }} />
-      <Button size="xs" variant="light" onClick={submit}>{label}</Button>
-    </Group>
+    <>
+      <Group gap={6} p="sm" style={{ borderBottom: "1px solid #F2F4F7" }}>
+        <Button size="xs" variant="light" leftSection={<IconPlus size={14} />} onClick={() => setOpen(true)}>{label}</Button>
+      </Group>
+      <Modal opened={open} onClose={close} title={<Text fw={700} fz={18}>Add {what}</Text>} radius="lg">
+        <Stack gap="md">
+          <TextInput label={placeholder.replace(" (optional)", "")} placeholder={optional ? "Leave blank for a generated id" : undefined} data-autofocus
+            description={optional ? "Blank: Winche makes one." : undefined}
+            value={value} onChange={(e) => setValue(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={close}>Cancel</Button>
+            <Button onClick={submit} disabled={!optional && !value.trim()}>Add</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
   );
 }
 
@@ -91,10 +105,10 @@ function DocumentsColumn({ collection, selectedDoc, onSelect, onAdd }: {
   return (
     <Column>
       <PanelHeader title={collection.split("/").pop()} />
-      <AddInline placeholder="Document ID (optional)" label="Add" onAdd={onAdd} />
+      <AddInline placeholder="Document ID (optional)" label="Add document" what="a document" optional onAdd={onAdd} />
       <Box style={{ overflow: "auto" }}>
         {docs.isLoading && <Text size="sm" p="sm">Loading…</Text>}
-        {docs.data?.documents.length === 0 && <EmptyState compact bordered={false} icon={IconFileText} title="No documents" description="Add one above." />}
+        {docs.data?.documents.length === 0 && <EmptyState compact bordered={false} icon={IconFileText} title="No documents" description="Add one, or let your apps write it." />}
         {docs.data?.documents.map((d) => <Row key={d.path} active={d.id === selectedDoc} onClick={() => onSelect(d.id)} label={d.id} />)}
       </Box>
     </Column>
@@ -157,7 +171,7 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
 
       <Box style={{ overflow: "auto" }}>
         <Text size="xs" fw={600} c="#475467" px="sm" pt="sm">COLLECTIONS</Text>
-        <AddInline placeholder="Collection ID" label="Add" onAdd={onAddSub} />
+        <AddInline placeholder="Collection ID" label="Add collection" what="a collection" onAdd={onAddSub} />
         {subs.length === 0 && <Text size="xs" c="dimmed" px="sm" py={6}>No collections.</Text>}
         {subs.map((s) => (
           <Row key={s} active={s === activeSub} onClick={() => onOpenSub(s)} label={s.split("/").pop() ?? s}
@@ -265,7 +279,7 @@ function DataView() {
   });
 
   return (
-    <Stack gap="sm" h="calc(100vh - 4rem)">
+    <Stack gap="sm" h="100%">
       <Group gap={6} c="#475467">
         <IconDatabase size={18} />
         <Anchor size="sm" fw={500} c="#475467" onClick={() => setLevels([])}>Database</Anchor>
@@ -280,10 +294,10 @@ function DataView() {
       <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", display: "flex", overflow: "auto" }}>
         <Column>
           <PanelHeader title="Collections" />
-          <AddInline placeholder="Collection ID" label="Add" onAdd={addRoot} />
+          <AddInline placeholder="Collection ID" label="Add collection" what="a collection" onAdd={addRoot} />
           <Box style={{ overflow: "auto" }}>
             {collectionsQuery.isLoading && <Text size="sm" c="dimmed" p="sm">Loading…</Text>}
-            {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">None yet: name one above.</Text>}
+            {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">None yet.</Text>}
             {roots.map((c) => (
               <Row key={c} active={levels[0]?.collection === c} onClick={() => openRoot(c)} label={c}
                 onDelete={() => setConfirm({ kind: "collection", path: c })} deleteLabel="Delete collection" />
@@ -311,7 +325,7 @@ function DataView() {
           <Box p="lg" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {!collectionsQuery.isLoading && roots.length === 0
               ? <EmptyState bordered={false} icon={IconDatabase} title="Start your first collection"
-                  description="Collections hold documents, like a folder of records. Name one in the Collections column, or let your apps write the first document." />
+                  description="Collections hold documents, like a folder of records. Add one in the Collections column, or let your apps write the first document." />
               : <EmptyState bordered={false} compact icon={IconFolderOpen} title="Pick a collection" description="Its documents show here." />}
           </Box>
         )}

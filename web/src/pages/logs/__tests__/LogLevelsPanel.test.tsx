@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -38,7 +38,9 @@ test("adds a time-limited source level and saves it", async () => {
   expect(screen.getByText(/None — every source uses the default/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Add a source" }));
-  await userEvent.type(screen.getAllByLabelText("Source")[0], "SmartAirway.Reports");
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("Source"), "SmartAirway.Reports");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
   const before = Date.now();
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
 

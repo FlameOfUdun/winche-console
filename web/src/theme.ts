@@ -32,6 +32,14 @@ export const wincheTheme = createTheme({
     Card: { defaultProps: { radius: "lg" } },
     Button: { defaultProps: { radius: "md" } },
     Badge: { defaultProps: { radius: "xl" } },
+    // Tabs fill the page's height; only the open panel scrolls, so the page header and the tab list stay put.
+    Tabs: {
+      styles: {
+        root: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 },
+        panel: { flex: "1 1 auto", minHeight: 0, overflow: "auto", paddingBottom: 28 },
+      },
+    },
+    Stack: { styles: { root: { minHeight: 0 } } },
   },
 });
 

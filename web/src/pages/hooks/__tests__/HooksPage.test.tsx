@@ -68,7 +68,7 @@ test("a ready-made action: when a user is deleted, delete their files — checke
   mock(api.testHook).mockResolvedValue({ ok: true, ran: false, options: { folder: "users/example-uid/" }, sample: {} });
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: "Add hook" }));
-  const editor = screen.getByTestId("hook-editor");
+  const editor = await screen.findByTestId("hook-editor");
   await userEvent.type(within(editor).getByLabelText("Name"), "Delete a user's files");
   await userEvent.click(within(editor).getByText("Users"));
   await userEvent.click(within(editor).getByText("deleted"));

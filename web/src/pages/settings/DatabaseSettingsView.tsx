@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Button, Group, NumberInput, Paper, SegmentedControl, Stack, Switch, Table, Text, TextInput } from "@mantine/core";
+import { Badge, Button, Group, Modal, NumberInput, Paper, SegmentedControl, Stack, Switch, Table, Text, TextInput } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { fieldsText, parseFields, sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
@@ -148,10 +148,10 @@ function Indexes({ draft, set, editable }: Props) {
           </Table.Tbody>
         </Table>
       )}
-      {editable && !adding && <Button size="xs" variant="default" w="fit-content" onClick={() => setAdding({ ...NEW_INDEX })}>Add index</Button>}
-      {adding && (
-        <Paper withBorder p="sm">
-          <Stack gap="xs">
+      {editable && <Button size="xs" variant="default" w="fit-content" onClick={() => setAdding({ ...NEW_INDEX })}>Add index</Button>}
+      <Modal opened={!!adding} onClose={() => setAdding(null)} title={<Text fw={700} fz={18}>Add an index</Text>} radius="lg">
+        {adding && (
+          <Stack gap="md">
             <SegmentedControl size="xs" w="fit-content" value={adding.kind} aria-label="Index kind"
               data={[{ value: "ordered", label: "Filter and sort" }, { value: "array", label: "Array contains" }]}
               onChange={(v) => setAdding({ ...adding, kind: v as IndexSettings["kind"] })} />
@@ -162,14 +162,14 @@ function Indexes({ draft, set, editable }: Props) {
             </Group>
             <Switch label="Every collection with this name, wherever it is (collection group)" checked={adding.collectionGroup}
               onChange={(e) => setAdding({ ...adding, collectionGroup: e.currentTarget.checked })} />
-            <Group gap="xs">
-              <Button size="xs" disabled={!adding.collection || parseFields(adding.fields).length === 0}
-                onClick={() => { add({ collection: adding.collection, fields: parseFields(adding.fields), kind: adding.kind, collectionGroup: adding.collectionGroup }); setAdding(null); }}>Add</Button>
-              <Button size="xs" variant="subtle" onClick={() => setAdding(null)}>Cancel</Button>
+            <Group justify="flex-end" gap="xs">
+              <Button variant="default" onClick={() => setAdding(null)}>Cancel</Button>
+              <Button disabled={!adding.collection || parseFields(adding.fields).length === 0}
+                onClick={() => { add({ collection: adding.collection, fields: parseFields(adding.fields), kind: adding.kind, collectionGroup: adding.collectionGroup }); setAdding(null); }}>Add index</Button>
             </Group>
           </Stack>
-        </Paper>
-      )}
+        )}
+      </Modal>
       <Switch label="Drop indexes no longer listed here" disabled={!editable} checked={draft.dropUndeclaredIndexes}
         onChange={(e) => set({ ...draft, dropUndeclaredIndexes: e.currentTarget.checked })} />
     </Section>
@@ -177,8 +177,10 @@ function Indexes({ draft, set, editable }: Props) {
 }
 
 function Expiry({ draft, set, editable }: Props) {
+  const [adding, setAdding] = useState(false);
   const [collection, setCollection] = useState("");
   const [field, setField] = useState("");
+  const close = () => { setAdding(false); setCollection(""); setField(""); };
   return (
     <Section title="Expiry" hint="Delete documents once a timestamp field is in the past (checked every few minutes).">
       {draft.ttl.length === 0 && <EmptyState compact icon={IconClockOff} title="Nothing expires" description="Pick a collection and a timestamp field to delete its documents once that time has passed." />}
@@ -188,14 +190,17 @@ function Expiry({ draft, set, editable }: Props) {
           {editable && <Button size="xs" variant="subtle" color="red" onClick={() => set({ ...draft, ttl: draft.ttl.filter((_, j) => j !== n) })}>Remove</Button>}
         </Group>
       ))}
-      {editable && (
-        <Group align="flex-end" wrap="wrap">
-          <TextInput label="Collection" placeholder="sessions" value={collection} onChange={(e) => setCollection(e.currentTarget.value.trim())} />
-          <TextInput label="Timestamp field" placeholder="expiresAt" value={field} onChange={(e) => setField(e.currentTarget.value.trim())} />
-          <Button size="xs" variant="default" disabled={!collection || !field}
-            onClick={() => { set({ ...draft, ttl: [...draft.ttl, { collection, field }] }); setCollection(""); setField(""); }}>Add expiry</Button>
-        </Group>
-      )}
+      {editable && <Button size="xs" variant="default" w="fit-content" onClick={() => setAdding(true)}>Add expiry</Button>}
+      <Modal opened={adding} onClose={close} title={<Text fw={700} fz={18}>Add an expiry</Text>} radius="lg">
+        <Stack gap="md">
+          <TextInput label="Collection" placeholder="sessions" data-autofocus value={collection} onChange={(e) => setCollection(e.currentTarget.value.trim())} />
+          <TextInput label="Timestamp field" description="Documents are deleted once this time has passed." placeholder="expiresAt" value={field} onChange={(e) => setField(e.currentTarget.value.trim())} />
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={close}>Cancel</Button>
+            <Button disabled={!collection || !field} onClick={() => { set({ ...draft, ttl: [...draft.ttl, { collection, field }] }); close(); }}>Add expiry</Button>
+          </Group>
+        </Stack>
+      </Modal>
     </Section>
   );
 }

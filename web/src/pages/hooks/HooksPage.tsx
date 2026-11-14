@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Chip, Code, Group, Loader, Paper, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput } from "@mantine/core";
+import {
+  Alert, Badge, Button, Chip, Code, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput,
+} from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -89,7 +91,7 @@ function HooksList() {
     <Stack gap="md" maw={980}>
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
       {d.sources.length === 0 && <Alert color="yellow">No events reach hooks yet: add the Winche.Webhooks adapters for the database, storage or auth.</Alert>}
-      {draft.length === 0 && !editing && (
+      {draft.length === 0 && (
         <EmptyState icon={IconWebhook} title="No hooks yet"
           description="When documents, files or users change, call an address of yours or run a ready-made action."
           action={d.editable && <Button disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>} />
@@ -98,7 +100,7 @@ function HooksList() {
         const text = describe(h, d);
         const counts = d.counts[h.id] ?? {};
         const saved = d.settings.hooks.some((x) => x.id === h.id);
-        return editing?.id === h.id ? null : (
+        return (
           <Paper key={h.id} withBorder p="sm" data-testid="hook">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
               <Stack gap={2} style={{ minWidth: 0 }}>
@@ -126,8 +128,11 @@ function HooksList() {
           </Paper>
         );
       })}
-      {editing && <HookEditor initial={editing} data={d} onDone={(h) => { put(h); setEditing(null); }} onCancel={() => setEditing(null)} />}
-      {d.editable && !editing && draft.length > 0 && (
+      <Modal opened={!!editing} onClose={() => setEditing(null)} size="xl" radius="lg"
+        title={<Text fw={700} fz={18}>{editing && draft.some((x) => x.id === editing.id) ? `Edit ${editing.name || "hook"}` : "Add a hook"}</Text>}>
+        {editing && <HookEditor initial={editing} data={d} onDone={(h) => { put(h); setEditing(null); }} onCancel={() => setEditing(null)} />}
+      </Modal>
+      {d.editable && draft.length > 0 && (
         <Button w="fit-content" variant="default" disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>
       )}
       {d.editable && (dirty || error || notice) && (
@@ -187,7 +192,7 @@ function HookEditor({ initial, data, onDone, onCancel }: { initial: Hook; data: 
   };
 
   return (
-    <Paper withBorder p="md" style={{ borderColor: "var(--mantine-color-blue-5)" }} data-testid="hook-editor">
+    <Paper p={0} data-testid="hook-editor">
       <Stack gap="sm">
         <TextInput label="Name" placeholder="Tell the ward system about new visits" value={h.name} onChange={(e) => set({ name: e.currentTarget.value })} />
         <Text fw={600} size="sm">When</Text>

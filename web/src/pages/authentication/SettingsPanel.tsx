@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Badge, Button, Code, Group, Loader, Paper, Select, Stack, Switch, Table, Text, TextInput, Textarea, Title, UnstyledButton,
+  Alert, Badge, Button, Code, Group, Loader, Modal, Paper, Select, Stack, Switch, Table, Text, TextInput, Textarea, Title, UnstyledButton,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -162,7 +162,7 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
           <Title order={4}>Identity providers</Title>
           <Text size="sm" c="dimmed">Sign-in systems whose tokens the app accepts. Their users sign in there; Winche checks the token.</Text>
         </div>
-        {editable && !editing && <Button onClick={() => setEditing({ index: null, provider: newProvider() })}>Add provider</Button>}
+        {editable && <Button onClick={() => setEditing({ index: null, provider: newProvider() })}>Add provider</Button>}
       </Group>
 
       <Paper withBorder p="md">
@@ -171,7 +171,7 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
           onChange={(e) => setDraft({ ...draft, trustWincheAuth: e.currentTarget.checked })} />
       </Paper>
 
-      {draft.providers.length === 0 && !editing && (
+      {draft.providers.length === 0 && (
         <EmptyState compact icon={IconShieldCheck} title="No other identity providers" description="Accept tokens from Keycloak, Auth0, Microsoft Entra ID or any OpenID Connect provider." />
       )}
 
@@ -217,16 +217,19 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
         );
       })}
 
-      {editing && (
-        <ProviderForm initial={editing.provider} others={draft.providers.filter((_, j) => j !== editing.index)}
-          onCancel={() => setEditing(null)}
-          onDone={(p) => {
-            const providers = [...draft.providers];
-            if (editing.index === null) providers.push(p); else providers[editing.index] = p;
-            setDraft({ ...draft, providers });
-            setEditing(null);
-          }} />
-      )}
+      <Modal opened={!!editing} onClose={() => setEditing(null)} size="xl" radius="lg"
+        title={<Text fw={700} fz={18}>{editing?.index === null ? "Add an identity provider" : `Edit ${editing?.provider.displayName || editing?.provider.name || "provider"}`}</Text>}>
+        {editing && (
+          <ProviderForm initial={editing.provider} others={draft.providers.filter((_, j) => j !== editing.index)}
+            onCancel={() => setEditing(null)}
+            onDone={(p) => {
+              const providers = [...draft.providers];
+              if (editing.index === null) providers.push(p); else providers[editing.index] = p;
+              setDraft({ ...draft, providers });
+              setEditing(null);
+            }} />
+        )}
+      </Modal>
     </Stack>
   );
 }
@@ -257,9 +260,9 @@ function ProviderForm({ initial, others, onDone, onCancel }: {
   };
 
   return (
-    <Paper withBorder p="md" style={{ borderColor: "var(--mantine-color-blue-5)" }} aria-label="Provider">
+    <Paper p={0} aria-label="Provider">
       <Stack gap="sm">
-        <Title order={5}>{isNew ? "Add a provider" : `Edit ${initial.displayName || initial.name}`}</Title>
+        {/* The dialog's title names it. */}
         <Group grow align="flex-start" wrap="wrap">
           <Select label="Type" data={PROVIDER_KINDS} value={p.kind} allowDeselect={false} onChange={(v) => setP({ ...p, kind: v ?? "oidc" })} />
           <TextInput label="Name shown here" placeholder="TruCorp Keycloak" value={p.displayName ?? ""} onChange={(e) => setP({ ...p, displayName: e.currentTarget.value })} />

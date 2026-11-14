@@ -18,6 +18,7 @@ import { useTabsManifest, tabIcon } from "../tabs/useTabsManifest";
 import { builtinNav } from "./nav";
 import logoUrl from "../assets/winche-logo.png";
 import { StatusPill } from "../components/PageHeader";
+import "./layout.css";
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -181,7 +182,7 @@ export function AppLayout() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Box px={{ base: 16, sm: 32 }} py={28} maw={1280} mx="auto">
+        <Box className="winche-page" px={{ base: 16, sm: 32 }} pt={28} pb={0} maw={1280} mx="auto">
           <Outlet />
         </Box>
       </AppShell.Main>

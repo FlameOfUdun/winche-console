@@ -121,7 +121,7 @@ function FilesView() {
   };
 
   return (
-    <Stack gap="sm" h="calc(100vh - 4rem)">
+    <Stack gap="sm" h="100%">
       <Group justify="space-between">
         <Group gap={6} c="#475467">
           <IconFolder size={18} />

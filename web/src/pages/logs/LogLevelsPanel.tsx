@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { ActionIcon, Alert, Autocomplete, Button, Group, Paper, Select, Stack, Text, Tooltip } from "@mantine/core";
+import {
+  ActionIcon, Alert, Autocomplete, Button, Group, Modal, Paper, Select, Stack, Text, Tooltip,
+} from "@mantine/core";
 import { IconPlus, IconTrash } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "../../api/client";
@@ -38,6 +40,7 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [adding, setAdding] = useState<Row | null>(null);   // the "Add a source" dialog
 
   useEffect(() => {
     if (!levels.data) return;
@@ -110,11 +113,24 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
           </Group>
         ))}
         <Group gap="xs">
-          <Button variant="subtle" size="xs" leftSection={<IconPlus size={14} />}
-            onClick={() => setRows((r) => [...r, { category: prefix ? `${prefix}.` : "", level: "Debug", until: null, duration: "60" }])}>
+          <Button variant="subtle" size="xs" leftSection={<IconPlus size={14} />} onClick={() => setAdding({ category: prefix ? `${prefix}.` : "", level: "Debug", until: null, duration: "60" })}>
             Add a source
           </Button>
         </Group>
+        <Modal opened={!!adding} onClose={() => setAdding(null)} title={<Text fw={700} fz={18}>Log a source differently</Text>} radius="lg">
+          {adding && (
+            <Stack gap="md">
+              <Autocomplete label="Source" placeholder={prefix ? `${prefix}.…` : "e.g. SmartAirway.Reports"} data-autofocus value={adding.category}
+                data={categories.filter((c) => !prefix || c.startsWith(prefix))} onChange={(v) => setAdding({ ...adding, category: v })} />
+              <Select label="Keep" data={LEVELS} value={adding.level} allowDeselect={false} onChange={(v) => v && setAdding({ ...adding, level: v as LogLevel })} />
+              <Select label="For how long" data={DURATIONS} value={adding.duration ?? "60"} allowDeselect={false} onChange={(v) => setAdding({ ...adding, duration: v })} />
+              <Group justify="flex-end" gap="xs">
+                <Button variant="default" onClick={() => setAdding(null)}>Cancel</Button>
+                <Button disabled={!adding.category.trim() || adding.category.trim().endsWith(".")} onClick={() => { setRows((r) => [...r, adding]); setAdding(null); }}>Add</Button>
+              </Group>
+            </Stack>
+          )}
+        </Modal>
 
         {error && <Alert color="red" py={6}>{error}</Alert>}
         <Group gap="xs">

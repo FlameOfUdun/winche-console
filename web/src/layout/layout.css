@@ -1,0 +1,12 @@
+/* The page area is a fixed-height column: the page's header and tabs stay put, each tab's panel scrolls (Tabs in
+   theme.ts), and a page without tabs scrolls as a whole, under the fixed sidebar. */
+.winche-page {
+  height: 100vh;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.winche-page > * { flex-shrink: 0; }
+/* The page's last part (its tabs, or its root stack) takes the rest of the height. */
+.winche-page > *:last-child { flex: 1 1 auto; min-height: 0; }

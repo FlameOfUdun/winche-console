@@ -77,13 +77,16 @@ test("an index is added by hand, an expiry policy too, and history turned on, sa
   renderIt(<DatabaseSettingsView />);
   expect(await screen.findByText("These are the starting values from the app's code.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Add index" }));
-  await userEvent.type(screen.getAllByPlaceholderText("sessions")[0], "sessions");   // the index form comes first
-  await userEvent.type(screen.getByLabelText("Fields, in order"), "userId, startedAt desc");
-  await userEvent.click(screen.getByRole("button", { name: "Add" }));
+  let dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
+  await userEvent.type(within(dialog).getByLabelText("Fields, in order"), "userId, startedAt desc");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add index" }));
   expect(screen.getAllByTestId("db-index")).toHaveLength(2);
-  await userEvent.type(screen.getByPlaceholderText("expiresAt"), "expiresAt");
-  await userEvent.type(screen.getAllByPlaceholderText("sessions").at(-1)!, "sessions");
   await userEvent.click(screen.getByRole("button", { name: "Add expiry" }));
+  dialog = await waitFor(() => { const d = screen.getAllByRole("dialog").at(-1)!; within(d).getByPlaceholderText("expiresAt"); return d; });
+  await userEvent.type(within(dialog).getByPlaceholderText("expiresAt"), "expiresAt");
+  await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add expiry" }));
   await userEvent.click(screen.getByLabelText("Keep document history"));
   await userEvent.type(screen.getByLabelText("Reason for the change"), "Session lists");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
