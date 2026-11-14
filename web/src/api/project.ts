@@ -9,6 +9,15 @@ export interface ProjectState {
   imageVersion?: string | null;
 }
 
+/** GET api/projects: the server's projects, for the switcher. */
+export interface ServerProjects {
+  available: boolean;
+  canCreate: boolean;
+  /** This console's project. */
+  current: string;
+  projects: { id: string; name: string; consoleUrl: string; imageVersion: string | null }[];
+}
+
 export type ProductId = "database" | "storage" | "authentication" | "functions" | "hooks";
 export type RulesMode = "locked" | "test";
 

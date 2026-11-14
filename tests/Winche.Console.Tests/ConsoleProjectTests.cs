@@ -76,28 +76,16 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Other_projects_are_listed_for_the_switcher()
+    public async Task Without_a_multi_project_host_the_console_knows_only_its_own_project()
     {
         using var app = new ConsoleAppFactory(fx, ("Sample:ProjectSetup", "true"));
         using var client = app.CreateClient();
         await client.SetupAdminAsync();
         await client.LoginAsync();
-
-        var links = await Json(await client.GetAsync("/_console/api/project/links"));
-        Assert.True(links.GetProperty("editable").GetBoolean());
-        Assert.Equal(0, links.GetProperty("links").GetArrayLength());
-
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/project/links", new { name = "Staging", consoleUrl = "ftp://x" })).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/project/links", new { name = " ", consoleUrl = "https://staging.example.com/_console" })).StatusCode);
-        links = await Json(await client.PostAsJsonAsync("/_console/api/project/links", new { name = "Staging", consoleUrl = "https://staging.example.com/_console/" }));
-        Assert.Equal("https://staging.example.com/_console", links.GetProperty("links")[0].GetProperty("consoleUrl").GetString());
-        // The same console twice is refused, with or without the trailing slash.
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/project/links", new { name = "Again", consoleUrl = "https://staging.example.com/_console" })).StatusCode);
-        await Json(await client.PostAsJsonAsync("/_console/api/project/links", new { name = "Production", consoleUrl = "https://example.com/_console" }));
-
-        links = await Json(await client.DeleteAsync("/_console/api/project/links?url=" + Uri.EscapeDataString("https://staging.example.com/_console")));
-        Assert.Equal(["Production"], links.GetProperty("links").EnumerateArray().Select(l => l.GetProperty("name").GetString()));
-        Assert.Equal(["Production"], (await Json(await client.GetAsync("/_console/api/project/links"))).GetProperty("links").EnumerateArray().Select(l => l.GetProperty("name").GetString()));
+        var projects = await Json(await client.GetAsync("/_console/api/projects"));
+        Assert.False(projects.GetProperty("available").GetBoolean());
+        Assert.Equal(0, projects.GetProperty("projects").GetArrayLength());
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/_console/api/projects", new { name = "Wards", id = "wards" })).StatusCode);
     }
 
     [Fact]

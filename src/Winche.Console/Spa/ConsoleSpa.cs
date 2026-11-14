@@ -48,7 +48,8 @@ internal static class ConsoleSpa
         var file = Files.GetFileInfo("index.html");
         using var reader = new StreamReader(file.CreateReadStream());
         var html = await reader.ReadToEndAsync(ctx.RequestAborted);
-        var baseTag = $"<base href=\"{System.Net.WebUtility.HtmlEncode(baseHref)}\">";
+        // Under the app's path base too (a project at /p/<id> of Winche Server, or an app mounted under a path).
+        var baseTag = $"<base href=\"{System.Net.WebUtility.HtmlEncode(ctx.Request.PathBase.Value + baseHref)}\">";
         html = Regex.Replace(html, "<head[^>]*>", m => m.Value + baseTag, RegexOptions.IgnoreCase);
         // Cloudflare Rocket Loader rewrites <script type="module"> tags into a deferral placeholder and
         // then fails to load them as ES modules, which takes the whole SPA down ("Expected a JavaScript

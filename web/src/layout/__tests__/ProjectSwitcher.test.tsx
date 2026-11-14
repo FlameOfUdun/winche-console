@@ -8,39 +8,55 @@ import { api } from "../../api/client";
 
 vi.mock("../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../api/client")>();
-  return { ...actual, api: { ...actual.api, projectLinks: vi.fn(), addProjectLink: vi.fn(), removeProjectLink: vi.fn() } };
+  return { ...actual, api: { ...actual.api, projects: vi.fn(), createServerProject: vi.fn(), projectImage: vi.fn() } };
 });
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
+const clinic = { id: "clinic", name: "Clinic records", consoleUrl: "/_console", imageVersion: null };
+const wards = { id: "wards", name: "Ward boards", consoleUrl: "/p/wards/_console", imageVersion: null };
 
 const renderIt = () => render(
   <MantineProvider>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <ProjectSwitcher name="Clinic records" id="clinic-records" collapsed={false} logo={<span />} />
+      <ProjectSwitcher name="Clinic records" id="clinic" collapsed={false} logo={<span />} />
     </QueryClientProvider>
   </MantineProvider>,
 );
 
-beforeEach(() => vi.clearAllMocks());
+let assigned: string[] = [];
+beforeEach(() => {
+  vi.clearAllMocks();
+  assigned = [];
+  Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, assign: (u: string) => assigned.push(u) } });
+});
 
-test("with no other projects the switcher says so; a project is added in a dialog", async () => {
-  mock(api.projectLinks).mockResolvedValue({ editable: true, links: [] });
-  mock(api.addProjectLink).mockResolvedValue({});
+test("only one project: an empty state; an admin adds one in a dialog, and its console opens", async () => {
+  mock(api.projects).mockResolvedValue({ available: true, canCreate: true, current: "clinic", projects: [clinic] });
+  mock(api.createServerProject).mockResolvedValue({ id: "ward-boards", name: "Ward boards", consoleUrl: "/p/ward-boards/_console" });
   renderIt();
   await userEvent.click(screen.getByRole("button", { name: "Switch project" }));
   expect(await screen.findByTestId("projects-empty")).toHaveTextContent("Only this project");
   await userEvent.click(screen.getByText("Add a project"));
   const dialog = await screen.findByRole("dialog");
-  await userEvent.type(within(dialog).getByLabelText("Project name"), "Staging");
-  await userEvent.type(within(dialog).getByLabelText("Its console's address"), "https://staging.example.com/_console");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Add project" }));
-  await waitFor(() => expect(api.addProjectLink).toHaveBeenCalledWith("Staging", "https://staging.example.com/_console"));
+  await userEvent.type(within(dialog).getByLabelText("Project name"), "Ward boards");
+  expect(within(dialog).getByLabelText("Project id")).toHaveValue("ward-boards");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Create project" }));
+  await waitFor(() => expect(api.createServerProject).toHaveBeenCalledWith("Ward boards", "ward-boards"));
+  await waitFor(() => expect(assigned).toEqual(["/p/ward-boards/_console/overview"]));
 });
 
-test("other projects link to their consoles", async () => {
-  mock(api.projectLinks).mockResolvedValue({ editable: false, links: [{ name: "Staging", consoleUrl: "https://staging.example.com/_console" }] });
+test("other projects open their own console; non-admins can't add", async () => {
+  mock(api.projects).mockResolvedValue({ available: true, canCreate: false, current: "clinic", projects: [clinic, wards] });
   renderIt();
   await userEvent.click(screen.getByRole("button", { name: "Switch project" }));
-  expect((await screen.findByText("Staging")).closest("a")).toHaveAttribute("href", "https://staging.example.com/_console");
-  expect(screen.queryByText("Add a project")).toBeNull();   // not an admin
-  expect(screen.queryByTestId("projects-empty")).toBeNull();
+  await userEvent.click(await screen.findByText("Ward boards"));
+  expect(assigned).toEqual(["/p/wards/_console/overview"]);
+  expect(screen.queryByText("Add a project")).toBeNull();
+});
+
+test("a console that runs one project lists just it", async () => {
+  mock(api.projects).mockResolvedValue({ available: false, canCreate: false, current: "clinic", projects: [] });
+  renderIt();
+  await userEvent.click(screen.getByRole("button", { name: "Switch project" }));
+  expect(await screen.findByTestId("projects-empty")).toHaveTextContent("This console runs one project.");
+  expect(screen.queryByText("Add a project")).toBeNull();
 });

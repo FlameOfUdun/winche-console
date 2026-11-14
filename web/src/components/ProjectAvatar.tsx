@@ -4,8 +4,8 @@ import { api } from "../api/client";
 import logoUrl from "../assets/winche-logo.png";
 
 /** The project's thumbnail as an object URL (null while loading or when there's none). */
-export function useProjectImage(version: string | null | undefined): string | null {
-  const image = useQuery({ queryKey: ["project-image", version], queryFn: () => api.projectImage(version!), enabled: !!version, staleTime: Infinity });
+export function useProjectImage(version: string | null | undefined, consoleUrl?: string): string | null {
+  const image = useQuery({ queryKey: ["project-image", consoleUrl ?? "", version], queryFn: () => api.projectImage(version!, consoleUrl), enabled: !!version, staleTime: Infinity });
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     if (!image.data) { setUrl(null); return; }
@@ -17,8 +17,10 @@ export function useProjectImage(version: string | null | undefined): string | nu
 }
 
 /** The project's thumbnail, or Winche's logo when it has none. */
-export function ProjectAvatar({ version, size = 32, radius = 8 }: { version: string | null | undefined; size?: number; radius?: number }) {
-  const url = useProjectImage(version);
+export function ProjectAvatar({ version, consoleUrl, size = 32, radius = 8 }: {
+  version: string | null | undefined; consoleUrl?: string; size?: number; radius?: number;
+}) {
+  const url = useProjectImage(version, consoleUrl);
   return (
     <img src={url ?? logoUrl} alt="" width={size} height={size} data-testid="project-avatar"
       style={{ borderRadius: radius, display: "block", flexShrink: 0, objectFit: "cover" }} />

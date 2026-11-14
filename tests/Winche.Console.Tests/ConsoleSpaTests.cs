@@ -18,7 +18,7 @@ public class ConsoleSpaTests(PostgresFixture fx) : IAsyncLifetime
         var resp = await client.GetAsync("/_console");
         Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var html = await resp.Content.ReadAsStringAsync();
-        Assert.Contains("<base href=\"/_console/\">", html);
+        Assert.Contains("<base href=\"/_console/\">", html);   // no path base here
         Assert.Contains("id=\"root\"", html);
     }
 

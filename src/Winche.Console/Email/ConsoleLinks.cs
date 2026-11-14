@@ -12,11 +12,11 @@ internal static class ConsoleLinks
 {
     /// <summary>Builds an absolute reset/invite link to the SPA's reset-password page from the current request.</summary>
     public static string ResetPasswordLink(HttpContext http, string prefix, string email, string token) =>
-        $"{http.Request.Scheme}://{http.Request.Host}{prefix}/reset-password" +
+        $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}{prefix}/reset-password" +
         $"?email={Uri.EscapeDataString(email)}&token={Uri.EscapeDataString(token)}";
 
     /// <summary>Builds an absolute invite link to the SPA's invite-acceptance page from the current request.</summary>
     public static string InviteLink(HttpContext http, string prefix, string token) =>
-        $"{http.Request.Scheme}://{http.Request.Host}{prefix}/invite" +
+        $"{http.Request.Scheme}://{http.Request.Host}{http.Request.PathBase}{prefix}/invite" +
         $"?token={Uri.EscapeDataString(token)}";
 }

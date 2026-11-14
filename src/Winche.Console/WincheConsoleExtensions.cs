@@ -113,7 +113,6 @@ public static class WincheConsoleExtensions
         {
             Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectSettings.Area, "Project", new Project.ProjectSettings(), s => s.Problems());
             services.AddHostedService<Project.ProjectStartupService>();
-            Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Project.ProjectLinksSettings.Area, "Projects", new Project.ProjectLinksSettings(), s => s.Problems());
             Winche.Core.ServiceCollectionExtensions.AddWincheSettingsArea(services, Apps.AppsSettings.Area, "Apps", new Apps.AppsSettings(), s => s.Problems());
             services.AddHostedService<Apps.AppUsageFlusher>();
         }
@@ -222,7 +221,7 @@ public static class WincheConsoleExtensions
         group.MapConsoleTokenEndpoints(options);
         group.MapConsoleOverviewEndpoints(options);
         Project.ProjectEndpoints.MapConsoleProjectEndpoints(group);
-        Project.ProjectLinkEndpoints.MapConsoleProjectLinkEndpoints(group);
+        Project.WincheProjectEndpoints.MapConsoleWincheProjectEndpoints(group, options);
         Project.ProjectImageEndpoints.MapConsoleProjectImageEndpoints(group);
         Apps.RegisteredAppEndpoints.MapConsoleRegisteredAppEndpoints(group, options);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).

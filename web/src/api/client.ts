@@ -65,11 +65,13 @@ export const api = {
   overview: () => http<import("./overview").Overview>("GET", "api/overview"),
   project: () => http<import("./project").ProjectState>("GET", "api/project"),
   createProject: (body: { name: string; id: string; products: string[] }) => http<import("./project").ProjectState>("POST", "api/project", body),
-  projectLinks: () => http<{ editable: boolean; links: { name: string; consoleUrl: string }[] }>("GET", "api/project/links"),
-  addProjectLink: (name: string, consoleUrl: string) => http<unknown>("POST", "api/project/links", { name, consoleUrl }),
-  removeProjectLink: (consoleUrl: string) => http<unknown>("DELETE", `api/project/links?url=${encodeURIComponent(consoleUrl)}`),
+  /** The projects on this server (Winche Server); `available` false where the console runs one project only. */
+  projects: () => http<import("./project").ServerProjects>("GET", "api/projects"),
+  createServerProject: (name: string, id: string) => http<{ id: string; name: string; consoleUrl: string }>("POST", "api/projects", { name, id }),
   /** The project's thumbnail, as a blob (fetched with the session's token, which an <img> can't send). */
-  projectImage: async (version: string) => (await raw("GET", `api/project/image?v=${encodeURIComponent(version)}`)).blob(),
+  /** A project's thumbnail: this console's, or another project's at its [consoleUrl]. */
+  projectImage: async (version: string, consoleUrl?: string) =>
+    (await raw("GET", `${consoleUrl ? `${consoleUrl}/` : ""}api/project/image?v=${encodeURIComponent(version)}`)).blob(),
   setProjectImage: async (image: Blob) => (await raw("PUT", "api/project/image", image)).json() as Promise<{ imageVersion: string }>,
   removeProjectImage: () => http<void>("DELETE", "api/project/image"),
   renameProject: (name: string, id: string) => http<import("./project").ProjectState>("PUT", "api/project", { name, id }),

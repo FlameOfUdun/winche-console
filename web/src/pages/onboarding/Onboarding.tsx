@@ -148,7 +148,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           {step === "project" && (
             <Screen title="Name your project" subtitle="Your apps see its name and id. Products are set up later, each from its own page.">
               <TextInput label="Project name" size="lg" value={name} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
-              <TextInput label="Project id" size="md" ff="monospace" value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
+              <TextInput label="Project id" size="md" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
                 onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
               {/* The project is required: no skipping, no cancelling. */}
               <Nav onNext={createProject} nextLabel="Create project" busy={busy} disabled={!name.trim() || !isProjectId(id)} />

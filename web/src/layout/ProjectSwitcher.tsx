@@ -1,29 +1,26 @@
-import { useState, type ReactNode } from "react";
-import { ActionIcon, Alert, Button, Group, Menu, Modal, Stack, Text, TextInput, Tooltip, UnstyledButton } from "@mantine/core";
-import { IconCheck, IconExternalLink, IconPlus, IconSelector, IconStack2, IconTrash } from "@tabler/icons-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, type ReactNode } from "react";
+import { Alert, Button, Group, Menu, Modal, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { IconCheck, IconPlus, IconSelector, IconStack2 } from "@tabler/icons-react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { errorMessage } from "../api/appAuth";
+import { isProjectId, projectIdFrom } from "../api/project";
+import { ProjectAvatar } from "../components/ProjectAvatar";
 import { surface } from "../theme";
 
-/** An address a project's console can have. */
-const isUrl = (v: string) => { try { const u = new URL(v.trim()); return u.protocol === "https:" || u.protocol === "http:"; } catch { return false; } };
+/** Opens another project's console (a full page load: each project's console is its own app). */
+const open = (consoleUrl: string) => window.location.assign(`${consoleUrl}/overview`);
 
 /**
- * The project in the sidebar's header, opening the project switcher: this project, the other projects' consoles
- * (each Winche server is one project, so switching opens that server's console) and "Add a project".
+ * The project in the sidebar's header, opening the switcher: every project on this server, each with its thumbnail,
+ * and "Add a project", which creates one and opens it. A console that runs one project only lists just that one.
  */
 export function ProjectSwitcher({ name, id, logo, collapsed }: { name: string; id: string; logo: ReactNode; collapsed: boolean }) {
-  const qc = useQueryClient();
-  const links = useQuery({ queryKey: ["project-links"], queryFn: api.projectLinks, staleTime: 60_000 });
+  const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, staleTime: 30_000 });
   const [adding, setAdding] = useState(false);
-  const list = links.data?.links ?? [];
-  const editable = !!links.data?.editable;
-
-  const remove = async (url: string) => {
-    await api.removeProjectLink(url);
-    await qc.invalidateQueries({ queryKey: ["project-links"] });
-  };
+  const data = projects.data;
+  const others = (data?.projects ?? []).filter((p) => p.id !== data?.current);
+  const current = data?.projects.find((p) => p.id === data.current);
 
   return (
     <>
@@ -45,33 +42,27 @@ export function ProjectSwitcher({ name, id, logo, collapsed }: { name: string; i
         </Menu.Target>
         <Menu.Dropdown>
           <Menu.Label>Projects</Menu.Label>
-          <Menu.Item leftSection={<IconCheck size={16} color="var(--mantine-color-winche-6)" />} rightSection={<Text size="xs" c={surface.faint}>{id}</Text>}>
+          <Menu.Item leftSection={<ProjectAvatar version={current?.imageVersion} consoleUrl={current?.consoleUrl} size={24} radius={6} />}
+            rightSection={<IconCheck size={16} color="var(--mantine-color-winche-6)" />}>
             <Text size="sm" fw={600} truncate>{name}</Text>
           </Menu.Item>
-          {list.length === 0 && (
+          {others.length === 0 && (
             <Stack gap={4} align="center" py="md" px="sm" data-testid="projects-empty">
               <IconStack2 size={22} color={surface.faint} />
               <Text size="sm" fw={600}>Only this project</Text>
-              <Text size="xs" c={surface.muted} ta="center">Add your other Winche projects to switch between them here.</Text>
+              <Text size="xs" c={surface.muted} ta="center">
+                {data?.available ? "Projects you add here run on this server, each with its own data." : "This console runs one project."}
+              </Text>
             </Stack>
           )}
-          {list.map((l) => (
-            <Group key={l.consoleUrl} gap={0} wrap="nowrap">
-              <Menu.Item component="a" href={l.consoleUrl} style={{ flex: 1, minWidth: 0 }} leftSection={<span style={{ width: 16 }} />}
-                rightSection={<IconExternalLink size={14} color={surface.faint} />}>
-                <Text size="sm" truncate>{l.name}</Text>
-                <Text size="xs" c={surface.faint} truncate>{l.consoleUrl.replace(/^https?:\/\//, "")}</Text>
-              </Menu.Item>
-              {editable && (
-                <Tooltip label="Remove from the list" withArrow>
-                  <ActionIcon variant="subtle" color="gray" size="sm" mr={6} aria-label={`Remove ${l.name}`} onClick={() => remove(l.consoleUrl)}>
-                    <IconTrash size={14} />
-                  </ActionIcon>
-                </Tooltip>
-              )}
-            </Group>
+          {others.map((p) => (
+            <Menu.Item key={p.id} onClick={() => open(p.consoleUrl)} data-testid="other-project"
+              leftSection={<ProjectAvatar version={p.imageVersion} consoleUrl={p.consoleUrl} size={24} radius={6} />}
+              rightSection={<Text size="xs" c={surface.faint}>{p.id}</Text>}>
+              <Text size="sm" truncate>{p.name}</Text>
+            </Menu.Item>
           ))}
-          {editable && (
+          {data?.canCreate && (
             <>
               <Menu.Divider />
               <Menu.Item leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add a project</Menu.Item>
@@ -79,41 +70,42 @@ export function ProjectSwitcher({ name, id, logo, collapsed }: { name: string; i
           )}
         </Menu.Dropdown>
       </Menu>
-      <AddProjectDialog opened={adding} onClose={() => setAdding(false)} />
+      <CreateProjectDialog opened={adding} onClose={() => setAdding(false)} />
     </>
   );
 }
 
-function AddProjectDialog({ opened, onClose }: { opened: boolean; onClose: () => void }) {
-  const qc = useQueryClient();
+/** Creating a project on this server: its name and id; then its console opens. */
+function CreateProjectDialog({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
+  const [id, setId] = useState("");
+  const [idEdited, setIdEdited] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const close = () => { setName(""); setUrl(""); setError(null); onClose(); };
-  const add = async () => {
+  useEffect(() => { if (!idEdited) setId(projectIdFrom(name)); }, [name, idEdited]);
+  const close = () => { setName(""); setId(""); setIdEdited(false); setError(null); onClose(); };
+  const create = async () => {
     setBusy(true); setError(null);
     try {
-      await api.addProjectLink(name.trim(), url.trim());
-      await qc.invalidateQueries({ queryKey: ["project-links"] });
-      close();
+      const created = await api.createServerProject(name.trim(), id);
+      open(created.consoleUrl);
     } catch (e) {
       setError(errorMessage(e));
-    } finally {
       setBusy(false);
     }
   };
   return (
     <Modal opened={opened} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Add a project</Text>}>
       <Stack gap="md">
-        <Text size="sm" c={surface.muted}>Each Winche server runs one project. List another server's console here to switch to it from this sidebar.</Text>
         <TextInput label="Project name" placeholder="Clinic staging" data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
-        <TextInput label="Its console's address" placeholder="https://staging.example.com/_console" value={url}
-          error={url && !isUrl(url) ? "An address starting with https://" : undefined} onChange={(e) => setUrl(e.currentTarget.value)} />
+        <TextInput label="Project id" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id} description={id && isProjectId(id) ? `Its address: …/p/${id}` : undefined}
+          error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
+          onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
+        <Text size="sm" c={surface.muted}>It gets its own database, users and files. Its products start off, as here.</Text>
         {error && <Alert color="red" p="xs">{error}</Alert>}
         <Group justify="flex-end" gap="xs">
           <Button variant="default" onClick={close}>Cancel</Button>
-          <Button onClick={add} loading={busy} disabled={!name.trim() || !isUrl(url)}>Add project</Button>
+          <Button onClick={create} loading={busy} disabled={!name.trim() || !isProjectId(id)}>Create project</Button>
         </Group>
       </Stack>
     </Modal>
