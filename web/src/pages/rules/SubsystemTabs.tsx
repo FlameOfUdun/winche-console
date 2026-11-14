@@ -11,6 +11,7 @@ import { HistoryView } from "../history/HistoryView";
 import { DatabaseSettingsView } from "../settings/DatabaseSettingsView";
 import { StorageSettingsView } from "../settings/StorageSettingsView";
 import { PageHeader } from "../../components/PageHeader";
+import { ProductHooks } from "../hooks/ProductHooks";
 
 /**
  * Wraps an existing browser page (Documents / Files) with routed "Rules" and "Logs" sub-tabs. The Rules tab
@@ -39,24 +40,27 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
   const logsEligible = !!state?.capabilities?.logs?.[subsystem];
   const historyEligible = subsystem === "database" && !!state?.capabilities?.history;
   const settingsEligible = !!state?.capabilities?.settings?.[subsystem];
+  const hooksEligible = !!state?.capabilities?.hooks;
 
   const onRulesPath = pathname.endsWith("/rules");
   const onLogsPath = pathname.endsWith("/logs");
   const onHistoryPath = pathname.endsWith("/history");
   const onSettingsPath = pathname.endsWith("/settings");
-  if ((onRulesPath && !eligible && !subsystems.isLoading) || (onLogsPath && !logsEligible) || (onHistoryPath && !historyEligible) || (onSettingsPath && !settingsEligible))
+  const onHooksPath = pathname.endsWith("/hooks");
+  if ((onRulesPath && !eligible && !subsystems.isLoading) || (onLogsPath && !logsEligible) || (onHistoryPath && !historyEligible) || (onSettingsPath && !settingsEligible) || (onHooksPath && !hooksEligible))
     return <Navigate to={basePath} replace />;
 
-  const active = onRulesPath ? "rules" : onLogsPath ? "logs" : onHistoryPath ? "history" : onSettingsPath ? "settings" : "primary";
+  const active = onRulesPath ? "rules" : onLogsPath ? "logs" : onHistoryPath ? "history" : onSettingsPath ? "settings" : onHooksPath ? "hooks" : "primary";
 
   return (
     <>
     <PageHeader eyebrow="Build" title={subsystem === "database" ? "Database" : "Storage"} />
-    <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" || v === "history" || v === "settings" ? `${basePath}/${v}` : basePath)}>
+    <Tabs value={active} onChange={(v) => navigate(v === "rules" || v === "logs" || v === "history" || v === "settings" || v === "hooks" ? `${basePath}/${v}` : basePath)}>
       <Tabs.List mb="sm">
         <Tabs.Tab value="primary">{primaryLabel}</Tabs.Tab>
         {eligible && <Tabs.Tab value="rules">Rules</Tabs.Tab>}
         {historyEligible && <Tabs.Tab value="history">History</Tabs.Tab>}
+        {hooksEligible && <Tabs.Tab value="hooks">Hooks</Tabs.Tab>}
         {logsEligible && <Tabs.Tab value="logs">Logs</Tabs.Tab>}
         {settingsEligible && <Tabs.Tab value="settings">Settings</Tabs.Tab>}
       </Tabs.List>
@@ -75,6 +79,11 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
       {logsEligible && active === "logs" && (
         <Tabs.Panel value="logs">
           <ScopedLogs scope={subsystem} />
+        </Tabs.Panel>
+      )}
+      {hooksEligible && active === "hooks" && (
+        <Tabs.Panel value="hooks">
+          <ProductHooks source={subsystem} />
         </Tabs.Panel>
       )}
       {settingsEligible && active === "settings" && (

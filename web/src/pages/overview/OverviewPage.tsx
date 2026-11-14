@@ -18,7 +18,12 @@ export function OverviewPage() {
   const overview = useQuery({ queryKey: ["overview"], queryFn: api.overview });
   if (overview.isLoading) return <Loader size="sm" />;
   if (overview.isError || !overview.data) return <Alert color="red">Couldn't load the overview: {errorMessage(overview.error)}</Alert>;
-  const { project, products, changes } = overview.data;
+  const { project, changes } = overview.data;
+  // Authentication first, like the sidebar; hooks are each product's own tab now, not a product.
+  const ORDER = ["authentication", "database", "storage", "functions"];
+  const rank = (id: string) => (ORDER.includes(id) ? ORDER.indexOf(id) : ORDER.length);
+  const products = overview.data.products.filter((p) => p.id !== "hooks")
+    .sort((a, b) => rank(a.id) - rank(b.id));
 
 
   return (

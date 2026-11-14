@@ -1,13 +1,12 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
-  Alert, Badge, Button, Chip, Code, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Switch, Table, Tabs, Text, TextInput,
+  Alert, Badge, Button, Chip, Code, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Switch, Table, Text, TextInput,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
 import { variablesFor, type FeedDeadLetter, type Hook, type HookActionInfo, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
-import { PageHeader } from "../../components/PageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { IconPlugConnected, IconSend, IconWebhook } from "@tabler/icons-react";
 
@@ -18,23 +17,22 @@ const EVENT_LABEL: Record<string, string> = {
   disabled: "disabled", enabled: "enabled", claimsChanged: "claims changed", signedIn: "signed in",
 };
 
-/** Hooks: when documents, files or users change, call a webhook or run a ready-made action. */
-export function HooksPage() {
-  const [tab, setTab] = useState<string | null>("hooks");
+/** Which product's events a Hooks tab is about: "database", "storage" or "auth". */
+export type HookSource = "database" | "storage" | "auth";
+
+/**
+ * A product's Hooks tab (Authentication, Database, Storage): its hooks (when its documents, files or users change,
+ * call an address of yours or run a ready-made action), their deliveries, and the app's own consumers of its changes.
+ */
+export function ProductHooks({ source }: { source: HookSource }) {
+  const [view, setView] = useState("hooks");
   return (
-    <Stack gap="sm">
-      <PageHeader eyebrow="Build" title="Hooks"
-        description="When documents, files or users change, call an address of yours or run a ready-made action. Delivered at least once, retried on failure." />
-      <Tabs value={tab} onChange={setTab} keepMounted={false}>
-        <Tabs.List mb="sm">
-          <Tabs.Tab value="hooks">Hooks</Tabs.Tab>
-          <Tabs.Tab value="deliveries">Deliveries</Tabs.Tab>
-          <Tabs.Tab value="in-app">In the app</Tabs.Tab>
-        </Tabs.List>
-        <Tabs.Panel value="hooks"><HooksList /></Tabs.Panel>
-        <Tabs.Panel value="deliveries"><Deliveries /></Tabs.Panel>
-        <Tabs.Panel value="in-app"><InApp /></Tabs.Panel>
-      </Tabs>
+    <Stack gap="md">
+      <SegmentedControl w="fit-content" value={view} onChange={setView} aria-label="Hooks view"
+        data={[{ value: "hooks", label: "Hooks" }, { value: "deliveries", label: "Deliveries" }, { value: "in-app", label: "In the app" }]} />
+      {view === "hooks" && <HooksList source={source} />}
+      {view === "deliveries" && <Deliveries source={source} />}
+      {view === "in-app" && <InApp source={source} />}
     </Stack>
   );
 }
@@ -51,7 +49,7 @@ function describe(h: Hook, d: HooksPageData): { when: string; then: string } {
   };
 }
 
-function HooksList() {
+function HooksList({ source: only }: { source: HookSource }) {
   const qc = useQueryClient();
   const page = useQuery({ queryKey: ["hooks"], queryFn: api.hooks });
   const [draft, setDraft] = useState<Hook[] | null>(null);
@@ -82,21 +80,23 @@ function HooksList() {
       setBusy(false);
     }
   };
+  const available = d.sources.some((s) => s.name === only);
+  const mine = draft.filter((h) => h.when.source === only);
   const addHook = () => setEditing({
-    id: newId(), name: "", enabled: true, when: { source: d.sources[0]?.name ?? "database", events: [], path: null }, do: { kind: "webhook", url: "", options: {} },
+    id: newId(), name: "", enabled: true, when: { source: only, events: [], path: null }, do: { kind: "webhook", url: "", options: {} },
   });
   const put = (h: Hook) => setDraft(draft.some((x) => x.id === h.id) ? draft.map((x) => (x.id === h.id ? h : x)) : [...draft, h]);
 
   return (
     <Stack gap="md">
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
-      {d.sources.length === 0 && <Alert color="yellow">No events reach hooks yet: add the Winche.Webhooks adapters for the database, storage or auth.</Alert>}
-      {draft.length === 0 && (
+      {!available && <Alert color="yellow">This server doesn't pass these events to hooks.</Alert>}
+      {mine.length === 0 && (
         <EmptyState icon={IconWebhook} title="No hooks yet"
-          description="When documents, files or users change, call an address of yours or run a ready-made action."
-          action={d.editable && <Button disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>} />
+          description={`When ${only === "database" ? "documents" : only === "storage" ? "files" : "users"} change, call an address of yours or run a ready-made action.`}
+          action={d.editable && <Button disabled={!available} onClick={addHook}>Add hook</Button>} />
       )}
-      {draft.map((h) => {
+      {mine.map((h) => {
         const text = describe(h, d);
         const counts = d.counts[h.id] ?? {};
         const saved = d.settings.hooks.some((x) => x.id === h.id);
@@ -130,10 +130,10 @@ function HooksList() {
       })}
       <Modal opened={!!editing} onClose={() => setEditing(null)} size="xl" radius="lg"
         title={<Text fw={700} fz={18}>{editing && draft.some((x) => x.id === editing.id) ? `Edit ${editing.name || "hook"}` : "Add a hook"}</Text>}>
-        {editing && <HookEditor initial={editing} data={d} onDone={(h) => { put(h); setEditing(null); }} onCancel={() => setEditing(null)} />}
+        {editing && <HookEditor initial={editing} data={d} fixedSource onDone={(h) => { put(h); setEditing(null); }} onCancel={() => setEditing(null)} />}
       </Modal>
-      {d.editable && draft.length > 0 && (
-        <Button w="fit-content" variant="default" disabled={d.sources.length === 0} onClick={addHook}>Add hook</Button>
+      {d.editable && mine.length > 0 && (
+        <Button w="fit-content" variant="default" disabled={!available} onClick={addHook}>Add hook</Button>
       )}
       {d.editable && (dirty || error || notice) && (
         <Paper withBorder p="sm" data-testid="hooks-save-bar" style={{ borderColor: dirty ? "var(--mantine-color-blue-5)" : undefined, position: "sticky", bottom: 8 }}>
@@ -173,7 +173,9 @@ function SigningSecret({ id, editable }: { id: string; editable: boolean }) {
   );
 }
 
-function HookEditor({ initial, data, onDone, onCancel }: { initial: Hook; data: HooksPageData; onDone: (h: Hook) => void; onCancel: () => void }) {
+function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
+  initial: Hook; data: HooksPageData; onDone: (h: Hook) => void; onCancel: () => void; fixedSource?: boolean;
+}) {
   const [h, setH] = useState<Hook>(initial);
   const [test, setTest] = useState<HookTestResult | "testing" | null>(null);
   const source = data.sources.find((s) => s.name === h.when.source);
@@ -196,9 +198,9 @@ function HookEditor({ initial, data, onDone, onCancel }: { initial: Hook; data: 
       <Stack gap="sm">
         <TextInput label="Name" placeholder="Tell the ward system about new visits" value={h.name} onChange={(e) => set({ name: e.currentTarget.value })} />
         <Text fw={600} size="sm">When</Text>
-        <SegmentedControl size="xs" w="fit-content" aria-label="Source" value={h.when.source}
+        {!fixedSource && <SegmentedControl size="xs" w="fit-content" aria-label="Source" value={h.when.source}
           data={data.sources.map((s) => ({ value: s.name, label: s.title }))}
-          onChange={(v) => set({ when: { source: v, events: [], path: null }, do: actions.some((a) => a.name === h.do.kind) || h.do.kind === "webhook" ? h.do : { kind: "webhook", url: "", options: {} } })} />
+          onChange={(v) => set({ when: { source: v, events: [], path: null }, do: actions.some((a) => a.name === h.do.kind) || h.do.kind === "webhook" ? h.do : { kind: "webhook", url: "", options: {} } })} />}
         <Chip.Group multiple value={h.when.events} onChange={(v) => setWhen({ events: v })}>
           <Group gap={6}>
             {source?.events.map((e) => <Chip key={e} value={e} size="xs">{EVENT_LABEL[e] ?? e}</Chip>)}
@@ -246,7 +248,7 @@ function HookEditor({ initial, data, onDone, onCancel }: { initial: Hook; data: 
   );
 }
 
-function Deliveries() {
+function Deliveries({ source }: { source: HookSource }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>("all");
   const list = useQuery({
@@ -255,7 +257,7 @@ function Deliveries() {
   const [open, setOpen] = useState<string | null>(null);
   if (list.isLoading) return <Loader size="sm" />;
   if (list.isError) return <Alert color="red">Couldn't load deliveries: {errorMessage(list.error)}</Alert>;
-  const rows = list.data?.deliveries ?? [];
+  const rows = (list.data?.deliveries ?? []).filter((r) => r.source === source);
   return (
     <Stack gap="sm">
       <SegmentedControl size="xs" w="fit-content" value={status} onChange={setStatus} aria-label="Status"
@@ -306,17 +308,14 @@ function Deliveries() {
 }
 
 /** Hooks inside the app (the database's and storage's, and published changes): how far behind, and what they gave up on. */
-function InApp() {
+function InApp({ source }: { source: HookSource }) {
   const feeds = useQuery({ queryKey: ["feeds"], queryFn: api.feeds, refetchInterval: 5000 });
   if (feeds.isLoading) return <Loader size="sm" />;
   if (feeds.isError) return <Alert color="red">Couldn't load background deliveries: {errorMessage(feeds.error)}</Alert>;
-  const rows = (feeds.data?.feeds ?? []).flatMap((f) => f.consumers.map((c) => ({ feed: f.feed, ...c })));
+  const mine = (feeds.data?.feeds ?? []).filter((f) => f.feed === source);
+  const rows = mine.flatMap((f) => f.consumers.map((c) => ({ feed: f.feed, ...c })));
   return (
     <Stack gap="sm">
-      <Text size="sm" c="dimmed">
-        Code in the app that reacts to changes: the database's and storage's hooks, and the changes they pass on to hooks here
-        and to functions. Each takes changes in order; one that keeps failing for an hour is set aside so the rest go on.
-      </Text>
       {rows.length === 0 ? <EmptyState compact icon={IconPlugConnected} title="None in this app" /> : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table fz="sm" verticalSpacing={6} miw={640}>
@@ -340,7 +339,7 @@ function InApp() {
           </Table>
         </Paper>
       )}
-      {(feeds.data?.feeds ?? []).filter((f) => f.consumers.some((c) => c.deadLetters > 0)).map((f) => <SetAside key={f.feed} feed={f.feed} />)}
+      {mine.filter((f) => f.consumers.some((c) => c.deadLetters > 0)).map((f) => <SetAside key={f.feed} feed={f.feed} />)}
     </Stack>
   );
 }

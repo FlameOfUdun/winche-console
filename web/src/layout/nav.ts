@@ -9,11 +9,11 @@ export interface BuiltinNav { to: string; label: string; icon: NavIcon; group: "
 export function builtinNav(state: AuthState | null, _user: SessionUser | null): BuiltinNav[] {
   const c = state?.capabilities;
   const out: BuiltinNav[] = [];
+  // Hooks are each product's own tab (Authentication, Database, Storage → Hooks), not a page of their own.
+  if (c?.authentication) out.push({ to: "/authentication", label: "Authentication", icon: "users", group: "build" });
   if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build" });
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build" });
-  if (c?.authentication) out.push({ to: "/authentication", label: "Authentication", icon: "users", group: "build" });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build" });
-  if (c?.hooks) out.push({ to: "/hooks", label: "Hooks", icon: "hooks", group: "build" });
   if (c?.logs?.app) out.push({ to: "/logs", label: "Logs", icon: "logs", group: "monitor" });
   return out;
 }

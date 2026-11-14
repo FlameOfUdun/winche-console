@@ -4,7 +4,7 @@ import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
-import { HooksPage } from "../HooksPage";
+import { ProductHooks, type HookSource } from "../ProductHooks";
 import { api } from "../../../api/client";
 import type { HooksPageData } from "../../../api/hooks";
 
@@ -37,11 +37,11 @@ const page = (over: Partial<HooksPageData> = {}): HooksPageData => ({
   ...over,
 });
 
-function renderPage() {
+function renderPage(source: HookSource = "database") {
   return render(
     <MantineProvider>
       <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-        <MemoryRouter><HooksPage /></MemoryRouter>
+        <MemoryRouter><ProductHooks source={source} /></MemoryRouter>
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -66,11 +66,14 @@ test("hooks read as sentences, with the last day's deliveries and the signing se
 
 test("a ready-made action: when a user is deleted, delete their files — checked, then saved with a reason", async () => {
   mock(api.testHook).mockResolvedValue({ ok: true, ran: false, options: { folder: "users/example-uid/" }, sample: {} });
-  renderPage();
+  renderPage("auth");
+  // Authentication → Hooks lists only the users' hooks: none yet (the database's isn't shown).
+  expect(await screen.findByText("No hooks yet")).toBeInTheDocument();
+  expect(screen.queryByText("New visits")).toBeNull();
   await userEvent.click(await screen.findByRole("button", { name: "Add hook" }));
   const editor = await screen.findByTestId("hook-editor");
+  expect(within(editor).queryByLabelText("Source")).toBeNull();   // the tab says whose events
   await userEvent.type(within(editor).getByLabelText("Name"), "Delete a user's files");
-  await userEvent.click(within(editor).getByText("Users"));
   await userEvent.click(within(editor).getByText("deleted"));
   expect(within(editor).queryByLabelText(/Path/)).toBeNull();   // user events have no path
   await userEvent.click(within(editor).getByText("Ready-made action"));
@@ -101,7 +104,7 @@ test("deliveries: a failed one shows why and can be retried", async () => {
   }] });
   mock(api.retryHookDelivery).mockResolvedValue(undefined);
   renderPage();
-  await userEvent.click(await screen.findByRole("tab", { name: "Deliveries" }));
+  await userEvent.click(await screen.findByText("Deliveries"));
   const row = await screen.findByTestId("delivery");
   expect(within(row).getByText("503 Service Unavailable")).toBeInTheDocument();
   await userEvent.click(within(row).getByRole("button", { name: "Retry" }));
@@ -120,12 +123,13 @@ test("hooks inside the app show how far behind they are, and what they set aside
       firstFailedAt: "2026-11-13T09:00:00Z", deadLetteredAt: "2026-11-13T10:00:00Z" }],
   });
   mock(api.retryFeedDeadLetters).mockResolvedValue({ replayed: 1, failed: 0 });
-  renderPage();
-  await userEvent.click(await screen.findByRole("tab", { name: "In the app" }));
+  renderPage("storage");
+  await userEvent.click(await screen.findByText("In the app"));
 
+  // Storage → Hooks shows storage's consumers only.
   const rows = await screen.findAllByTestId("feed-consumer");
-  expect(within(rows[0]).getByText("up to date")).toBeInTheDocument();
-  expect(within(rows[1]).getByText("40s behind")).toBeInTheDocument();
+  expect(rows).toHaveLength(1);
+  expect(within(rows[0]).getByText("40s behind")).toBeInTheDocument();
   expect(await screen.findByText("registered images/a.png")).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Retry all" }));

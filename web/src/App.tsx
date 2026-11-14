@@ -1,5 +1,4 @@
 import { FunctionsPage } from "./pages/functions/FunctionsPage";
-import { HooksPage } from "./pages/hooks/HooksPage";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
 import { KeycloakCallback } from "./auth/KeycloakCallback";
@@ -53,10 +52,12 @@ function GatedApp() {
           <Route path="database/history" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="storage/logs" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="database/settings" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="database/hooks" element={caps?.database ? <ProductGate product="database"><DataBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="storage/hooks" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="storage/settings" element={caps?.storage ? <ProductGate product="storage"><StorageBrowserPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="authentication" element={caps?.authentication ? <ProductGate product="authentication"><AuthenticationPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="logs" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
-          <Route path="hooks" element={caps?.hooks ? <ProductGate product="hooks"><HooksPage /></ProductGate> : <Navigate to={home} replace />} />
+          <Route path="hooks" element={<Navigate to="/overview" replace />} />
           <Route path="functions" element={caps?.functions ? <ProductGate product="functions"><FunctionsPage /></ProductGate> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />
