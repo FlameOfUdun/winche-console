@@ -47,7 +47,7 @@ export function ProjectMembersPanel() {
                 <Text fw={500} truncate>{nameOf(m)}</Text>
                 {!m.passwordSet && <Badge size="sm" variant="light" color="yellow" tt="none">Hasn't set a password</Badge>}
               </Group>
-              <Text size="xs" c={surface.muted}>{m.email}</Text>
+              {nameOf(m) !== m.email && <Text size="xs" c={surface.muted}>{m.email}</Text>}
             </div>
             <Group gap={6} wrap="nowrap">
               <Select size="xs" w={120} data={ROLES} value={m.role} allowDeselect={false} aria-label={`Role of ${m.email}`}
