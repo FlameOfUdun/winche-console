@@ -194,6 +194,8 @@ export const api = {
     http<DirectoryTestResult>("POST", "api/app-auth/settings/directory/test", { settings, clientSecret }),
   appAuthConfig: () => http<AppAuthConfig>("GET", "api/app-auth/config"),
   rotateAppAuthKeys: () => http<void>("POST", "api/app-auth/keys/rotate"),
+  keycloakSyncs: () => http<{ syncs: import("./appAuth").KeycloakSync[] }>("GET", "api/app-auth/providers/sync"),
+  syncKeycloakNow: (provider: string) => http<void>("POST", `api/app-auth/providers/${encodeURIComponent(provider)}/sync`),
   history: (filter: HistoryFilter) => http<{ entries: HistoryEntry[] }>("GET", `api/database/history${historyQuery(filter)}`),
   logLevels: () => http<LogLevels>("GET", "api/logs/levels"),
   saveLogLevels: (defaultLevel: LogLevel, overrides: LogLevelOverride[]) =>

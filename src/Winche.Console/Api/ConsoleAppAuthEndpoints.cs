@@ -242,6 +242,51 @@ public static class ConsoleAppAuthEndpoints
             return Results.NoContent();
         });
 
+        // The Keycloak syncs: how each is doing (read-only; set in code with SyncFromKeycloak).
+        group.MapGet("/providers/sync", async (IServiceProvider sp, CancellationToken ct) =>
+        {
+            var o = sp.GetService<WincheAuthOptions>();
+            var syncs = sp.GetService<Winche.Auth.Providers.ProviderSyncs>();
+            if (o is null || syncs is null) return Results.Json(new { syncs = Array.Empty<object>() });
+            var status = (await syncs.StatusAsync(ct)).ToDictionary(s => s.Provider);
+            return Results.Json(new
+            {
+                syncs = o.IdentityProviders.Where(p => p.KeycloakSync is not null).Select(p =>
+                {
+                    var k = p.KeycloakSync!;
+                    var s = status.GetValueOrDefault(p.Name);
+                    return new
+                    {
+                        provider = p.Name,
+                        displayName = p.DisplayName ?? p.Name,
+                        clientId = k.ClientId,
+                        server = k.AdminServer ?? p.Authority,
+                        pollSeconds = k.PollInterval.TotalSeconds,
+                        reconcileHours = k.ReconcileInterval.TotalHours,
+                        claims = (IEnumerable<string>?)k.Claims ?? p.CopiedClaims,
+                        attributes = k.Attributes,
+                        webhookUrl = k.WebhookSecret is null ? null : $"{o.Issuer.TrimEnd('/')}/auth/v1/providers/{Uri.EscapeDataString(p.Name)}/changed",
+                        lastRunAt = s?.LastRunAt,
+                        eventsAfter = s?.EventsAfter,
+                        reconciledAt = s?.ReconciledAt,
+                        lastChangeAt = s?.LastChangeAt,
+                        lastError = s?.LastError,
+                    };
+                }),
+            });
+        });
+
+        // Read a provider's Keycloak events now (what the webhook does).
+        group.MapPost("/providers/{name}/sync", async (string name, IServiceProvider sp, CancellationToken ct) =>
+        {
+            var o = sp.GetService<WincheAuthOptions>();
+            var syncs = sp.GetService<Winche.Auth.Providers.ProviderSyncs>();
+            if (syncs is null || o?.IdentityProviders.FirstOrDefault(p => p.Name == name)?.KeycloakSync is null)
+                return Results.Json(new { error = new { code = "NOT_FOUND", message = $"{name} isn't synced from Keycloak." } }, statusCode: 404);
+            await syncs.WakeAsync(name, ct);
+            return Results.Accepted();
+        });
+
         return app;
     }
 }

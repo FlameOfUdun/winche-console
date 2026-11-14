@@ -223,6 +223,10 @@ services.AddWincheConsole(o => o.AddAuthenticationTab());
 - **Sign-in methods:** what's on (email and password, email links, anonymous, Google, Apple, OpenID Connect providers,
   Winche tokens, trusted issuers such as Keycloak), as set in code. A user's panel lists their sign-in methods and can
   unlink a provider (never the last one). It shows whether two-step sign-in is on (with recovery codes left), and an admin can turn it off for someone who lost their phone.
+- **Keycloak sync** (on Sign-in methods, for providers with `SyncFromKeycloak`): whether each sync is running, behind or
+  failing (with the error), when it last ran, how far it has read Keycloak's events, the last change it applied and the
+  last full comparison; its client, claims, attributes and webhook URL (never the secrets). **Sync now** reads the
+  events at once, like the webhook.
 - **Email templates** (with `o.Email(…)` in Winche Auth): edit the verify, reset, sign-in-link and email-changed
   messages with a live preview, send yourself a test, or go back to the default. A user's panel can send them a reset
   or verify link, or mark their email verified.

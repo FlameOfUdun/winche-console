@@ -18,7 +18,7 @@ vi.mock("../../../api/client", async (orig) => {
       ...actual.api, appUsers: vi.fn(), appUser: vi.fn(), createAppUser: vi.fn(), setAppUserDisabled: vi.fn(), setAppUserClaims: vi.fn(),
       signOutAppUser: vi.fn(), authProviders: vi.fn(), saveAuthProviders: vi.fn(), checkAuthProvider: vi.fn(), testAuthToken: vi.fn(),
       settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
-      appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(),
+      appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(), keycloakSyncs: vi.fn(), syncKeycloakNow: vi.fn(),
       userDirectory: vi.fn(), saveUserDirectory: vi.fn(), testUserDirectory: vi.fn(),
       signInSettings: vi.fn(), saveSignInSettings: vi.fn(), testSignInEmail: vi.fn(),
     },
@@ -67,6 +67,7 @@ beforeEach(() => {
   mock(api.appUsers).mockResolvedValue({ users: [user(), user({ uid: "guest1", email: null, displayName: null, isAnonymous: true, providers: ["anonymous"], customClaims: {} })], total: 2 });
   mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "SmartAirway/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
   mock(api.appAuthConfig).mockResolvedValue(config);
+  mock(api.keycloakSyncs).mockResolvedValue({ syncs: [] });
   mock(api.authProviders).mockResolvedValue(providersResponse());
   mock(api.settingsHistory).mockResolvedValue({ editable: true, versions: [] });
   mock(api.signInSettings).mockResolvedValue(signInResponse());
@@ -398,4 +399,27 @@ test("sign-in settings: apps without UseSettings() say how to turn it on", async
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
   expect(await screen.findByText(/add o.UseSettings\(\)/)).toBeInTheDocument();
+});
+
+test("a Keycloak sync shows how it's doing and can be run now", async () => {
+  const now = new Date().toISOString();
+  mock(api.keycloakSyncs).mockResolvedValue({ syncs: [
+    { provider: "keycloak", displayName: "TruCorp Keycloak", clientId: "winche-sync", server: "http://keycloak:8080/realms/winche",
+      pollSeconds: 10, reconcileHours: 24, claims: ["roles"], attributes: { ward: "ward" }, webhookUrl: "https://api.example.com/auth/v1/providers/keycloak/changed",
+      lastRunAt: now, eventsAfter: now, reconciledAt: null, lastChangeAt: null, lastError: "401 from Keycloak: check the client secret" },
+    { provider: "staff", displayName: "Staff", clientId: "sync", server: "https://id.example.com/realms/staff",
+      pollSeconds: 10, reconcileHours: 24, claims: [], attributes: {}, webhookUrl: null,
+      lastRunAt: now, eventsAfter: now, reconciledAt: now, lastChangeAt: now, lastError: null },
+  ] });
+  mock(api.syncKeycloakNow).mockResolvedValue(undefined);
+  renderPage();
+  await userEvent.click(await screen.findByRole("tab", { name: "Sign-in methods" }));
+  const [failing, running] = await screen.findAllByTestId("keycloak-sync");
+  expect(within(failing).getByText("Failing")).toBeInTheDocument();
+  expect(within(failing).getByText("401 from Keycloak: check the client secret")).toBeInTheDocument();
+  expect(within(failing).getByText("ward")).toBeInTheDocument();
+  expect(within(running).getByText("Running")).toBeInTheDocument();
+  expect(within(running).getByText("off (polling only)")).toBeInTheDocument();
+  await userEvent.click(within(failing).getByRole("button", { name: "Sync now" }));
+  expect(api.syncKeycloakNow).toHaveBeenCalledWith("keycloak");
 });

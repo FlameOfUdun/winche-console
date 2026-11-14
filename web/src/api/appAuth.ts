@@ -154,6 +154,22 @@ export function providerLabel(name: string, config?: AppAuthConfig | null): stri
   return config?.identityProviders.find((p) => p.name === name)?.displayName ?? builtIn[name] ?? name;
 }
 
+/** A provider's Keycloak sync (o.…SyncFromKeycloak): its settings and how it's doing. */
+export interface KeycloakSync {
+  provider: string; displayName: string; clientId: string; server: string;
+  pollSeconds: number; reconcileHours: number; claims: string[]; attributes: Record<string, string>;
+  /** Where a Keycloak webhook plugin posts, when a webhook secret is set. */
+  webhookUrl: string | null;
+  lastRunAt: string | null; eventsAfter: string | null; reconciledAt: string | null; lastChangeAt: string | null; lastError: string | null;
+}
+
+/** Failing (its last run failed), behind (no run for 3 polls, at least a minute), not run yet, or running. */
+export function syncHealth(s: KeycloakSync, now = Date.now()): "Failing" | "Behind" | "Not run yet" | "Running" {
+  if (s.lastError) return "Failing";
+  if (!s.lastRunAt) return "Not run yet";
+  return now - new Date(s.lastRunAt).getTime() > Math.max(3 * s.pollSeconds, 60) * 1000 ? "Behind" : "Running";
+}
+
 export type UserStatus = "Active" | "Disabled" | "Locked out" | "Not verified" | "Guest";
 
 export function statusOf(u: AppUser, now = Date.now()): UserStatus {

@@ -313,4 +313,30 @@ public class ConsoleAppAuthTests(PostgresFixture fx) : IAsyncLifetime
         await client.SetupAdminAsync();
         Assert.True((await client.GetAsync("/_console/api/app-auth/users")).StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden);
     }
+
+    [Fact]
+    public async Task Admins_see_the_keycloak_sync_and_can_run_it_now()
+    {
+        using var app = new ConsoleAppFactory(fx, ("Sample:KeycloakSync", "true"));
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+
+        // Its Keycloak can't be reached, so the sync's runs fail: the status says so.
+        JsonElement sync = default;
+        for (var i = 0; i < 50; i++)
+        {
+            sync = (await Json(await client.GetAsync("/_console/api/app-auth/providers/sync"))).GetProperty("syncs")[0];
+            if (sync.GetProperty("lastError").ValueKind == JsonValueKind.String) break;
+            await Task.Delay(200);
+        }
+        Assert.Equal(("staff", "Staff Keycloak", "winche-sync"), (sync.GetProperty("provider").GetString(), sync.GetProperty("displayName").GetString(), sync.GetProperty("clientId").GetString()));
+        Assert.Equal(JsonValueKind.String, sync.GetProperty("lastError").ValueKind);
+        Assert.Equal("ward", sync.GetProperty("attributes").GetProperty("ward").GetString());
+        Assert.Equal("https://sample.test/auth/v1/providers/staff/changed", sync.GetProperty("webhookUrl").GetString());
+        Assert.False(sync.TryGetProperty("clientSecret", out _));   // never the secrets
+
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsync("/_console/api/app-auth/providers/staff/sync", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync("/_console/api/app-auth/providers/google/sync", null)).StatusCode);
+    }
 }

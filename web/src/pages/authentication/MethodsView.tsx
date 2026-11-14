@@ -2,6 +2,7 @@ import { Alert, Badge, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Titl
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
+import { KeycloakSyncView } from "./KeycloakSyncView";
 
 function Method({ name, on, about, rows, code }: { name: string; on: boolean; about: string; rows: [string, string][]; code: string }) {
   return (
@@ -85,6 +86,7 @@ export function MethodsView() {
             code={`t.TrustIssuer("${i.name}", i => { i.Authority = "…"; i.Audience = "…"; });`} />
         ))}
       </SimpleGrid>
+      {c.identityProviders.length > 0 && <KeycloakSyncView />}
     </Stack>
   );
 }
