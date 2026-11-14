@@ -6,11 +6,22 @@ import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
 import { GeneralSettings as AppsPage } from "../AppsPage";
 import { api } from "../../../api/client";
+import { useSession } from "../../../auth/session";
 import type { AppsPageData, RegisteredApp } from "../../../api/apps";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, apps: vi.fn(), registeredApps: vi.fn(), registerApp: vi.fn(), removeApp: vi.fn(), setAppsPolicy: vi.fn() } };
+  return { ...actual, api: { ...actual.api, apps: vi.fn(), registeredApps: vi.fn(), registerApp: vi.fn(), removeApp: vi.fn(), setAppsPolicy: vi.fn(),
+    project: vi.fn(), renameProject: vi.fn(), setProjectImage: vi.fn(), removeProjectImage: vi.fn(), projectImage: vi.fn() } };
+});
+vi.mock("../../../auth/session", async (orig) => {
+  const actual = await orig<typeof import("../../../auth/session")>();
+  return { ...actual, useSession: vi.fn() };
+});
+vi.mock("../../../components/ProjectAvatar", async (orig) => {
+  const actual = await orig<typeof import("../../../components/ProjectAvatar")>();
+  // jsdom can't draw: the thumbnail is the file itself.
+  return { ...actual, squareThumbnail: vi.fn(async (f: Blob) => f) };
 });
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
@@ -35,6 +46,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock(api.apps).mockImplementation(async (platforms: string[]) => data(platforms));
   mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [], unregistered: null });
+  mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "clinic-records", name: "Clinic records", products: [], imageVersion: null });
+  mock(api.projectImage).mockResolvedValue(new Blob(["x"], { type: "image/png" }));
 });
 
 function renderPage() {
@@ -47,13 +61,34 @@ function renderPage() {
   );
 }
 
-test("shows the project's details and what apps see, without the options file", async () => {
+test("the project: name and id, no addresses; admins rename it (the id stays) and give it an image", async () => {
+  mock(api.renameProject).mockResolvedValue({});
+  mock(api.setProjectImage).mockResolvedValue({ imageVersion: "1" });
   renderPage();
-  expect(await screen.findByText("Your project")).toBeInTheDocument();
-  expect(screen.getAllByText("https://api.example.com").length).toBeGreaterThan(0);
-  expect(screen.getByText("/documents/v1")).toBeInTheDocument();
-  expect(screen.getByText("g.apps.googleusercontent.com")).toBeInTheDocument();
-  expect(screen.queryByTestId("options-file")).not.toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId("project-name")).toHaveTextContent("Clinic records"));
+  expect(screen.getByText("clinic-records")).toBeInTheDocument();
+  expect(screen.queryByText("https://api.example.com")).toBeNull();   // no server or console address
+  expect(screen.queryByText("What apps see")).toBeNull();
+
+  await userEvent.click(screen.getByRole("button", { name: "Rename" }));
+  const dialog = await screen.findByRole("dialog");
+  const input = within(dialog).getByLabelText("Project name");
+  await userEvent.clear(input);
+  await userEvent.type(input, "Clinic");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Rename" }));
+  await waitFor(() => expect(api.renameProject).toHaveBeenCalledWith("Clinic", "clinic-records"));
+
+  const file = new File(["png"], "logo.png", { type: "image/png" });
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);
+  await waitFor(() => expect(api.setProjectImage).toHaveBeenCalledWith(file));
+});
+
+test("non-admins can't rename or change the image", async () => {
+  mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Viewer" } });
+  renderPage();
+  expect(await screen.findByTestId("project-name")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Rename" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add image" })).toBeNull();
 });
 
 test("no apps: an empty state; Add app asks for the SDK (only Flutter), registers it, then shows its own command and download", async () => {

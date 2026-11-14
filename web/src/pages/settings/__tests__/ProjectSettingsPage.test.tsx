@@ -45,9 +45,8 @@ beforeEach(() => {
 test("admins get General, Users and permissions, and CLI and CI, each at its own address", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: { manageUsers: true } }, user: { role: "Admin" } });
   renderAt("/settings/general");
-  expect(await screen.findByText("Your project")).toBeInTheDocument();
-  expect(screen.getByText("Your apps")).toBeInTheDocument();
-  expect(screen.getByText("Demo")).toBeInTheDocument();
+  expect(await screen.findByText("Your apps")).toBeInTheDocument();
+  expect(await screen.findByTestId("project-name")).toHaveTextContent("Demo");
   await userEvent.click(screen.getByRole("tab", { name: "Members" }));
   expect(screen.getByTestId("where")).toHaveTextContent("/settings/users");
   expect(await screen.findByText(/Who can use this console/)).toBeInTheDocument();

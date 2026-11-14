@@ -19,6 +19,7 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
             DO $$ BEGIN
               IF to_regclass('winche_settings') IS NOT NULL THEN TRUNCATE winche_settings; END IF;
               IF to_regclass('winche_console_app_usage') IS NOT NULL THEN TRUNCATE winche_console_app_usage; END IF;
+              IF to_regclass('winche_console_project_image') IS NOT NULL THEN TRUNCATE winche_console_project_image; END IF;
             END $$;
             """, conn);
         await cmd.ExecuteNonQueryAsync();
@@ -147,6 +148,43 @@ public class ConsoleProjectTests(PostgresFixture fx) : IAsyncLifetime
         // Removing the last app turns the refusal off with it.
         Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync($"/_console/api/apps/registered/{id}")).StatusCode);
         Assert.False((await Json(await client.GetAsync("/_console/api/apps/registered"))).GetProperty("registeredOnly").GetBoolean());
+    }
+
+    [Fact]
+    public async Task The_project_is_renamed_keeping_its_id_and_takes_a_thumbnail()
+    {
+        using var app = new ConsoleAppFactory(fx, ("Sample:ProjectSetup", "true"));
+        using var client = app.CreateClient();
+        await client.SetupAdminAsync();
+        await client.LoginAsync();
+        await Json(await client.PostAsJsonAsync("/_console/api/project", new { name = "Clinic records", id = "clinic-records", products = Array.Empty<string>() }));
+
+        var renamed = await Json(await client.PutAsJsonAsync("/_console/api/project", new { name = "Clinic", id = "clinic-records" }));
+        Assert.Equal("Clinic", renamed.GetProperty("name").GetString());
+        Assert.Equal("clinic-records", renamed.GetProperty("id").GetString());
+
+        var project = await Json(await client.GetAsync("/_console/api/project"));
+        Assert.Equal(JsonValueKind.Null, project.GetProperty("imageVersion").ValueKind);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/_console/api/project/image")).StatusCode);
+
+        // Only PNG, JPEG or WebP, judged by the bytes: an SVG (which can carry scripts) is refused whatever it claims.
+        var svg = new ByteArrayContent("<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>"u8.ToArray());
+        svg.Headers.ContentType = new("image/png");
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsync("/_console/api/project/image", svg)).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsync("/_console/api/project/image", new ByteArrayContent(new byte[300 * 1024]))).StatusCode);
+
+        byte[] png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
+        await Json(await client.PutAsync("/_console/api/project/image", new ByteArrayContent(png)));
+        project = await Json(await client.GetAsync("/_console/api/project"));
+        Assert.False(string.IsNullOrEmpty(project.GetProperty("imageVersion").GetString()));
+        var image = await client.GetAsync($"/_console/api/project/image?v={project.GetProperty("imageVersion").GetString()}");
+        Assert.Equal("image/png", image.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(png, await image.Content.ReadAsByteArrayAsync());
+        Assert.Contains("immutable", image.Headers.CacheControl?.ToString());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.DeleteAsync("/_console/api/project/image")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/_console/api/project/image")).StatusCode);
+        Assert.Equal(JsonValueKind.Null, (await Json(await client.GetAsync("/_console/api/project"))).GetProperty("imageVersion").ValueKind);
     }
 
     [Fact]

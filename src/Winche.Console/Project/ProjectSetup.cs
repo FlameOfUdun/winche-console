@@ -164,20 +164,23 @@ public static class ProjectEndpoints
     private static string? Who(ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Email) ?? user.FindFirstValue("email") ?? user.Identity?.Name;
     private static IResult Problem(string message) => ConsoleErrors.Problem("project", message, null);
 
-    private static object Body(ProjectInfo p) => new
+    private static object Body(ProjectInfo p, DateTimeOffset? image) => new
     {
         setup = p.SetupEnabled, created = p.Created, id = p.Id, name = p.Name,
+        // When the thumbnail last changed (null: none): GET api/project/image?v=<it>.
+        imageVersion = image?.ToUnixTimeMilliseconds().ToString(),
         products = WincheProducts.All.Select(id => new { id, started = p.IsStarted(id) }),
     };
 
     internal static IEndpointRouteBuilder MapConsoleProjectEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/project", (ProjectSetup setup) => Results.Json(Body(setup.Current)))
+        app.MapGet("/api/project", async (ProjectSetup setup, ProjectImageStore images, CancellationToken ct) =>
+                Results.Json(Body(setup.Current, await images.VersionAsync(ct))))
             .RequireAuthorization(ConsoleRoles.ViewerPolicy);
 
         var admin = app.MapGroup("/api/project").RequireAuthorization(ConsoleRoles.AdminPolicy);
 
-        admin.MapPost("", async (CreateRequest body, HttpContext http, ProjectSetup setup, CancellationToken ct) =>
+        admin.MapPost("", async (CreateRequest body, HttpContext http, ProjectSetup setup, ProjectImageStore images, CancellationToken ct) =>
         {
             if (!setup.Enabled) return Problem("This console has no project setup (UseProjectSetup).");
             if (setup.Current.Created) return Problem("The project already exists.");
@@ -186,24 +189,24 @@ public static class ProjectEndpoints
             var products = body.Products ?? [];
             if (products.FirstOrDefault(p => !WincheProducts.All.Contains(p)) is { } unknown) return Problem($"'{unknown}' isn't a product.");
             await setup.CreateAsync(body.Name, body.Id!, products, Who(http.User), ct);
-            return Results.Json(Body(setup.Current));
+            return Results.Json(Body(setup.Current, await images.VersionAsync(ct)));
         });
 
-        admin.MapPut("", async (RenameRequest body, HttpContext http, ProjectSetup setup, CancellationToken ct) =>
+        admin.MapPut("", async (RenameRequest body, HttpContext http, ProjectSetup setup, ProjectImageStore images, CancellationToken ct) =>
         {
             if (!setup.Enabled || !setup.Current.Created) return Problem("Create the project first.");
             if (string.IsNullOrWhiteSpace(body.Name)) return Problem("Name the project.");
             if (!ProjectSetup.IsValidId(body.Id)) return Problem("The project id is 3 to 40 lower-case letters, digits and dashes, starting with a letter.");
             await setup.RenameAsync(body.Name, body.Id!, Who(http.User), ct);
-            return Results.Json(Body(setup.Current));
+            return Results.Json(Body(setup.Current, await images.VersionAsync(ct)));
         });
 
-        admin.MapPost("/products/{product}/start", async (string product, HttpContext http, ProjectSetup setup, CancellationToken ct) =>
+        admin.MapPost("/products/{product}/start", async (string product, HttpContext http, ProjectSetup setup, ProjectImageStore images, CancellationToken ct) =>
         {
             if (!setup.Enabled || !setup.Current.Created) return Problem("Create the project first.");
             if (!WincheProducts.All.Contains(product)) return Problem($"'{product}' isn't a product.");
             await setup.StartAsync(product, Who(http.User), ct);
-            return Results.Json(Body(setup.Current));
+            return Results.Json(Body(setup.Current, await images.VersionAsync(ct)));
         });
         return app;
     }

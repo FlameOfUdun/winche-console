@@ -16,10 +16,10 @@ import { keycloakAccountUrl, keycloakLogout } from "../auth/keycloak";
 import { TwoFactorSetup } from "../auth/TwoFactorSetup";
 import { useTabsManifest, tabIcon } from "../tabs/useTabsManifest";
 import { builtinNav } from "./nav";
-import logoUrl from "../assets/winche-logo.png";
 import { StatusPill } from "../components/PageHeader";
 import "./layout.css";
 import { ProjectSwitcher } from "./ProjectSwitcher";
+import { ProjectAvatar } from "../components/ProjectAvatar";
 
 export function AppLayout() {
   const { pathname } = useLocation();
@@ -98,7 +98,7 @@ export function AppLayout() {
         {/* Project */}
         <Group justify={collapsed ? "center" : "space-between"} gap={8} px={collapsed ? 0 : 4} pt={4} pb={12} wrap="nowrap">
           <ProjectSwitcher name={project?.name ?? "Winche"} id={project?.id ?? "Console"} collapsed={collapsed}
-            logo={<img src={logoUrl} alt="Winche" width={32} height={32} style={{ borderRadius: 8, display: "block", flexShrink: 0 }} />} />
+            logo={<ProjectAvatar version={projectState.data?.imageVersion} />} />
           {!collapsed && settingsGear}
         </Group>
         {collapsed && <Group justify="center" mb={6}>{settingsGear}</Group>}

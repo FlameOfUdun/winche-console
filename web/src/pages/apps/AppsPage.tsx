@@ -1,17 +1,19 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Badge, Button, CopyButton, Group, Loader, Menu, Modal, Paper, SimpleGrid, Stack, Switch, Table, TagsInput, Text, TextInput,
+  ActionIcon, Alert, Badge, Button, CopyButton, FileButton, Group, Loader, Menu, Modal, Paper, SimpleGrid, Stack, Switch, TagsInput, Text, TextInput,
   Title, Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
   IconApps, IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconCheck, IconCopy, IconDeviceDesktop,
-  IconDots, IconDownload, IconPencil, IconPlus, IconTrash, IconWorld,
+  IconDots, IconDownload, IconPencil, IconPhoto, IconPlus, IconTrash, IconWorld,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { AppFields, RegisteredApp, AppUsage } from "../../api/apps";
 import { EmptyState } from "../../components/EmptyState";
+import { ProjectAvatar, squareThumbnail } from "../../components/ProjectAvatar";
+import { useSession } from "../../auth/session";
 import { surface } from "../../theme";
 
 /** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
@@ -40,66 +42,103 @@ function Copy({ value, label }: { value: string; label: string }) {
   );
 }
 
-/** One fact about the project: label, value (monospace when it's an id or address) and a copy button. */
-function Fact({ label, value, mono = true }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <Group justify="space-between" gap="md" py={12} wrap="nowrap" style={{ borderTop: `1px solid ${surface.subtle}` }}>
-      <Text size="sm" c={surface.muted} w={180} style={{ flexShrink: 0 }}>{label}</Text>
-      <Group gap={4} wrap="nowrap" style={{ flex: 1, minWidth: 0 }} justify="flex-end">
-        <Text size="sm" fw={500} ff={mono ? "monospace" : undefined} truncate>{value}</Text>
-        <Copy value={value} label={label.toLowerCase()} />
-      </Group>
-    </Group>
-  );
-}
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Paper withBorder p="lg">
-      <Title order={2} fz={16} mb="sm">{title}</Title>
-      {children}
-    </Paper>
-  );
-}
 
-/** Project settings → General: the project's details, its apps, and what apps see. */
+/** Project settings → General: the project (thumbnail, name, id) and its apps. */
 export function GeneralSettings() {
   const page = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]) });
   if (page.isLoading) return <Loader size="sm" />;
   if (page.error || !page.data) return <Alert color="red">Couldn't load the project: {String(page.error)}</Alert>;
-  const { setup } = page.data;
-  const consoleUrl = document.baseURI.replace(/\/$/, "");
-
   return (
     <Stack gap="lg">
-      <Section title="Your project">
-        <Fact label="Project name" value={setup.name ?? setup.projectId} mono={false} />
-        <Fact label="Project id" value={setup.projectId} />
-        <Fact label="Server address" value={setup.baseUrl} />
-        <Fact label="Console" value={consoleUrl} />
-      </Section>
-
-      <YourApps baseUrl={setup.baseUrl} snippet={page.data.snippet} />
-
-      <Section title="What apps see">
-        <Table verticalSpacing={8} fz="sm">
-          <Table.Tbody>
-            {setup.services.map((s) => (
-              <Table.Tr key={s.id}>
-                <Table.Td w={180} c={surface.muted}>{s.id[0].toUpperCase() + s.id.slice(1)}</Table.Td>
-                <Table.Td ff="monospace">{s.path}{s.livePath && <Text span c={surface.faint} ff="monospace"> · live {s.livePath}</Text>}</Table.Td>
-              </Table.Tr>
-            ))}
-            {setup.providers.map((p) => (
-              <Table.Tr key={p.name}>
-                <Table.Td c={surface.muted}>Sign in with {p.displayName}</Table.Td>
-                <Table.Td ff="monospace">{p.clientIds.join(", ")}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Section>
+      <YourProject fallbackName={page.data.setup.name ?? page.data.setup.projectId} fallbackId={page.data.setup.projectId} />
+      <YourApps baseUrl={page.data.setup.baseUrl} snippet={page.data.snippet} />
     </Stack>
+  );
+}
+
+/** The project's thumbnail, name and id; admins change the thumbnail and rename the project here. */
+function YourProject({ fallbackName, fallbackId }: { fallbackName: string; fallbackId: string }) {
+  const qc = useQueryClient();
+  const { user } = useSession();
+  const project = useQuery({ queryKey: ["project"], queryFn: api.project });
+  const [renaming, setRenaming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const admin = user?.role === "Admin";
+  const p = project.data;
+  const name = p?.created ? p.name : fallbackName;
+  const id = p?.created ? p.id : fallbackId;
+  const canEdit = admin && !!p?.setup && !!p.created;
+  const refresh = () => Promise.all(["project", "overview"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+
+  const upload = async (file: File | null) => {
+    if (!file) return;
+    setBusy(true); setError(null);
+    try { await api.setProjectImage(await squareThumbnail(file)); await refresh(); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  const removeImage = async () => {
+    setBusy(true); setError(null);
+    try { await api.removeProjectImage(); await refresh(); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+
+  return (
+    <Paper withBorder p="lg">
+      <Group justify="space-between" align="center" gap="lg" wrap="wrap">
+        <Group gap="lg" wrap="nowrap" style={{ minWidth: 0 }}>
+          <ProjectAvatar version={p?.imageVersion} size={72} radius={16} />
+          <Stack gap={4} style={{ minWidth: 0 }}>
+            <Text fw={700} fz={20} truncate data-testid="project-name">{name}</Text>
+            <Group gap={4} wrap="nowrap">
+              <Text size="sm" c={surface.muted}>Project id</Text>
+              <Text size="sm" ff="monospace" fw={500}>{id}</Text>
+              <Copy value={id} label="project id" />
+            </Group>
+          </Stack>
+        </Group>
+        {canEdit && (
+          <Group gap="xs">
+            <FileButton onChange={upload} accept="image/png,image/jpeg,image/webp">
+              {(props) => <Button {...props} variant="default" leftSection={<IconPhoto size={16} />} loading={busy}>{p?.imageVersion ? "Change image" : "Add image"}</Button>}
+            </FileButton>
+            {p?.imageVersion && <Button variant="subtle" color="gray" onClick={removeImage} disabled={busy}>Remove image</Button>}
+            <Button variant="default" leftSection={<IconPencil size={16} />} onClick={() => setRenaming(true)}>Rename</Button>
+          </Group>
+        )}
+      </Group>
+      {error && <Alert color="red" p="xs" mt="md">{error}</Alert>}
+      <RenameDialog opened={renaming} name={name} id={id} onClose={() => setRenaming(false)} onDone={refresh} />
+    </Paper>
+  );
+}
+
+/** Renaming the project. Its id stays: apps and their options files use it. */
+function RenameDialog({ opened, name, id, onClose, onDone }: { opened: boolean; name: string; id: string; onClose: () => void; onDone: () => Promise<unknown> }) {
+  const [value, setValue] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const v = value ?? name;
+  const close = () => { setValue(null); setError(null); onClose(); };
+  const save = async () => {
+    setBusy(true); setError(null);
+    try { await api.renameProject(v.trim(), id); await onDone(); close(); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal opened={opened} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Rename the project</Text>}>
+      <Stack gap="md">
+        <TextInput label="Project name" data-autofocus value={v} onChange={(e) => setValue(e.currentTarget.value)}
+          onKeyDown={(e) => e.key === "Enter" && v.trim() && save()} />
+        <Text size="sm" c={surface.muted}>The project id stays <Text span ff="monospace">{id}</Text>: your apps use it.</Text>
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={close}>Cancel</Button>
+          <Button onClick={save} loading={busy} disabled={!v.trim() || v.trim() === name}>Rename</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 

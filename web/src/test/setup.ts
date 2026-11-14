@@ -33,3 +33,7 @@ if (typeof Range !== "undefined") {
   Range.prototype.getClientRects ??= () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] }) as unknown as DOMRectList;
   Range.prototype.getBoundingClientRect ??= () => empty;
 }
+
+// jsdom has no object URLs (the project's thumbnail, downloads).
+URL.createObjectURL ??= () => "blob:test";
+URL.revokeObjectURL ??= () => {};

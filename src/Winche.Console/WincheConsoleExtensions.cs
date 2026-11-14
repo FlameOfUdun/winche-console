@@ -106,6 +106,7 @@ public static class WincheConsoleExtensions
         // Console API tokens (winche login in Identity mode, and CI tokens), in either mode.
         services.AddSingleton<ConsoleTokenStore>();
         services.AddSingleton<Project.ProjectSetup>();
+        services.AddSingleton<Project.ProjectImageStore>();
         services.AddSingleton<Apps.RegisteredApps>();
         services.AddSingleton<Apps.AppUsage>();
         if (options.ProjectSetup)
@@ -222,6 +223,7 @@ public static class WincheConsoleExtensions
         group.MapConsoleOverviewEndpoints(options);
         Project.ProjectEndpoints.MapConsoleProjectEndpoints(group);
         Project.ProjectLinkEndpoints.MapConsoleProjectLinkEndpoints(group);
+        Project.ProjectImageEndpoints.MapConsoleProjectImageEndpoints(group);
         Apps.RegisteredAppEndpoints.MapConsoleRegisteredAppEndpoints(group, options);
         // Functions, when the app uses Winche.Functions (AddWincheFunctions).
         if (isService?.IsService(typeof(Winche.Functions.WincheFunctions)) == true) group.MapConsoleFunctionsEndpoints();

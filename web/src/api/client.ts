@@ -48,6 +48,19 @@ async function http<T>(method: string, rel: string, body?: unknown): Promise<T> 
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** A request whose body or answer isn't JSON (images): same headers and errors as http(). */
+async function raw(method: string, rel: string, body?: Blob): Promise<Response> {
+  const headers: Record<string, string> = { "X-Winche-Console": "1" };
+  if (body) headers["Content-Type"] = body.type || "application/octet-stream";
+  if (bearerTokenProvider) {
+    const token = await bearerTokenProvider();
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+  }
+  const res = await fetch(apiUrl(rel), { method, headers, body, credentials: "same-origin" });
+  if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
+  return res;
+}
+
 export const api = {
   overview: () => http<import("./overview").Overview>("GET", "api/overview"),
   project: () => http<import("./project").ProjectState>("GET", "api/project"),
@@ -55,6 +68,11 @@ export const api = {
   projectLinks: () => http<{ editable: boolean; links: { name: string; consoleUrl: string }[] }>("GET", "api/project/links"),
   addProjectLink: (name: string, consoleUrl: string) => http<unknown>("POST", "api/project/links", { name, consoleUrl }),
   removeProjectLink: (consoleUrl: string) => http<unknown>("DELETE", `api/project/links?url=${encodeURIComponent(consoleUrl)}`),
+  /** The project's thumbnail, as a blob (fetched with the session's token, which an <img> can't send). */
+  projectImage: async (version: string) => (await raw("GET", `api/project/image?v=${encodeURIComponent(version)}`)).blob(),
+  setProjectImage: async (image: Blob) => (await raw("PUT", "api/project/image", image)).json() as Promise<{ imageVersion: string }>,
+  removeProjectImage: () => http<void>("DELETE", "api/project/image"),
+  renameProject: (name: string, id: string) => http<import("./project").ProjectState>("PUT", "api/project", { name, id }),
   startProduct: (product: string) => http<import("./project").ProjectState>("POST", `api/project/products/${encodeURIComponent(product)}/start`),
   authState: () => http<AuthState>("GET", "api/auth/state"),
   authConfig: () => http<import("./types").AuthConfig>("GET", "api/auth/config"),

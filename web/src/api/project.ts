@@ -5,6 +5,8 @@ export interface ProjectState {
   id: string;
   name: string;
   products: { id: ProductId; started: boolean }[];
+  /** When the thumbnail last changed; null or missing: no thumbnail. */
+  imageVersion?: string | null;
 }
 
 export type ProductId = "database" | "storage" | "authentication" | "functions" | "hooks";
