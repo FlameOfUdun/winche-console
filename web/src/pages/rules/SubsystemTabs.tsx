@@ -61,7 +61,7 @@ export function SubsystemTabs({ subsystem, primaryLabel, basePath, children }: {
         {settingsEligible && <Tabs.Tab value="settings">Settings</Tabs.Tab>}
       </Tabs.List>
 
-      <Tabs.Panel value="primary">{children}</Tabs.Panel>
+      <Tabs.Panel value="primary" className="winche-fill">{children}</Tabs.Panel>
       {eligible && (
         <Tabs.Panel value="rules">
           <RulesEditor subsystem={subsystem} />

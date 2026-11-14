@@ -10,3 +10,8 @@
 .winche-page > * { flex-shrink: 0; }
 /* The page's last part (its tabs, or its root stack) takes the rest of the height. */
 .winche-page > *:last-child { flex: 1 1 auto; min-height: 0; }
+
+/* A tab that fills the panel's height without scrolling itself (the database and file browsers): its content scrolls
+   inside it. */
+.winche-fill { display: flex; flex-direction: column; overflow: hidden !important; }
+.winche-fill > * { flex: 1 1 auto; min-height: 0; }

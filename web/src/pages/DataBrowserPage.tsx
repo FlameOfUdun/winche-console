@@ -37,7 +37,7 @@ function PanelHeader({ title, children }: { title: React.ReactNode; children?: R
 
 function Column({ children, width = COL_W }: { children: React.ReactNode; width?: number }) {
   return (
-    <Box w={width} style={{ borderRight: "1px solid #E4E7EC", display: "flex", flexDirection: "column", flexShrink: 0 }}>
+    <Box w={width} style={{ borderRight: "1px solid #E4E7EC", display: "flex", flexDirection: "column", flexShrink: 0, minHeight: 0 }}>
       {children}
     </Box>
   );
@@ -106,7 +106,7 @@ function DocumentsColumn({ collection, selectedDoc, onSelect, onAdd }: {
     <Column>
       <PanelHeader title={collection.split("/").pop()} />
       <AddInline placeholder="Document ID (optional)" label="Add document" what="a document" optional onAdd={onAdd} />
-      <Box style={{ overflow: "auto" }}>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         {docs.isLoading && <Text size="sm" p="sm">Loading…</Text>}
         {docs.data?.documents.length === 0 && <EmptyState compact bordered={false} icon={IconFileText} title="No documents" description="Add one, or let your apps write it." />}
         {docs.data?.documents.map((d) => <Row key={d.path} active={d.id === selectedDoc} onClick={() => onSelect(d.id)} label={d.id} />)}
@@ -169,7 +169,7 @@ function DocumentColumn({ docPath, added, activeSub, onOpenSub, onAddSub, onDele
         )}
       </PanelHeader>
 
-      <Box style={{ overflow: "auto" }}>
+      <Box style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         <Text size="xs" fw={600} c="#475467" px="sm" pt="sm">COLLECTIONS</Text>
         <AddInline placeholder="Collection ID" label="Add collection" what="a collection" onAdd={onAddSub} />
         {subs.length === 0 && <Text size="xs" c="dimmed" px="sm" py={6}>No collections.</Text>}
@@ -279,7 +279,7 @@ function DataView() {
   });
 
   return (
-    <Stack gap="sm" h="100%">
+    <Stack gap="sm" style={{ minHeight: 0 }}>
       <Group gap={6} c="#475467">
         <IconDatabase size={18} />
         <Anchor size="sm" fw={500} c="#475467" onClick={() => setLevels([])}>Database</Anchor>
@@ -291,11 +291,11 @@ function DataView() {
         ))}
       </Group>
 
-      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", display: "flex", overflow: "auto" }}>
+      <Box ref={scrollRef} style={{ flex: 1, minHeight: 0, border: "1px solid #E4E7EC", borderRadius: 8, background: "#fff", display: "flex", overflowX: "auto", overflowY: "hidden" }}>
         <Column>
           <PanelHeader title="Collections" />
           <AddInline placeholder="Collection ID" label="Add collection" what="a collection" onAdd={addRoot} />
-          <Box style={{ overflow: "auto" }}>
+          <Box style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
             {collectionsQuery.isLoading && <Text size="sm" c="dimmed" p="sm">Loading…</Text>}
             {!collectionsQuery.isLoading && roots.length === 0 && <Text size="sm" c="dimmed" p="sm">None yet.</Text>}
             {roots.map((c) => (

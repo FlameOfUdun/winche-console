@@ -69,7 +69,7 @@ export function GeneralSettings() {
   const consoleUrl = document.baseURI.replace(/\/$/, "");
 
   return (
-    <Stack gap="lg" maw={900}>
+    <Stack gap="lg">
       <Section title="Your project">
         <Fact label="Project name" value={setup.name ?? setup.projectId} mono={false} />
         <Fact label="Project id" value={setup.projectId} />

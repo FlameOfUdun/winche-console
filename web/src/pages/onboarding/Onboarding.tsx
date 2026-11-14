@@ -1,20 +1,20 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Alert, Anchor, Box, Button, Group, Loader, PasswordInput, SegmentedControl, Stack, Switch, Text, TextInput, Title, UnstyledButton,
+  Alert, Anchor, Box, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title,
 } from "@mantine/core";
-import { IconCheck, IconDatabase, IconFolder, IconLambda, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconCheck } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
-import { isProjectId, projectIdFrom, testModeRules, type ProductId, type RulesMode } from "../../api/project";
+import { isProjectId, projectIdFrom } from "../../api/project";
 import { useSession } from "../../auth/session";
 import { TwoFactorSetup } from "../../auth/TwoFactorSetup";
 import { FlutterSteps, SdkPicker } from "../apps/AppsPage";
 import { surface } from "../../theme";
 import logoUrl from "../../assets/winche-logo.png";
 
-type StepId = "account" | "secure" | "project" | "products" | "app" | "done";
+type StepId = "account" | "secure" | "project" | "app" | "done";
 
 /** Where a first run is, kept across the reload that signing in causes (cleared when it ends). */
 export const ONBOARDING_KEY = "winche.onboarding";
@@ -25,13 +25,6 @@ const write = (step: StepId | null) => {
 /** Whether a first run is still going (the gate keeps showing it until it ends). */
 export const onboardingInProgress = () => read() !== null;
 
-const PRODUCTS: { id: ProductId; name: string; about: string; icon: typeof IconDatabase; rules?: "database" | "storage" }[] = [
-  { id: "database", name: "Database", about: "Documents, live queries and offline sync", icon: IconDatabase, rules: "database" },
-  { id: "storage", name: "Storage", about: "Files your apps upload and download", icon: IconFolder, rules: "storage" },
-  { id: "authentication", name: "Authentication", about: "Sign-in for your apps' users", icon: IconUsers },
-  { id: "functions", name: "Functions", about: "Your TypeScript, run on this server", icon: IconLambda },
-  { id: "hooks", name: "Hooks", about: "Webhooks and ready-made actions", icon: IconWebhook },
-];
 
 /**
  * Setup, in three parts: console access (the first admin, then two-step sign-in), the project (name, id, products to
@@ -51,9 +44,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const [name, setName] = useState("");
   const [id, setId] = useState("");
   const [idEdited, setIdEdited] = useState(false);
-  const [on, setOn] = useState<Record<ProductId, boolean>>({ database: true, storage: false, authentication: true, functions: false, hooks: false });
-  const [rules, setRules] = useState<Record<"database" | "storage", RulesMode>>({ database: "locked", storage: "locked" });
-  const [started, setStarted] = useState<string[] | null>(null);
+  const [created, setCreated] = useState(false);
   // App
   const [sdk, setSdk] = useState<string | null>(null);
 
@@ -64,10 +55,10 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
 
   useEffect(() => { if (!idEdited) setId(projectIdFrom(name)); }, [name, idEdited]);
   // No project setup on this console (a library host): nothing more to set up after the account.
-  useEffect(() => { if (project.data && !project.data.setup && (step === "project" || step === "products")) finish(); }, [project.data?.setup, step]);
+  useEffect(() => { if (project.data && !project.data.setup && step === "project") finish(); }, [project.data?.setup, step]);
   // A project made elsewhere (another tab, an earlier run): go past the project steps.
   useEffect(() => {
-    if (project.data?.created && (step === "project" || step === "products") && !started) setStep(mode === "create" ? "done" : "app");
+    if (project.data?.created && step === "project" && !created) setStep(mode === "create" ? "done" : "app");
   }, [project.data?.created]);
 
   const run = async (work: () => Promise<void>) => {
@@ -83,17 +74,10 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
     await refresh();
   });
 
+  // Every product starts off: each is set up from its own page.
   const createProject = () => run(async () => {
-    const chosen = PRODUCTS.filter((p) => on[p.id]).map((p) => p.id);
-    await api.createProject({ name: name.trim(), id, products: chosen });
-    // Test mode: everything allowed for 30 days, then locked. Locked is where rules start anyway.
-    const until = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-    for (const sys of ["database", "storage"] as const) {
-      if (!on[sys] || rules[sys] !== "test") continue;
-      const parsed = await api.rulesParseText(testModeRules(sys, until));
-      if (parsed.ok && parsed.rulesJson) await api.rulesSave(sys, { rulesJson: parsed.rulesJson, note: "Test mode: open for 30 days" });
-    }
-    setStarted(chosen);
+    await api.createProject({ name: name.trim(), id, products: [] });
+    setCreated(true);
     await Promise.all(["project", "overview"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
     setStep("app");
   });
@@ -106,7 +90,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
 
   const parts: { id: string; label: string; steps: StepId[] }[] = [
     ...(mode === "first-run" ? [{ id: "access", label: "Console access", steps: ["account", "secure"] as StepId[] }] : []),
-    { id: "project", label: "Project", steps: ["project", "products"] },
+    { id: "project", label: "Project", steps: ["project"] },
     { id: "app", label: "App", steps: ["app"] },
   ];
   const partIndex = parts.findIndex((p) => p.steps.includes(step));
@@ -162,29 +146,12 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "project" && (
-            <Screen title="Name your project" subtitle="Your apps see its name and id.">
+            <Screen title="Name your project" subtitle="Your apps see its name and id. Products are set up later, each from its own page.">
               <TextInput label="Project name" size="lg" value={name} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
               <TextInput label="Project id" size="md" ff="monospace" value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
                 onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
               {/* The project is required: no skipping, no cancelling. */}
-              <Nav onNext={() => setStep("products")} disabled={!name.trim() || !isProjectId(id)} />
-            </Screen>
-          )}
-
-          {step === "products" && (
-            <Screen title="What will you build with?" subtitle="Nothing runs until it's started. Start what you need now; the rest waits on its page.">
-              <Stack gap={10}>
-                {PRODUCTS.map((p) => (
-                  <ProductRow key={p.id} product={p} on={on[p.id]} onToggle={() => setOn({ ...on, [p.id]: !on[p.id] })}
-                    rules={p.rules ? rules[p.rules] : undefined} onRules={p.rules ? (m) => setRules({ ...rules, [p.rules!]: m }) : undefined} />
-                ))}
-              </Stack>
-              {(on.database && rules.database === "test") || (on.storage && rules.storage === "test")
-                ? <Alert color="yellow" p="sm">Test mode lets anyone with your app's address read and change everything for 30 days. Not for real data.</Alert>
-                : null}
-              {error && <Alert color="red" p="xs">{error}</Alert>}
-              <Nav onBack={() => setStep("project")} onNext={createProject} busy={busy}
-                nextLabel={Object.values(on).some(Boolean) ? "Create project" : "Create project, start nothing yet"} />
+              <Nav onNext={createProject} nextLabel="Create project" busy={busy} disabled={!name.trim() || !isProjectId(id)} />
             </Screen>
           )}
 
@@ -205,9 +172,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
               <div>
                 <Title order={1} fz={34} style={{ letterSpacing: "-0.02em" }}>{project.data?.created ? `${project.data.name} is ready` : "You're set up"}</Title>
                 <Text c={surface.muted} mt={10} fz={16} lh={1.55}>
-                  {started === null ? "Everything else waits on its page until you need it."
-                    : started.length ? `Started: ${PRODUCTS.filter((p) => started.includes(p.id)).map((p) => p.name).join(", ")}. The rest waits on its page.`
-                    : "Nothing is started yet: each product has Get started on its page."}
+                  Every product starts off: open Database, Storage, Authentication, Functions or Hooks and choose Get started when you need it.
                 </Text>
               </div>
               <Button size="lg" onClick={finish}>Go to the console</Button>
@@ -242,36 +207,5 @@ function Nav({ onBack, backLabel = "Back", onSkip, skipLabel, onNext, nextLabel 
         {onNext && <Button size="md" onClick={onNext} loading={busy} disabled={disabled}>{nextLabel}</Button>}
       </Group>
     </Group>
-  );
-}
-
-/** A product to start: a switch row; Database and Storage also ask how their rules start. */
-function ProductRow({ product, on, onToggle, rules, onRules }: {
-  product: (typeof PRODUCTS)[number]; on: boolean; onToggle: () => void; rules?: RulesMode; onRules?: (m: RulesMode) => void;
-}) {
-  const Icon = product.icon;
-  return (
-    <Box style={{ border: `1px solid ${on ? "var(--mantine-color-winche-6)" : surface.border}`, background: on ? "#F5F7FF" : surface.card, borderRadius: 14 }}>
-      <UnstyledButton onClick={onToggle} w="100%" p="md" aria-label={product.name}>
-        <Group gap="md" wrap="nowrap">
-          <div style={{ width: 44, height: 44, borderRadius: 12, display: "grid", placeItems: "center", flexShrink: 0,
-            background: on ? "var(--mantine-color-winche-6)" : surface.subtle, color: on ? "#FFFFFF" : surface.muted }}>
-            <Icon size={22} stroke={1.8} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <Text fw={600}>{product.name}</Text>
-            <Text size="sm" c={surface.faint}>{product.about}</Text>
-          </div>
-          <Switch checked={on} onChange={onToggle} onClick={(e) => e.stopPropagation()} aria-label={`Start ${product.name}`} size="md" />
-        </Group>
-      </UnstyledButton>
-      {on && rules && onRules && (
-        <Group px="md" pb="md" gap="sm" wrap="wrap">
-          <Text size="sm" c={surface.muted}>Starting rules</Text>
-          <SegmentedControl size="xs" value={rules} onChange={(v) => onRules(v as RulesMode)}
-            data={[{ value: "locked", label: "Locked" }, { value: "test", label: "Test mode (30 days)" }]} />
-        </Group>
-      )}
-    </Box>
   );
 }

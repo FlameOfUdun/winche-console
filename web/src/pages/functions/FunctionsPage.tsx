@@ -48,7 +48,7 @@ function DeployedTab() {
 /** Functions are written in the app's repository and deployed from the terminal or CI, like Firebase's. */
 function HowToDeploy() {
   return (
-    <Paper withBorder p="sm" maw={820}>
+    <Paper withBorder p="sm">
       <Stack gap="xs">
         <Text fw={600}>Write and deploy them from your editor</Text>
         <Code block>{`winche functions init        # a functions/ folder: index.ts, deno.json, types for VS Code

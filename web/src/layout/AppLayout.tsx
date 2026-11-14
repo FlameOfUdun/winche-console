@@ -182,7 +182,7 @@ export function AppLayout() {
       </AppShell.Navbar>
 
       <AppShell.Main>
-        <Box className="winche-page" px={{ base: 16, sm: 32 }} pt={28} pb={0} maw={1280} mx="auto">
+        <Box className="winche-page" px={{ base: 16, sm: 32 }} pt={28} pb={0}>
           <Outlet />
         </Box>
       </AppShell.Main>

@@ -88,7 +88,7 @@ function HooksList() {
   const put = (h: Hook) => setDraft(draft.some((x) => x.id === h.id) ? draft.map((x) => (x.id === h.id ? h : x)) : [...draft, h]);
 
   return (
-    <Stack gap="md" maw={980}>
+    <Stack gap="md">
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
       {d.sources.length === 0 && <Alert color="yellow">No events reach hooks yet: add the Winche.Webhooks adapters for the database, storage or auth.</Alert>}
       {draft.length === 0 && (

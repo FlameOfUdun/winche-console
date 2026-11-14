@@ -57,7 +57,7 @@ export function AreaSettingsView<T>({ area, title, about, children, optional = f
   };
 
   return (
-    <Stack gap="md" maw={980}>
+    <Stack gap="md">
       <div>
         <Title order={4}>{title}</Title>
         <Text size="sm" c="dimmed">{about}</Text>

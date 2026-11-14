@@ -121,7 +121,7 @@ function FilesView() {
   };
 
   return (
-    <Stack gap="sm" h="100%">
+    <Stack gap="sm" style={{ minHeight: 0 }}>
       <Group justify="space-between">
         <Group gap={6} c="#475467">
           <IconFolder size={18} />

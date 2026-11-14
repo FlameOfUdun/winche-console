@@ -12,7 +12,7 @@ import { useSession } from "../../../auth/session";
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return { ...actual, api: { ...actual.api, setup: vi.fn(), login: vi.fn(), project: vi.fn(), createProject: vi.fn(), startProduct: vi.fn(),
-    rulesParseText: vi.fn(), rulesSave: vi.fn(), apps: vi.fn(), twoFactorSetup: vi.fn() } };
+    rulesParseText: vi.fn(), rulesSave: vi.fn(), apps: vi.fn(), twoFactorSetup: vi.fn(), functions: vi.fn() } };
 });
 vi.mock("../../../auth/session", async (orig) => {
   const actual = await orig<typeof import("../../../auth/session")>();
@@ -39,7 +39,7 @@ beforeEach(() => {
   mock(api.apps).mockResolvedValue({ setup: { projectId: "clinic-records", name: "Clinic records", baseUrl: "https://api.example.com", services: [], providers: [] }, platforms: [], file: "", snippet: "main()" });
 });
 
-test("first run: the account, then the project with its products (test mode rules published), then a skippable app", async () => {
+test("first run: the account, then the project (every product off), then a skippable app", async () => {
   mock(useSession).mockReturnValue({ state: { initialized: false, capabilities: {} }, user: null, refresh: vi.fn() });
   mock(api.setup).mockResolvedValue({ email: "ann@example.com" });
   mock(api.login).mockResolvedValue({ requiresTwoFactor: false });
@@ -57,12 +57,8 @@ test("first run: the account, then the project with its products (test mode rule
 
   await userEvent.type(await screen.findByLabelText("Project name"), "Clinic records");
   expect(screen.getByLabelText("Project id")).toHaveValue("clinic-records");
-  await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-  await userEvent.click(await screen.findByText("Test mode (30 days)"));   // the database's rules
   await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  await waitFor(() => expect(api.createProject).toHaveBeenCalledWith({ name: "Clinic records", id: "clinic-records", products: ["database", "authentication"] }));
-  expect(mock(api.rulesParseText).mock.calls[0][0]).toContain("request.time < timestamp(");
-  expect(api.rulesSave).toHaveBeenCalledWith("database", expect.objectContaining({ note: "Test mode: open for 30 days" }));
+  await waitFor(() => expect(api.createProject).toHaveBeenCalledWith({ name: "Clinic records", id: "clinic-records", products: [] }));
 
   await userEvent.click(await screen.findByRole("button", { name: "Skip for now" }));
   expect(await screen.findByRole("button", { name: "Go to the console" })).toBeInTheDocument();
@@ -88,14 +84,31 @@ test("until the project exists, admins are taken to create it and others wait", 
   mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
 });
 
-test("a product not started shows Get started, and starting it calls the server", async () => {
+test("a product not started shows Get started; its wizard checks the server, then starts it", async () => {
   mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
   mock(api.startProduct).mockResolvedValue({});
+  mock(api.functions).mockResolvedValue({ runtimeProblem: null });
   renderIt(<ProductGate product="functions"><div>FUNCTIONS PAGE</div></ProductGate>);
   expect(await screen.findByTestId("get-started")).toBeInTheDocument();
   expect(screen.queryByText("FUNCTIONS PAGE")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Get started" }));
+  expect(await screen.findByText("This server can run functions.")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Start functions" }));
   await waitFor(() => expect(api.startProduct).toHaveBeenCalledWith("functions"));
+});
+
+test("the database wizard can start in test mode: rules open for 30 days are published", async () => {
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
+  mock(api.startProduct).mockResolvedValue({});
+  mock(api.rulesParseText).mockResolvedValue({ ok: true, rulesJson: "{}", error: null, warnings: [] });
+  mock(api.rulesSave).mockResolvedValue({});
+  renderIt(<ProductGate product="database"><div>DB</div></ProductGate>);
+  await userEvent.click(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.click(await screen.findByText("Test mode"));
+  await userEvent.click(screen.getByRole("button", { name: "Start database" }));
+  await waitFor(() => expect(api.rulesSave).toHaveBeenCalledWith("database", expect.objectContaining({ note: "Test mode: open for 30 days" })));
+  expect(api.startProduct).toHaveBeenCalledWith("database");
+  expect(mock(api.rulesParseText).mock.calls[0][0]).toContain("request.time < timestamp(");
 });
 
 test("without project setup, product pages show as before", async () => {
