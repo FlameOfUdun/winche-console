@@ -75,19 +75,21 @@ test("the Settings sub-tab shows for admins when the database uses settings", as
 
 test("an index is added by hand, an expiry policy too, and history turned on, saved with a reason", async () => {
   renderIt(<DatabaseSettingsView />);
-  expect(await screen.findByText("These are the starting values from the app's code.")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Add index" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add index" }));
   let dialog = await screen.findByRole("dialog");
   await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
   await userEvent.type(within(dialog).getByLabelText("Fields, in order"), "userId, startedAt desc");
   await userEvent.click(within(dialog).getByRole("button", { name: "Add index" }));
   expect(screen.getAllByTestId("db-index")).toHaveLength(2);
-  await userEvent.click(screen.getByRole("button", { name: "Add expiry" }));
+  // Each part is its own section on the left; the draft carries across them.
+  await userEvent.click(screen.getByRole("tab", { name: "Expiry" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Add expiry" }));
   dialog = await waitFor(() => { const d = screen.getAllByRole("dialog").at(-1)!; within(d).getByPlaceholderText("expiresAt"); return d; });
   await userEvent.type(within(dialog).getByPlaceholderText("expiresAt"), "expiresAt");
   await userEvent.type(within(dialog).getByPlaceholderText("sessions"), "sessions");
   await userEvent.click(within(dialog).getByRole("button", { name: "Add expiry" }));
-  await userEvent.click(screen.getByLabelText("Keep document history"));
+  await userEvent.click(screen.getByRole("tab", { name: "Document history" }));
+  await userEvent.click(await screen.findByLabelText("Keep document history"));
   await userEvent.type(screen.getByLabelText("Reason for the change"), "Session lists");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database", {
@@ -113,10 +115,12 @@ test("a slow query's suggested index is added with one click", async () => {
 
 test("storage: the size limit and the clean-up change", async () => {
   renderIt(<StorageSettingsView />);
+  await userEvent.click(await screen.findByRole("tab", { name: "File size" }));
   const size = await screen.findByLabelText("Largest file (MB)");
   await userEvent.clear(size);
   await userEvent.type(size, "5");
-  await userEvent.click(screen.getByLabelText("Clean up regularly"));
+  await userEvent.click(screen.getByRole("tab", { name: "Clean-up" }));
+  await userEvent.click(await screen.findByLabelText("Regularly delete stored files no file record points to"));
   await userEvent.type(screen.getByLabelText("Reason for the change"), "Smaller uploads");
   await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("storage",
@@ -176,6 +180,7 @@ test("live-connection limits show when the app has them", async () => {
   const live = { maxConnectionsPerUser: 10, maxSubscriptionsPerConnection: 100, requestsPerSecond: 50, requestBurst: 100, maxMessageKb: 1024 };
   mock(api.dataSettings).mockImplementation((a: string) => Promise.resolve(area(a === "database.live" ? live : db)));
   renderIt(<DatabaseSettingsView />);
+  await userEvent.click(await screen.findByRole("tab", { name: "Live connections" }));
   const perUser = await screen.findByLabelText(/Connections per user/);
   await userEvent.clear(perUser);
   await userEvent.type(perUser, "3");

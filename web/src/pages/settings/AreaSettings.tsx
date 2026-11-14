@@ -15,12 +15,13 @@ export const num = (v: string | number) => (v === "" ? ("" as unknown as number)
  * Database / Storage → Settings: loads an area, keeps a draft, and saves it with a reason. The body edits the draft;
  * changes apply to every server within seconds and are kept in the history below.
  */
-export function AreaSettingsView<T>({ area, title, about, children, optional = false }: {
+export function AreaSettingsView<T>({ area, title, children, optional = false, history = true }: {
   /** Hide (rather than show an error) when the app doesn't have this area. */
   optional?: boolean;
   area: DataArea;
   title: string;
-  about: string;
+  /** Show the change history under it (off where a settings tab lists it on its own). */
+  history?: boolean;
   children: (draft: T, set: (next: T) => void, editable: boolean) => ReactNode;
 }) {
   const qc = useQueryClient();
@@ -60,12 +61,11 @@ export function AreaSettingsView<T>({ area, title, about, children, optional = f
     <Stack gap="md">
       <div>
         <Title order={4}>{title}</Title>
-        <Text size="sm" c="dimmed">{about}</Text>
-        <Text size="xs" c="dimmed" mt={4} data-testid="area-source">
-          {d.source === "console" && d.version
-            ? `Saved in the console: version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
-            : "These are the starting values from the app's code."}
-        </Text>
+        {d.source === "console" && d.version && (
+          <Text size="xs" c="dimmed" mt={4} data-testid="area-source">
+            Version {d.version.number}, {when(d.version.at)}{d.version.by ? ` by ${d.version.by}` : ""}{d.version.reason ? ` — ${d.version.reason}` : ""}
+          </Text>
+        )}
       </div>
       {!d.editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 
@@ -88,12 +88,12 @@ export function AreaSettingsView<T>({ area, title, about, children, optional = f
         </Paper>
       )}
 
-      <AreaHistory area={area} editable={d.editable} />
+      {history && <AreaHistory area={area} editable={d.editable} />}
     </Stack>
   );
 }
 
-function AreaHistory({ area, editable }: { area: DataArea; editable: boolean }) {
+export function AreaHistory({ area, editable }: { area: DataArea; editable: boolean }) {
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["data-settings-history", area], queryFn: () => api.dataSettingsHistory(area) });
   const [restoring, setRestoring] = useState<{ id: number; number: number } | null>(null);
@@ -148,14 +148,12 @@ function AreaHistory({ area, editable }: { area: DataArea; editable: boolean }) 
   );
 }
 
-export function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** A group of fields; with no title, just the box. */
+export function Section({ title, children }: { title?: string; children: ReactNode }) {
   return (
     <Paper withBorder p="md">
       <Stack gap="sm">
-        <div>
-          <Text fw={600}>{title}</Text>
-          {hint && <Text size="xs" c="dimmed">{hint}</Text>}
-        </div>
+        {title && <Text fw={600}>{title}</Text>}
         {children}
       </Stack>
     </Paper>

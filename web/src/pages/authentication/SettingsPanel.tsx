@@ -1,6 +1,7 @@
+import { SettingsLayout } from "../../components/SettingsLayout";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert, Badge, Button, Code, Group, Loader, Modal, Paper, Select, Stack, Switch, Table, Text, TextInput, Textarea, Title, UnstyledButton,
+  Alert, Badge, Button, Code, Group, Loader, Modal, Paper, Select, Stack, Switch, Table, Text, TextInput, Textarea, Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -61,44 +62,32 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
     }
   };
 
-  const sections: { id: Section; label: string; hint: string }[] = [
+  const sections: { id: Section; label: string }[] = [
     ...(wincheAuth ? [
-      { id: "methods" as Section, label: "Sign-in methods", hint: "Winche Auth" },
-      { id: "security" as Section, label: "Sessions and security", hint: "lifetimes, lockout, two-step" },
-      { id: "email" as Section, label: "Email", hint: "how messages are sent" },
+      { id: "methods" as Section, label: "Sign-in methods" },
+      { id: "security" as Section, label: "Sessions and security" },
+      { id: "email" as Section, label: "Email" },
     ] : []),
     ...(trustedProviders ? [
-      { id: "providers" as Section, label: "Identity providers", hint: draft ? `${draft.providers.length} provider${draft.providers.length === 1 ? "" : "s"}` : "" },
-      { id: "mapping" as Section, label: "Token mapping", hint: "what the rules see" },
+      { id: "providers" as Section, label: "Identity providers" },
+      { id: "mapping" as Section, label: "Token mapping" },
     ] : []),
-    { id: "directory", label: "User directory", hint: "whose users the Users tab shows" },
-    { id: "history", label: "Change history", hint: "who changed what" },
-    ...(wincheAuth ? [{ id: "keys" as Section, label: "Tokens and keys", hint: "Winche Auth" }] : []),
+    { id: "directory", label: "User directory" },
+    { id: "history", label: "Change history" },
+    ...(wincheAuth ? [{ id: "keys" as Section, label: "Tokens and keys" }] : []),
   ];
 
   const needsProviders = section === "providers" || section === "mapping";
 
   return (
-    <Group align="flex-start" gap="lg" wrap="wrap">
-      <Stack gap={2} role="tablist" aria-label="Settings" style={{ flex: "1 1 200px", maxWidth: 240 }}>
-        {sections.map((s) => (
-          <UnstyledButton key={s.id} role="tab" aria-selected={section === s.id} onClick={() => setSection(s.id)}
-            style={{ padding: "9px 12px", borderRadius: 8, background: section === s.id ? "var(--mantine-color-blue-0)" : undefined }}>
-            <Text size="sm" fw={section === s.id ? 600 : 500} c={section === s.id ? "blue.8" : undefined}>{s.label}</Text>
-            <Text size="xs" c="dimmed">{s.hint}</Text>
-          </UnstyledButton>
-        ))}
-        <Text size="xs" c="dimmed" mt="sm">Saved changes apply to every server within seconds and are kept in Change history.</Text>
-      </Stack>
-
-      <Stack gap="md" style={{ flex: "999 1 600px", minWidth: 0 }}>
+    <SettingsLayout sections={sections} active={section} onChange={setSection}>
         {needsProviders && saved.isLoading && <Loader size="sm" />}
         {needsProviders && saved.isError && <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>}
         {needsProviders && saved.data && draft && (
           <Text size="xs" c="dimmed" data-testid="settings-source">
             {saved.data.source === "console" && saved.data.version
               ? `Saved in the console: version ${saved.data.version.number}, ${when(saved.data.version.at)}${saved.data.version.by ? ` by ${saved.data.version.by}` : ""}${saved.data.version.reason ? ` — ${saved.data.version.reason}` : ""}.`
-              : "These are the starting values from the app's code."}
+              : null}
           </Text>
         )}
         {needsProviders && saved.data && !editable && <Alert color="gray">Read-only. {saved.data.whyReadOnly}</Alert>}
@@ -131,8 +120,7 @@ export function SettingsPanel({ wincheAuth, trustedProviders = true }: { wincheA
             </Stack>
           </Paper>
         )}
-      </Stack>
-    </Group>
+    </SettingsLayout>
   );
 }
 
@@ -160,7 +148,6 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
       <Group justify="space-between" align="flex-end" wrap="wrap">
         <div>
           <Title order={4}>Identity providers</Title>
-          <Text size="sm" c="dimmed">Sign-in systems whose tokens the app accepts. Their users sign in there; Winche checks the token.</Text>
         </div>
         {editable && <Button onClick={() => setEditing({ index: null, provider: newProvider() })}>Add provider</Button>}
       </Group>
@@ -339,7 +326,6 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
       <Group justify="space-between" align="flex-end" wrap="wrap">
         <div>
           <Title order={4}>Token mapping</Title>
-          <Text size="sm" c="dimmed">How a sign-in becomes <Code>request.auth</Code> in your access rules.</Text>
         </div>
         {draft.providers.length > 1 && (
           <Select aria-label="Provider" w={240} data={draft.providers.map((x) => ({ value: x.name, label: x.displayName || x.name }))}

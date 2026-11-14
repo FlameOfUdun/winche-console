@@ -69,7 +69,7 @@ export function SignInSettings({ part, state }: { part: SignInPart; state: SignI
       <Text size="xs" c="dimmed" data-testid="signin-source">
         {d.source === "console" && d.version
           ? `Saved in the console: version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
-          : "These are the starting values from the app's code."}
+          : null}
       </Text>
       {!editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 
@@ -103,13 +103,13 @@ export function SignInSettings({ part, state }: { part: SignInPart; state: SignI
 
 type PartProps = { draft: WincheAuthSettings; set: (p: Partial<WincheAuthSettings>) => void; editable: boolean };
 
-function Card({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+/** A group of settings: its title, then its fields (no explanations here: they belong in the docs). */
+function Card({ title, children }: { title: string; hint?: string; children: React.ReactNode }) {
   return (
     <Paper withBorder p="md">
       <Stack gap="sm">
         <div>
           <Text fw={600}>{title}</Text>
-          {hint && <Text size="xs" c="dimmed">{hint}</Text>}
         </div>
         {children}
       </Stack>
@@ -125,7 +125,6 @@ function Methods({ draft, set, editable }: PartProps) {
     <Stack gap="md">
       <div>
         <Title order={4}>Sign-in methods</Title>
-        <Text size="sm" c="dimmed">How the app's users can sign in. Turning a method off stops new sign-ins with it; signed-in users stay signed in.</Text>
       </div>
       <Card title="Email and password">
         <Switch label="Users can sign up and sign in with an email and password" disabled={!editable} checked={ep.enabled}
@@ -195,7 +194,6 @@ function Security({ draft, set, editable }: PartProps) {
     <Stack gap="md">
       <div>
         <Title order={4}>Sessions and security</Title>
-        <Text size="sm" c="dimmed">How long sign-ins last, when accounts lock, and two-step sign-in.</Text>
       </div>
       <Card title="Sessions" hint="Shorter access tokens pick up changes (disabled users, new claims) sooner.">
         <Group wrap="wrap">
@@ -254,7 +252,6 @@ function EmailPart({ draft, set, editable, appSender, passwordSet, secretsAvaila
     <Stack gap="md">
       <div>
         <Title order={4}>Email</Title>
-        <Text size="sm" c="dimmed">Verify-email, password-reset and sign-in-link messages. Their wording is in Email templates.</Text>
       </div>
       <Card title="Sending email">
         <Switch label="Winche Auth sends email" disabled={!editable} checked={e.enabled} onChange={(ev) => setE({ enabled: ev.currentTarget.checked })} />

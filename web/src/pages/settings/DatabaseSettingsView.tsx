@@ -1,30 +1,54 @@
 import { useState } from "react";
-import { Badge, Button, Group, Modal, NumberInput, Paper, SegmentedControl, Stack, Switch, Table, Text, TextInput } from "@mantine/core";
+import { Badge, Button, Group, Modal, NumberInput, Paper, SegmentedControl, Stack, Switch, Table, Text, TextInput, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { fieldsText, parseFields, sameIndex, type DatabaseSettings, type IndexSettings, type LiveConnectionSettings } from "../../api/dataSettings";
 import { when } from "../authentication/UsersView";
-import { AreaSettingsView, num, Section } from "./AreaSettings";
+import { AreaHistory, AreaSettingsView, num, Section } from "./AreaSettings";
+import { SettingsLayout } from "../../components/SettingsLayout";
 import { EmptyState } from "../../components/EmptyState";
 import { IconClockOff, IconListSearch } from "@tabler/icons-react";
 
-/** Database → Settings: indexes (with the slow queries' suggestions), expiry, history, limits and logging. */
+type DbSection = "indexes" | "expiry" | "history" | "limits" | "logging" | "live" | "changes";
+const DB_SECTIONS: { id: DbSection; label: string }[] = [
+  { id: "indexes", label: "Indexes" }, { id: "expiry", label: "Expiry" }, { id: "history", label: "Document history" },
+  { id: "limits", label: "Limits" }, { id: "logging", label: "Logging" }, { id: "live", label: "Live connections" },
+  { id: "changes", label: "Change history" },
+];
+
+/** Database → Settings: its sections listed on the left, the chosen one on the right. */
 export function DatabaseSettingsView() {
+  const [section, setSection] = useState<DbSection>("indexes");
+  const label = DB_SECTIONS.find((s) => s.id === section)!.label;
   return (
-    <Stack gap="xl">
-      <DatabaseArea />
-      <LiveConnections />
+    <SettingsLayout sections={DB_SECTIONS} active={section} onChange={setSection}>
+      {section === "live" ? <LiveConnections /> : section === "changes" ? <DatabaseChanges /> : (
+        // One draft for every section of the "database" area: switching sections keeps unsaved changes.
+        <AreaSettingsView<DatabaseSettings> area="database" title={label} history={false}>
+          {(draft, set, editable) => <DatabaseSection section={section} draft={draft} set={set} editable={editable} />}
+        </AreaSettingsView>
+      )}
+    </SettingsLayout>
+  );
+}
+
+function DatabaseChanges() {
+  const editable = useQuery({ queryKey: ["data-settings", "database"], queryFn: () => api.dataSettings<DatabaseSettings>("database") }).data?.editable ?? false;
+  return (
+    <Stack gap="md">
+      <Title order={4}>Change history</Title>
+      <AreaHistory area="database" editable={editable} />
+      <AreaHistory area="database.live" editable={editable} />
     </Stack>
   );
 }
 
-/** Limits on live (WebSocket) connections: new connections get changes. */
+/** Limits on live (WebSocket) connections. */
 function LiveConnections() {
   return (
-    <AreaSettingsView<LiveConnectionSettings> area="database.live" optional title="Live connections"
-      about="Limits for apps listening to documents over WebSockets. Connections already open keep their limits until they reconnect.">
+    <AreaSettingsView<LiveConnectionSettings> area="database.live" optional title="Live connections" history={false}>
       {(d, set, editable) => (
-        <Section title="Limits">
+        <Section>
           <Group wrap="wrap">
             <NumberInput label="Connections per user" description="0: no limit" w={200} min={0} max={1000} disabled={!editable} value={d.maxConnectionsPerUser}
               onChange={(v) => set({ ...d, maxConnectionsPerUser: num(v) })} />
@@ -32,7 +56,7 @@ function LiveConnections() {
               onChange={(v) => set({ ...d, maxSubscriptionsPerConnection: num(v) })} />
             <NumberInput label="Requests per second" w={200} min={1} disabled={!editable} value={d.requestsPerSecond}
               onChange={(v) => set({ ...d, requestsPerSecond: num(v) })} />
-            <NumberInput label="Burst" description="Requests allowed at once" w={200} min={1} disabled={!editable} value={d.requestBurst}
+            <NumberInput label="Burst" w={200} min={1} disabled={!editable} value={d.requestBurst}
               onChange={(v) => set({ ...d, requestBurst: num(v) })} />
             <NumberInput label="Largest message (KB)" w={200} min={1} max={16384} disabled={!editable} value={d.maxMessageKb}
               onChange={(v) => set({ ...d, maxMessageKb: num(v) })} />
@@ -43,62 +67,61 @@ function LiveConnections() {
   );
 }
 
-function DatabaseArea() {
-  return (
-    <AreaSettingsView<DatabaseSettings> area="database" title="Database settings"
-      about="Indexes, expiry and limits. Indexes are built in the background without blocking writes.">
-      {(draft, set, editable) => (
-        <Stack gap="md">
-          <Indexes draft={draft} set={set} editable={editable} />
-          <Expiry draft={draft} set={set} editable={editable} />
-          <Section title="History" hint="Keep a copy of each document before and after every change, and who made it (Documents → History).">
-            <Group align="flex-end" wrap="wrap">
-              <Switch label="Keep document history" disabled={!editable} checked={draft.history.enabled}
-                onChange={(e) => set({ ...draft, history: { ...draft.history, enabled: e.currentTarget.checked } })} />
-              {draft.history.enabled && (
-                <NumberInput label="For (days)" w={140} min={1} max={3650} disabled={!editable} value={draft.history.retentionDays}
-                  onChange={(v) => set({ ...draft, history: { ...draft.history, retentionDays: num(v) } })} />
-              )}
-            </Group>
-          </Section>
-          <Section title="Limits">
-            <Group wrap="wrap">
-              <NumberInput label="Largest document (KB)" w={200} min={1} max={16384} disabled={!editable} value={draft.writeLimits.maxDocumentKb}
-                onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDocumentKb: num(v) } })} />
-              <NumberInput label="Deepest nesting" w={200} min={1} max={100} disabled={!editable} value={draft.writeLimits.maxDepth}
-                onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDepth: num(v) } })} />
-              <NumberInput label="Expanded references per response" w={260} min={1} max={10000} disabled={!editable}
-                description="Documents, files and users one expand brings; past it, links come back without data."
-                value={draft.expandLimit} onChange={(v) => set({ ...draft, expandLimit: num(v) })} />
-            </Group>
-          </Section>
-          <Section title="Logging" hint="Requests appear in Logs; denied and slow ones always, a share of the rest.">
-            <Group align="flex-end" wrap="wrap">
-              <Switch label="Log requests" disabled={!editable} checked={draft.requestLog.enabled}
-                onChange={(e) => set({ ...draft, requestLog: { ...draft.requestLog, enabled: e.currentTarget.checked } })} />
-              {draft.requestLog.enabled && (
-                <>
-                  <NumberInput label="Successful requests logged (%)" w={220} min={0} max={100} disabled={!editable}
-                    value={Math.round(draft.requestLog.sampleRate * 100)}
-                    onChange={(v) => set({ ...draft, requestLog: { ...draft.requestLog, sampleRate: v === "" ? 0 : Number(v) / 100 } })} />
-                  <NumberInput label="Slow after (ms)" w={160} min={1} disabled={!editable} value={draft.requestLog.slowMs}
-                    onChange={(v) => set({ ...draft, requestLog: { ...draft.requestLog, slowMs: num(v) } })} />
-                </>
-              )}
-            </Group>
-            <Group align="flex-end" wrap="wrap">
-              <Switch label="Report slow queries without an index" disabled={!editable} checked={draft.slowQueryMs != null}
-                onChange={(e) => set({ ...draft, slowQueryMs: e.currentTarget.checked ? 500 : null })} />
-              {draft.slowQueryMs != null && (
-                <NumberInput label="Slower than (ms)" w={160} min={1} disabled={!editable} value={draft.slowQueryMs}
-                  onChange={(v) => set({ ...draft, slowQueryMs: num(v) })} />
-              )}
-            </Group>
-          </Section>
-        </Stack>
-      )}
-    </AreaSettingsView>
-  );
+function DatabaseSection({ section, draft, set, editable }: Props & { section: DbSection }) {
+  switch (section) {
+    case "indexes": return <Indexes draft={draft} set={set} editable={editable} />;
+    case "expiry": return <Expiry draft={draft} set={set} editable={editable} />;
+    case "history": return (
+      <Section>
+        <Group align="flex-end" wrap="wrap">
+          <Switch label="Keep document history" disabled={!editable} checked={draft.history.enabled}
+            onChange={(e) => set({ ...draft, history: { ...draft.history, enabled: e.currentTarget.checked } })} />
+          {draft.history.enabled && (
+            <NumberInput label="For (days)" w={140} min={1} max={3650} disabled={!editable} value={draft.history.retentionDays}
+              onChange={(v) => set({ ...draft, history: { ...draft.history, retentionDays: num(v) } })} />
+          )}
+        </Group>
+      </Section>
+    );
+    case "limits": return (
+      <Section>
+        <Group wrap="wrap">
+          <NumberInput label="Largest document (KB)" w={200} min={1} max={16384} disabled={!editable} value={draft.writeLimits.maxDocumentKb}
+            onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDocumentKb: num(v) } })} />
+          <NumberInput label="Deepest nesting" w={200} min={1} max={100} disabled={!editable} value={draft.writeLimits.maxDepth}
+            onChange={(v) => set({ ...draft, writeLimits: { ...draft.writeLimits, maxDepth: num(v) } })} />
+          <NumberInput label="Expanded references per response" w={260} min={1} max={10000} disabled={!editable}
+            value={draft.expandLimit} onChange={(v) => set({ ...draft, expandLimit: num(v) })} />
+        </Group>
+      </Section>
+    );
+    case "logging": return (
+      <Section>
+        <Group align="flex-end" wrap="wrap">
+          <Switch label="Log requests" disabled={!editable} checked={draft.requestLog.enabled}
+            onChange={(e) => set({ ...draft, requestLog: { ...draft.requestLog, enabled: e.currentTarget.checked } })} />
+          {draft.requestLog.enabled && (
+            <>
+              <NumberInput label="Successful requests logged (%)" w={220} min={0} max={100} disabled={!editable}
+                value={Math.round(draft.requestLog.sampleRate * 100)}
+                onChange={(v) => set({ ...draft, requestLog: { ...draft.requestLog, sampleRate: v === "" ? 0 : Number(v) / 100 } })} />
+              <NumberInput label="Slow after (ms)" w={160} min={1} disabled={!editable} value={draft.requestLog.slowMs}
+                onChange={(v) => set({ ...draft, requestLog: { ...draft.requestLog, slowMs: num(v) } })} />
+            </>
+          )}
+        </Group>
+        <Group align="flex-end" wrap="wrap">
+          <Switch label="Report slow queries without an index" disabled={!editable} checked={draft.slowQueryMs != null}
+            onChange={(e) => set({ ...draft, slowQueryMs: e.currentTarget.checked ? 500 : null })} />
+          {draft.slowQueryMs != null && (
+            <NumberInput label="Slower than (ms)" w={160} min={1} disabled={!editable} value={draft.slowQueryMs}
+              onChange={(v) => set({ ...draft, slowQueryMs: num(v) })} />
+          )}
+        </Group>
+      </Section>
+    );
+    default: return null;
+  }
 }
 
 type Props = { draft: DatabaseSettings; set: (d: DatabaseSettings) => void; editable: boolean };
@@ -112,7 +135,7 @@ function Indexes({ draft, set, editable }: Props) {
   const open = (suggestions.data?.suggestions ?? []).filter((s) => !draft.indexes.some((i) => sameIndex(i, s)));
 
   return (
-    <Section title="Indexes" hint="Speed up queries that filter or sort. Queries work without them, only slower on large collections.">
+    <Section>
       {open.length > 0 && (
         <Paper withBorder p="sm" bg="var(--mantine-color-yellow-light)" data-testid="index-suggestions">
           <Stack gap={6}>
@@ -182,7 +205,7 @@ function Expiry({ draft, set, editable }: Props) {
   const [field, setField] = useState("");
   const close = () => { setAdding(false); setCollection(""); setField(""); };
   return (
-    <Section title="Expiry" hint="Delete documents once a timestamp field is in the past (checked every few minutes).">
+    <Section>
       {draft.ttl.length === 0 && <EmptyState compact icon={IconClockOff} title="Nothing expires" description="Pick a collection and a timestamp field to delete its documents once that time has passed." />}
       {draft.ttl.map((t, n) => (
         <Group key={n} justify="space-between" data-testid="db-ttl">

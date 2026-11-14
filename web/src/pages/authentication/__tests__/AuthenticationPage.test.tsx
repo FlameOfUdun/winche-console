@@ -341,14 +341,13 @@ test("read-only when the app's code doesn't let the console change them", async 
   await userEvent.click(await screen.findByRole("tab", { name: /Identity providers/ }));
   expect(await screen.findByText(/Read-only\. The app's code sets these\./)).toBeInTheDocument();
   expect(screen.queryByText("Add provider")).toBeNull();
-  expect(screen.getByText("These are the starting values from the app's code.")).toBeInTheDocument();
 });
 
 test("sign-in settings: methods and lifetimes change in the console, saved together with a reason", async () => {
   mock(api.saveSignInSettings).mockResolvedValue({ number: 1 });
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
-  expect(await screen.findByText("These are the starting values from the app's code.")).toBeInTheDocument();
+  await screen.findByLabelText("Users can start as guests");
   await userEvent.click(screen.getByLabelText("Users can start as guests"));
   await userEvent.click(screen.getByRole("tab", { name: /Sessions and security/ }));
   const minutes = screen.getByLabelText("Access tokens last (minutes)");
@@ -365,7 +364,7 @@ test("sign-in settings: SMTP with a write-only password and a test email", async
   mock(api.saveSignInSettings).mockResolvedValue({ number: 2 });
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
-  await userEvent.click(await screen.findByRole("tab", { name: /how messages are sent/ }));
+  await userEvent.click(await screen.findByRole("tab", { name: "Email" }));
   expect(screen.getByText(/The app's code has no email sender/)).toBeInTheDocument();
   await userEvent.click(screen.getByText("SMTP server"));
   await userEvent.type(screen.getByLabelText("Server"), "smtp.example.com");
@@ -389,7 +388,7 @@ test("sign-in settings: a saved SMTP password is never shown", async () => {
   }));
   renderPage();
   await userEvent.click(screen.getByRole("tab", { name: "Settings" }));
-  await userEvent.click(await screen.findByRole("tab", { name: /how messages are sent/ }));
+  await userEvent.click(await screen.findByRole("tab", { name: "Email" }));
   expect(screen.getByTestId("smtp-password-set")).toHaveTextContent("never shown");
   expect(screen.queryByLabelText(/^Password/)).toBeNull();
 });

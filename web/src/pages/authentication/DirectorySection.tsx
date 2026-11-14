@@ -80,12 +80,11 @@ export function DirectorySection({ wincheAuth }: { wincheAuth: boolean }) {
     <Stack gap="md">
       <div>
         <Title order={4}>User directory</Title>
-        <Text size="sm" c="dimmed">Whose users the Users tab shows and manages. Changes made there happen in that system directly.</Text>
       </div>
       <Text size="xs" c="dimmed" data-testid="directory-source">
         {d.source === "console" && d.version
           ? `Saved in the console: version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
-          : "These are the starting values from the app's code."}
+          : null}
       </Text>
       {!editable && <Alert color="gray">Read-only. {d.whyReadOnly}</Alert>}
 

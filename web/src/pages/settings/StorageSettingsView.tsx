@@ -1,16 +1,32 @@
-import { Group, NumberInput, Stack, Switch, TextInput } from "@mantine/core";
+import { useState } from "react";
+import { Group, NumberInput, Stack, Switch, TextInput, Title } from "@mantine/core";
+import { useQuery } from "@tanstack/react-query";
+import { api } from "../../api/client";
+import { SettingsLayout } from "../../components/SettingsLayout";
 import type { StorageSettings } from "../../api/dataSettings";
-import { AreaSettingsView, num, Section } from "./AreaSettings";
+import { AreaHistory, AreaSettingsView, num, Section } from "./AreaSettings";
 import { LocationSection } from "./LocationSection";
 
-/** Storage → Settings: the size limit, request logging and the orphan sweep. */
+type StorageSection = "location" | "size" | "logging" | "cleanup" | "changes";
+const STORAGE_SECTIONS: { id: StorageSection; label: string }[] = [
+  { id: "location", label: "Where files are kept" }, { id: "size", label: "File size" }, { id: "logging", label: "Logging" },
+  { id: "cleanup", label: "Clean-up" }, { id: "changes", label: "Change history" },
+];
+
+/** Storage → Settings: its sections listed on the left, the chosen one on the right. */
 export function StorageSettingsView() {
+  const [section, setSection] = useState<StorageSection>("location");
+  const saved = useQuery({ queryKey: ["data-settings", "storage"], queryFn: () => api.dataSettings<StorageSettings>("storage") });
+  const label = STORAGE_SECTIONS.find((s) => s.id === section)!.label;
   return (
-    <AreaSettingsView<StorageSettings> area="storage" title="Storage settings" about="Limits and housekeeping for stored files.">
+    <SettingsLayout sections={STORAGE_SECTIONS} active={section} onChange={setSection}>
+      {section === "location" ? <LocationSection /> : section === "changes" ? (
+        <Stack gap="md"><Title order={4}>Change history</Title><AreaHistory area="storage" editable={saved.data?.editable ?? false} /></Stack>
+      ) : (
+    <AreaSettingsView<StorageSettings> area="storage" title={label} history={false}>
       {(draft, set, editable) => (
         <Stack gap="md">
-          <LocationSection />
-          <Section title="File size" hint="Uploads larger than this are refused before any bytes are sent.">
+          {section === "size" && <Section>
             <Group align="flex-end" wrap="wrap">
               <Switch label="Limit file size" disabled={!editable} checked={draft.maxFileSizeMb != null}
                 onChange={(e) => set({ ...draft, maxFileSizeMb: e.currentTarget.checked ? 25 : null })} />
@@ -19,8 +35,8 @@ export function StorageSettingsView() {
                   onChange={(v) => set({ ...draft, maxFileSizeMb: num(v) })} />
               )}
             </Group>
-          </Section>
-          <Section title="Logging" hint="Requests appear in Logs; denied and slow ones always, a share of the rest.">
+          </Section>}
+          {section === "logging" && <Section>
             <Group align="flex-end" wrap="wrap">
               <Switch label="Log requests" disabled={!editable} checked={draft.requestLog.enabled}
                 onChange={(e) => set({ ...draft, requestLog: { ...draft.requestLog, enabled: e.currentTarget.checked } })} />
@@ -34,10 +50,9 @@ export function StorageSettingsView() {
                 </>
               )}
             </Group>
-          </Section>
-          <Section title="Clean up unreferenced files"
-            hint="Deletes stored files no file record points to (left by interrupted uploads). Only one server sweeps at a time.">
-            <Switch label="Clean up regularly" disabled={!editable} checked={draft.orphanSweep.enabled}
+          </Section>}
+          {section === "cleanup" && <Section>
+            <Switch label="Regularly delete stored files no file record points to" disabled={!editable} checked={draft.orphanSweep.enabled}
               onChange={(e) => set({ ...draft, orphanSweep: { ...draft.orphanSweep, enabled: e.currentTarget.checked } })} />
             {draft.orphanSweep.enabled && (
               <Group wrap="wrap">
@@ -49,9 +64,11 @@ export function StorageSettingsView() {
                   onChange={(e) => set({ ...draft, orphanSweep: { ...draft.orphanSweep, prefix: e.currentTarget.value || null } })} />
               </Group>
             )}
-          </Section>
+          </Section>}
         </Stack>
       )}
     </AreaSettingsView>
+      )}
+    </SettingsLayout>
   );
 }
