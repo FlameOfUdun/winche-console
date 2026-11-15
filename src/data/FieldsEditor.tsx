@@ -19,7 +19,7 @@ function Caret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   );
 }
 
-/** Read-only preview of a scalar value, mirroring Firestore (strings quoted, geopoints bracketed). */
+/** Read-only preview of a scalar value (strings quoted, geopoints bracketed). */
 function valuePreview(v: EditValue): string {
   switch (v.type) {
     case "string": return `"${v.text ?? ""}"`;
@@ -77,7 +77,7 @@ interface FieldNodeProps {
   onDelete: () => void;
 }
 
-/** One node in the document field tree. Recurses for map entries and array items (Firestore-style). */
+/** One node in the document field tree. Recurses for map entries and array items. */
 function FieldNode({ keyName, keyEditable, value, readOnly, autoEdit = false, isNew = false, onChangeValue, onCommit, onDelete }: FieldNodeProps) {
   const complex = value.type === "map" || value.type === "array";
   const [expanded, setExpanded] = useState(false);

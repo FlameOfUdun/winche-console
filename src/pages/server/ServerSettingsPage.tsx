@@ -73,7 +73,7 @@ function source(value: unknown, deployed: unknown) {
 }
 
 /**
- * The server's own settings, for server admins, as tabs of cards (Firebase-like): each card shows what's set and where
+ * The server's own settings, for server admins, as tabs of cards: each card shows what's set and where
  * it comes from, and is edited in place and saved with a reason.
  */
 export function ServerSettingsPage() {

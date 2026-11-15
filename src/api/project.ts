@@ -47,7 +47,7 @@ export function isProjectId(id: string): boolean {
   return /^[a-z][a-z0-9-]{1,38}[a-z0-9]$/.test(id);
 }
 
-/** Firebase-style test mode: everything allowed until a date 30 days away, then locked. */
+/** Test mode: everything allowed until a date 30 days away, then locked. */
 export function testModeRules(subsystem: "database" | "storage", until: Date): string {
   const pattern = subsystem === "database" ? "{document=**}" : "{path=**}";
   return `match ${pattern} {\n  allow read, write: if request.time < timestamp('${until.toISOString()}');\n}\n`;

@@ -8,8 +8,7 @@ import { isPageActive, navItemFor } from "../layout/nav";
 export interface BandTab { label: string; to?: string; active?: boolean; onClick?: () => void }
 
 /**
- * The white band at the top of a page: its title, an optional line and actions, and its tabs — like Firebase's
- * product pages. Spans the page's width (it cancels the page's padding).
+ * The white band at the top of a page: its title, an optional line and actions, and its tabs. Spans the page's width (it cancels the page's padding).
  */
 export function PageBand({ title, description, actions, tabs, children }: {
   title: ReactNode; description?: ReactNode; actions?: ReactNode; tabs?: BandTab[]; children?: ReactNode;

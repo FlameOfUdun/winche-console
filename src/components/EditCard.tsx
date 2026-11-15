@@ -37,7 +37,7 @@ export function EditRow({ label, hint, children }: { label: ReactNode; hint?: Re
 }
 
 /**
- * A settings card, Firebase-like: what's set now as rows, and Edit, which turns the card into its form with a reason
+ * A settings card: what's set now as rows, and Edit, which turns the card into its form with a reason
  * and Save. One card is edited at a time per page (the caller keeps which); Save gets the reason and throws to show
  * an error.
  */

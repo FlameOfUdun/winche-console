@@ -43,7 +43,7 @@ function DeployedTab() {
   );
 }
 
-/** Functions are written in the app's repository and deployed from the terminal or CI, like Firebase's. */
+/** Functions are written in the app's repository and deployed from the terminal or CI. */
 function HowToDeploy() {
   return (
     <Paper withBorder p="sm">

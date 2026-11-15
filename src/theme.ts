@@ -54,6 +54,3 @@ export const wincheTheme = createTheme({
     },
   },
 });
-
-/** @deprecated The old name. */
-export const firebaseTheme = wincheTheme;

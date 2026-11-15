@@ -62,7 +62,7 @@ test("selecting a document loads and renders its fields", async () => {
   await userEvent.click(screen.getByRole("button", { name: /alice/ }));
 
   await waitFor(() => expect(api.getDocument).toHaveBeenCalledWith("users/alice"));
-  // Fields render as a read-only Firestore-style tree: name : "Alice" (string).
+  // Fields render as a read-only tree: name : "Alice" (string).
   await waitFor(() => expect(screen.getByText('"Alice"')).toBeInTheDocument());
 });
 

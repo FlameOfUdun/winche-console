@@ -187,7 +187,7 @@ function GroupLabel({ children, collapsed }: { children: ReactNode; collapsed: b
 function NavEntry({ item, collapsed, off }: { item: NavItem; collapsed: boolean; off: boolean }) {
   const { pathname } = useLocation();
   const inside = pathname === item.to || pathname.startsWith(item.to + "/");
-  // A product's pages are tabs on its page (Firebase-like): the sidebar opens its first.
+  // A product's pages are tabs on its page: the sidebar opens its first.
   const first = off ? item.to : item.pages[0]?.to ?? item.to;
   return <SideLink to={first} label={item.label} icon={ICONS[item.icon]} active={inside} collapsed={collapsed}
     right={off ? <StatusPill tone="off">Off</StatusPill> : undefined} />;

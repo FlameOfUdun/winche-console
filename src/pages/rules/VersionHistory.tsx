@@ -47,7 +47,7 @@ function Lines({ lines }: { lines: DiffLine[] }) {
 }
 
 /**
- * Rules history, Firebase-style: the saved versions on the left; on the right the selected one as the
+ * Rules history: the saved versions on the left; on the right the selected one as the
  * rules file, or its changes against the active version (what's live), with "Open in editor" (load it as a
  * draft to look at or adjust before saving) and "Revert to this" (save it again as the new version).
  */

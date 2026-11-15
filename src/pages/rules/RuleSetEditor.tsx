@@ -14,7 +14,7 @@ function canonical(json: string): string {
 }
 
 /**
- * What an empty ruleset shows: explicit deny-all, as Firebase starts. The engine denies anything no rule
+ * What an empty ruleset shows: explicit deny-all. The engine denies anything no rule
  * allows, so this says what's already true; it counts as unedited (saving it changes nothing).
  */
 export const DENY_ALL_TEMPLATE =
