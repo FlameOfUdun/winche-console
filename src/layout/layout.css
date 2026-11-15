@@ -1,0 +1,111 @@
+/* The page area is a fixed-height column under the top bar: the page's header stays put; a page that fills the height
+   (the database and file browsers) scrolls inside itself, anything else scrolls as a whole. */
+.winche-page {
+  height: calc(100vh - 52px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+.winche-page > * { flex-shrink: 0; }
+.winche-page > *:last-child { flex: 1 0 auto; }
+
+/* A page's body that takes the rest of the height and doesn't scroll itself (its content does). */
+.winche-fill { display: flex; flex-direction: column; overflow: hidden !important; flex: 1 1 0 !important; min-height: 0; padding-bottom: 20px; }
+.winche-fill > * { flex: 1 1 auto; min-height: 0; }
+
+/* Tabs inside a page (the few left) fill the height, their panel scrolling (theme.ts). */
+
+/* The top bar. */
+.winche-topbar { background: var(--w-topbar); border-bottom: 1px solid var(--w-border); }
+.winche-brand { display: flex; align-items: center; gap: 8px; padding: 4px 8px 4px 4px; border-radius: 8px; color: var(--w-text); }
+.winche-brand:hover { background: var(--w-hover); }
+.winche-logo-tile { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; }
+:root[data-mantine-color-scheme="dark"] .winche-logo-tile { background: #E6E8EE; }
+.winche-picker { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: 8px; min-width: 0; color: var(--w-text); }
+.winche-picker:not(:disabled):hover { background: var(--w-hover); }
+.winche-picker:disabled { cursor: default; }
+.winche-avatar {
+  width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  background: var(--w-accent-soft); color: var(--w-accent);
+}
+.winche-avatar:hover { box-shadow: 0 0 0 3px var(--w-subtle); }
+
+/* The sidebar. */
+.winche-sidebar { background: var(--w-card); border-right: 1px solid var(--w-border); display: flex; flex-direction: column; }
+.winche-nav-group {
+  font-size: 11px; font-weight: 600; color: var(--w-faint); letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 16px 10px 6px;
+}
+.winche-nav-link {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; color: var(--w-muted);
+  font-size: 14px; font-weight: 500; min-height: 36px;
+}
+.winche-nav-link:hover { background: var(--w-hover); color: var(--w-text); }
+.winche-nav-link[aria-expanded="true"] { color: var(--w-text); font-weight: 600; }
+.winche-nav-link[data-active] { background: var(--w-accent-soft); color: var(--w-accent); font-weight: 600; }
+.winche-nav-label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.winche-nav-chevron { color: var(--w-faint); transform: rotate(-90deg); transition: transform 120ms; flex-shrink: 0; }
+.winche-nav-chevron[data-open] { transform: rotate(0deg); }
+.winche-nav-pages { margin: 2px 0 6px 19px; padding-left: 10px; border-left: 1px solid var(--w-border); }
+.winche-nav-sublink {
+  display: block; padding: 5px 10px; border-radius: 6px; font-size: 13.5px; color: var(--w-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.winche-nav-sublink:hover { background: var(--w-hover); color: var(--w-text); }
+.winche-nav-sublink[data-active] { background: var(--w-accent-soft); color: var(--w-accent); font-weight: 600; }
+
+/* Setting rows: hairlines between them, a hint of hover. */
+.winche-setting-row + .winche-setting-row { border-top: 1px solid var(--w-subtle); }
+.winche-setting-row:hover { background: var(--w-hover); }
+
+/* The settings list: a hint of hover on the sections not chosen. */
+.winche-settings-nav-item { padding: 7px 12px; font-size: 14px; }
+
+/* Cards that open something. */
+.winche-card-link { transition: border-color 120ms, box-shadow 120ms; }
+.winche-card-link:hover { border-color: var(--w-accent) !important; box-shadow: 0 2px 10px rgba(16, 24, 40, 0.06); }
+
+/* A card spanning two columns of a grid, on wide screens. */
+@media (max-width: 75em) { .winche-span-2 { grid-column: auto !important; } }
+
+/* A page's band: its title and tabs on white, across the page (cancelling .winche-page's padding). */
+.winche-band { background: var(--w-card); border-bottom: 1px solid var(--w-border); margin: -24px -32px 24px; padding: 24px 32px 20px; }
+.winche-band[data-tabs] { padding-bottom: 0; }
+@media (max-width: 47.99em) { .winche-band { margin: -24px -16px 20px; padding-left: 16px; padding-right: 16px; } }
+.winche-tabs { display: flex; flex-wrap: wrap; gap: 0 24px; margin-top: 12px; }
+.winche-tab { padding: 10px 2px 12px; font-size: 14px; font-weight: 500; color: var(--w-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.winche-tab:hover { color: var(--w-text); }
+.winche-tab[data-active] { color: var(--w-accent); border-bottom-color: var(--w-accent); font-weight: 600; }
+
+/* Settings cards (EditCard): rows of a name and its value, and the edit footer. */
+.winche-view-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 14px 24px; border-top: 1px solid var(--w-subtle); }
+@media (max-width: 40em) { .winche-view-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+.winche-edit-footer { padding: 14px 24px; border-top: 1px solid var(--w-border); background: var(--w-hover); }
+.winche-onoff { display: inline-block; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 2px 10px; color: var(--w-muted); background: var(--w-subtle); }
+.winche-onoff[data-on] { color: var(--w-pill-on-fg); background: var(--w-pill-on-bg); }
+
+/* Sign-in providers: rows that open to their settings. */
+.winche-provider-head { display: grid; grid-template-columns: minmax(0, 1fr) 120px 24px; gap: 16px; padding: 10px 24px; background: var(--w-hover); border-top: 1px solid var(--w-border); font-size: 12px; font-weight: 600; color: var(--w-muted); }
+.winche-provider + .winche-provider, .winche-provider-head + .winche-provider { border-top: 1px solid var(--w-subtle); }
+.winche-provider-row { display: grid; grid-template-columns: minmax(0, 1fr) 120px 24px; gap: 16px; align-items: center; width: 100%; padding: 14px 24px; }
+.winche-provider-row:not(:disabled):hover { background: var(--w-hover); }
+.winche-provider-row:disabled { cursor: default; }
+.winche-provider-logo { width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--w-accent-soft); color: var(--w-accent); flex-shrink: 0; }
+.winche-provider-body { padding: 4px 24px 20px 68px; }
+@media (max-width: 40em) { .winche-provider-body { padding-left: 24px; } }
+
+/* Pages without a sidebar (Projects, Server settings): the band spans the window, the content is centered. */
+.winche-page[data-centered] > * { width: 100%; max-width: 1080px; margin-left: auto; margin-right: auto; box-sizing: border-box; }
+.winche-page[data-centered] > .winche-band { max-width: none; width: auto; margin-left: -32px; margin-right: -32px;
+  padding-left: max(32px, calc((100% - 1080px) / 2 + 32px)); padding-right: max(32px, calc((100% - 1080px) / 2 + 32px)); }
+@media (max-width: 47.99em) { .winche-page[data-centered] > .winche-band { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; } }
+
+/* The "add" card at the end of a grid of cards. */
+.winche-add-card { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 150px; border: 1.5px dashed var(--w-border); border-radius: 12px; color: var(--w-muted); }
+.winche-add-card:hover { border-color: var(--w-accent); color: var(--w-accent); }
+.winche-add-icon { width: 44px; height: 44px; border-radius: 999px; display: grid; place-items: center; background: var(--w-accent-soft); color: var(--w-accent); }
+
+/* A product's status on a project card: green when started. */
+.winche-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--w-border); flex-shrink: 0; }
+.winche-dot[data-on] { background: #17B26A; }

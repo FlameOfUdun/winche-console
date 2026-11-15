@@ -1,0 +1,59 @@
+import { createTheme, type MantineColorsTuple } from "@mantine/core";
+
+// The console's one accent (shade 6 = #2F4FD8), a cool blue with 5.9:1 contrast on white.
+const winche: MantineColorsTuple = [
+  "#EEF2FF", "#E0E7FF", "#C7D2FE", "#A5B4FC", "#7C8FF5",
+  "#5470E6", "#2F4FD8", "#2741BB", "#1E36A8", "#182C86",
+];
+
+// Neutral greys (text #101828, muted #475467 / #667085, borders #E4E7EC, page #F6F7F9).
+const gray: MantineColorsTuple = [
+  "#F9FAFB", "#F2F4F7", "#E4E7EC", "#D0D5DD", "#98A2B3",
+  "#667085", "#475467", "#344054", "#1D2939", "#101828",
+];
+
+const font = '"Inter Variable", Inter, -apple-system, "Segoe UI", system-ui, sans-serif';
+
+// Dark neutrals: text [0], dimmed [2], borders [4], body and cards [7], the page [8].
+const dark: MantineColorsTuple = [
+  "#E6E8EE", "#C5CBD6", "#A3ABBA", "#7D8699", "#2E3440",
+  "#262B36", "#1E222B", "#161920", "#101217", "#0B0D11",
+];
+
+/**
+ * Shared surface colours for hand-styled pieces (cards, the page, borders, soft accents). CSS variables (tokens.css),
+ * so they follow light and dark.
+ */
+export const surface = {
+  page: "var(--w-page)", card: "var(--w-card)", border: "var(--w-border)", subtle: "var(--w-subtle)", hover: "var(--w-hover)",
+  text: "var(--w-text)", muted: "var(--w-muted)", faint: "var(--w-faint)",
+  accent: "var(--w-accent)", accentSoft: "var(--w-accent-soft)",
+};
+
+export const wincheTheme = createTheme({
+  primaryColor: "winche",
+  primaryShade: { light: 6, dark: 5 },
+  // googleBlue: the old name some components still pass as `color`.
+  colors: { winche, googleBlue: winche, gray, dark },
+  fontFamily: font,
+  fontFamilyMonospace: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+  headings: { fontFamily: font, fontWeight: "700" },
+  defaultRadius: "md",
+  radius: { sm: "6px", md: "8px", lg: "12px", xl: "16px" },
+  components: {
+    Paper: { defaultProps: { radius: "lg" } },
+    Card: { defaultProps: { radius: "lg" } },
+    Button: { defaultProps: { radius: "md" } },
+    Badge: { defaultProps: { radius: "xl", tt: "none" } },
+    // Tabs fill the page's height; only the open panel scrolls, so the page header and the tab list stay put.
+    Tabs: {
+      styles: {
+        root: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0 },
+        panel: { flex: "1 1 auto", minHeight: 0, overflow: "auto", paddingBottom: 28 },
+      },
+    },
+  },
+});
+
+/** @deprecated The old name. */
+export const firebaseTheme = wincheTheme;

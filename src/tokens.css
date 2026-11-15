@@ -1,0 +1,51 @@
+/* The console's surface tokens (theme.ts `surface`), for light and dark. */
+:root {
+  --w-page: #F6F7F9;
+  --w-card: #FFFFFF;
+  --w-border: #E4E7EC;
+  --w-subtle: #F2F4F7;
+  --w-hover: #F9FAFB;
+  --w-text: #101828;
+  --w-muted: #475467;
+  --w-faint: #667085;
+  --w-accent: #2F4FD8;
+  --w-accent-soft: #EEF2FF;
+  --w-topbar: #FFFFFF;
+  --w-code-bg: #F9FAFB;
+  --w-pill-on-fg: #067647; --w-pill-on-bg: #ECFDF3; --w-pill-on-bd: #ABEFC6;
+  --w-pill-off-fg: #B54708; --w-pill-off-bg: #FFFAEB; --w-pill-off-bd: #FEDF89;
+  --w-pill-danger-fg: #B42318; --w-pill-danger-bg: #FEF3F2; --w-pill-danger-bd: #FECDCA;
+  color-scheme: light;
+}
+:root[data-mantine-color-scheme="dark"] {
+  --w-page: #101217;
+  --w-card: #161920;
+  --w-border: #2A2F3A;
+  --w-subtle: #1E222B;
+  --w-hover: #1B1F27;
+  --w-text: #E6E8EE;
+  --w-muted: #A3ABBA;
+  --w-faint: #7D8699;
+  --w-accent: #8EA0F7;
+  --w-accent-soft: rgba(84, 112, 230, 0.16);
+  --w-topbar: #13161C;
+  --w-code-bg: #1B1F27;
+  --w-pill-on-fg: #75E0A7; --w-pill-on-bg: rgba(23, 178, 106, 0.12); --w-pill-on-bd: rgba(23, 178, 106, 0.35);
+  --w-pill-off-fg: #FEC84B; --w-pill-off-bg: rgba(247, 144, 9, 0.12); --w-pill-off-bd: rgba(247, 144, 9, 0.35);
+  --w-pill-danger-fg: #FDA29B; --w-pill-danger-bg: rgba(240, 68, 56, 0.12); --w-pill-danger-bd: rgba(240, 68, 56, 0.35);
+  --mantine-color-body: #161920;
+  color-scheme: dark;
+}
+html, body, #root { background: var(--w-page); }
+
+/* Code: syntax colours and diffs. */
+:root {
+  --w-syn-keyword: #7C3AED; --w-syn-comment: #8A8F98; --w-syn-string: #0F7B3F; --w-syn-special: #1D4ED8;
+  --w-syn-number: #B45309; --w-syn-var: #BE185D; --w-syn-fn: #0E7490; --w-syn-op: #6B7280; --w-syn-prop: #0F172A;
+  --w-diff-add-bg: #E6FFEC; --w-diff-del-bg: #FFEBE9; --w-focus: #A5B4FC;
+}
+:root[data-mantine-color-scheme="dark"] {
+  --w-syn-keyword: #C4A5FF; --w-syn-comment: #7D8699; --w-syn-string: #7EE2A8; --w-syn-special: #93B4FF;
+  --w-syn-number: #FDBA74; --w-syn-var: #F9A8D4; --w-syn-fn: #67E8F9; --w-syn-op: #9CA3AF; --w-syn-prop: #E6E8EE;
+  --w-diff-add-bg: rgba(46, 160, 67, 0.18); --w-diff-del-bg: rgba(248, 81, 73, 0.18); --w-focus: #4C5FD5;
+}

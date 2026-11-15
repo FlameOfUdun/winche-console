@@ -1,0 +1,97 @@
+import type { AuthState, SessionUser } from "../api/types";
+
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "settings";
+
+/** One of a product's pages (Database → Rules), under it in the sidebar. */
+export interface NavPage { to: string; label: string }
+
+/** A sidebar entry: a product (or Logs) and, when it has more than one, its pages. */
+export interface NavItem { to: string; label: string; icon: NavIcon; group: "top" | "build" | "monitor" | "bottom"; pages: NavPage[] }
+
+/** What the session can't tell on its own, from the server: who may edit rules, what auth runs. */
+export interface NavFacts {
+  /** The products whose rules the user may edit (admins). */
+  rules?: string[];
+  /** Winche Auth runs here (email templates); false when another identity provider does. */
+  wincheAuth?: boolean;
+  /** Authentication keeps users here (the Users page). */
+  authUsers?: boolean;
+  /** Tokens from other issuers can be trusted here (the Trusted issuers page). */
+  trustedIssuers?: boolean;
+}
+
+/**
+ * The project's sidebar, given capabilities and role: Overview, the products and their pages, Logs, and Project
+ * settings. Single source for the sidebar, each page's guard (a page not listed sends you to its product's first), and
+ * the home redirect.
+ */
+export function projectNav(state: AuthState | null, user: SessionUser | null, facts: NavFacts = {}): NavItem[] {
+  const c = state?.capabilities;
+  const admin = user?.role === "Admin";
+  const out: NavItem[] = [{ to: "/overview", label: "Overview", icon: "home", group: "top", pages: [] }];
+  const productPages = (base: string, product: "database" | "storage", primary: string): NavPage[] => [
+    { to: base, label: primary },
+    ...(facts.rules?.includes(product) ? [{ to: `${base}/rules`, label: "Rules" }] : []),
+    ...(product === "database" && c?.settings?.database ? [{ to: `${base}/indexes`, label: "Indexes" }] : []),
+    ...(product === "database" && c?.history ? [{ to: `${base}/history`, label: "History" }] : []),
+    ...(c?.hooks ? [{ to: `${base}/webhooks`, label: "Webhooks" }] : []),
+    ...(c?.logs?.[product] ? [{ to: `${base}/logs`, label: "Logs" }] : []),
+    ...(c?.settings?.[product] ? [{ to: `${base}/settings`, label: "Settings" }] : []),
+  ];
+  // Webhooks are each product's own page (Authentication, Database, Storage → Webhooks); triggered functions are Functions'.
+  if (c?.authentication) {
+    out.push({
+      to: "/authentication", label: "Authentication", icon: "users", group: "build", pages: [
+        ...(facts.authUsers !== false ? [{ to: "/authentication/users", label: "Users" }] : []),
+        ...(facts.wincheAuth !== false ? [{ to: "/authentication/methods", label: "Sign-in method" }] : []),
+        ...(facts.trustedIssuers !== false ? [{ to: "/authentication/issuers", label: "Trusted issuers" }] : []),
+        ...(facts.wincheAuth !== false ? [{ to: "/authentication/emails", label: "Templates" }] : []),
+        ...(c.hooks ? [{ to: "/authentication/webhooks", label: "Webhooks" }] : []),
+        { to: "/authentication/settings", label: "Settings" },
+      ],
+    });
+  }
+  if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build", pages: productPages("/database", "database", "Data") });
+  if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
+  if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
+  if (c?.logs?.app) {
+    out.push({ to: "/logs", label: "Logs", icon: "logs", group: "monitor", pages: [
+      { to: "/logs", label: "Explorer" }, { to: "/logs/saved", label: "Saved queries" },
+    ] });
+  }
+  out.push({
+    to: "/settings", label: "Project settings", icon: "settings", group: "bottom", pages: [
+      { to: "/settings/general", label: "General" },
+      ...(admin ? [{ to: "/settings/members", label: "Members" }, { to: "/settings/ci", label: "CI tokens" }] : []),
+      ...(user?.serverAdmin ? [{ to: "/settings/data", label: "Data" }] : []),
+    ],
+  });
+  // A product with one page is just that page.
+  return out.map((n) => (n.pages.length > 1 ? n : { ...n, pages: [] }));
+}
+
+/** The products' entries alone (Build and Monitor), for places that list them. */
+export function builtinNav(state: AuthState | null, user: SessionUser | null, facts: NavFacts = {}): NavItem[] {
+  return projectNav(state, user, facts).filter((n) => n.group === "build" || n.group === "monitor");
+}
+
+/** The entry a path is in, and whether it's one of its pages. */
+export function navItemFor(items: NavItem[], pathname: string): NavItem | undefined {
+  return items.find((n) => pathname === n.to || pathname.startsWith(n.to + "/"));
+}
+
+/** Is this page the one at `pathname`? A product's first page is only itself, not its siblings. */
+export function isPageActive(page: NavPage, item: NavItem, pathname: string): boolean {
+  if (page.to === item.to) return pathname === item.to;
+  return pathname === page.to || pathname.startsWith(page.to + "/");
+}
+
+/** The project's home: the overview once signed in. */
+export function homePath(state: AuthState | null, _user: SessionUser | null): string | null {
+  return state ? "/overview" : null;
+}
+
+/** This console is the default project's (not under /p/<id>): signing in lands on the server's projects. */
+export function isDefaultConsole(): boolean {
+  return !/\/p\/[^/]+\//.test(new URL(document.baseURI).pathname);
+}

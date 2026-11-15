@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/src/assets/winche-logo.png" />
+    <title>Winche Console</title>
+    <style>
+      html, body, #root { height: 100%; margin: 0; background: #F6F7F9; }
+      html[data-mantine-color-scheme="dark"], html[data-mantine-color-scheme="dark"] body { background: #101217; }
+    </style>
+    <script>
+      // The colour scheme before the app loads (no flash): the saved choice, else the system's.
+      try {
+        var c = localStorage.getItem("mantine-color-scheme-value");
+        if (c !== "light" && c !== "dark") c = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.setAttribute("data-mantine-color-scheme", c);
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
