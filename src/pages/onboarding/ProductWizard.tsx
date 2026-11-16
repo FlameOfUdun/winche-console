@@ -13,7 +13,7 @@ import { testModeRules, type ProductId, type RulesMode } from "../../api/project
 import { surface } from "../../theme";
 
 const NAMES: Record<ProductId, string> = {
-  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions",
+  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets",
 };
 
 /** A choice drawn as a card (rules mode, where files live). */
@@ -40,7 +40,7 @@ function RulesStep({ mode, setMode }: { mode: RulesMode; setMode: (m: RulesMode)
   );
 }
 
-async function publishTestRules(sys: "database" | "storage") {
+async function publishTestRules(sys: "database" | "storage" | "assets") {
   const parsed = await api.rulesParseText(testModeRules(sys, new Date(Date.now() + 30 * 24 * 3600 * 1000)));
   if (parsed.ok && parsed.rulesJson) await api.rulesSave(sys, { rulesJson: parsed.rulesJson, note: "Test mode: open for 30 days" });
 }
@@ -194,6 +194,17 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
             </Stack>
           ) },
         ];
+      case "assets":
+        return [
+          { label: "Starting rules", content: <RulesStep mode={rules} setMode={setRules} /> },
+          { label: "Publishing", content: (
+            <Stack gap="sm">
+              <Text size="sm" c={surface.muted}>Assets are files in a folder of your app's repository, published from your terminal or CI. Each publish is a release; a channel points apps at one.</Text>
+              <Code block>{`winche login              # once
+winche assets deploy assets --channel production -m "First release"`}</Code>
+            </Stack>
+          ) },
+        ];
       case "functions":
         return [{ label: "Your editor", content: (
           <Stack gap="sm">
@@ -224,7 +235,7 @@ winche functions deploy`}</Code>
   const afterSetup = async () => {
     try {
       if (product === "storage" && where === "bucket") await moveToBucket(location(), bucket.secret);
-      if ((product === "database" || product === "storage") && rules === "test") await publishTestRules(product);
+      if ((product === "database" || product === "storage" || product === "assets") && rules === "test") await publishTestRules(product);
       if (product === "storage" && storage.data && typeof maxMb === "number")
         await api.saveDataSettings<StorageSettings>("storage", { ...storage.data.settings, maxFileSizeMb: maxMb }, "Setup: largest file");
       if (product === "authentication" && auth) await api.saveSignInSettings(auth, smtpPassword || null, "Setup: sign-in methods");

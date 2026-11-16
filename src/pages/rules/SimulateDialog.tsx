@@ -95,7 +95,7 @@ function Section({ title, children, right }: { title: string; children: React.Re
 export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   subsystem: RuleSubsystem; rulesJson: string; opened: boolean; onClose: () => void;
 }) {
-  const storage = subsystem === "storage";
+  const storage = subsystem !== "database";   // files and assets: a path, not a document
   const [operation, setOperation] = useState<RuleOperation>("Get");
   const [path, setPath] = useState("");
   const [signedIn, setSignedIn] = useState(true);
@@ -104,7 +104,9 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   const [verified, setVerified] = useState(true);
   const [claims, setClaims] = useState<FieldRow[]>([]);
   const [exists, setExists] = useState(true);
-  const fileRows = (): FieldRow[] => [{ name: "mimeType", kind: "text", value: "image/png" }, { name: "sizeBytes", kind: "number", value: "20000" }];
+  const fileRows = (): FieldRow[] => subsystem === "assets"
+    ? [{ name: "mimeType", kind: "text", value: "application/json" }, { name: "size", kind: "number", value: "2000" }, { name: "channel", kind: "text", value: "production" }]
+    : [{ name: "mimeType", kind: "text", value: "image/png" }, { name: "sizeBytes", kind: "number", value: "20000" }];
   const [existing, setExisting] = useState<FieldRow[]>(storage ? fileRows() : []);
   const [incoming, setIncoming] = useState<FieldRow[]>(storage ? fileRows() : []);
   const [inputError, setInputError] = useState<string | null>(null);

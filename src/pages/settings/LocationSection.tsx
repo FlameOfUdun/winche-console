@@ -52,7 +52,22 @@ export function LocationSection() {
   );
 }
 
-function ChooseLocation({ s, onDone, onCancel }: { s: StorageLocationState; onDone: () => void; onCancel: () => void }) {
+/** What choosing a location needs to know (Storage's state, or Assets'). */
+export type LocationChoice = Pick<StorageLocationState, "active" | "activeLabel" | "codeLabel" | "secretsAvailable">;
+
+/**
+ * Choosing where to move to: back to the app's own location, or a bucket (tested first), with a reason. Storage's by
+ * default; Assets pass their own test and start, and say what moves.
+ */
+export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testStorageLocation, start: startFn = api.startStorageMove, noun = "files",
+  afterCopy }: {
+  s: LocationChoice; onDone: () => void; onCancel: () => void;
+  test?: (location: ArchiveLocation, secretKey: string | null) => Promise<LocationTest>;
+  start?: (location: ArchiveLocation, secretKey: string | null, reason: string) => Promise<unknown>;
+  noun?: string;
+  /** What happens once everything is copied (Storage: you switch). */
+  afterCopy?: string;
+}) {
   const [target, setTarget] = useState<"s3" | "code">(s.active ? "code" : "s3");
   const [preset, setPreset] = useState<Preset>("aws");
   const [b, setB] = useState(EMPTY);
@@ -75,13 +90,13 @@ function ChooseLocation({ s, onDone, onCancel }: { s: StorageLocationState; onDo
 
   const runTest = async () => {
     setTest("testing");
-    try { setTest(await api.testStorageLocation(location, secret || null)); }
+    try { setTest(await testFn(location, secret || null)); }
     catch (e) { setTest({ ok: false, steps: [{ name: "Test", ok: false, error: errorMessage(e) }] }); }
   };
   const start = async () => {
     setBusy(true);
     setError(null);
-    try { await api.startStorageMove(location, secret || null, reason.trim()); onDone(); }
+    try { await startFn(location, secret || null, reason.trim()); onDone(); }
     catch (e) { setError(errorWithList(e)); }
     finally { setBusy(false); }
   };
@@ -93,7 +108,7 @@ function ChooseLocation({ s, onDone, onCancel }: { s: StorageLocationState; onDo
           data={[{ value: "code", label: "Back to the app's own location" }, { value: "s3", label: "Another bucket" }]} />
       )}
       {target === "code" ? (
-        <Text size="sm">Files will move back to {s.codeLabel}.</Text>
+        <Text size="sm">{noun[0].toUpperCase() + noun.slice(1)} will move back to {s.codeLabel}.</Text>
       ) : (
         <>
           <SegmentedControl size="xs" w="fit-content" aria-label="Provider" value={preset} data={PRESETS} onChange={(v) => { setPreset(v as Preset); setTest(null); }} />
@@ -127,9 +142,9 @@ function ChooseLocation({ s, onDone, onCancel }: { s: StorageLocationState; onDo
       {(target === "code" || (test && test !== "testing" && test.ok)) && (
         <Paper withBorder p="sm" style={{ borderColor: "var(--w-accent)" }}>
           <Stack gap="xs">
-            <Text size="sm">Every file is copied in the background. The app keeps using {s.activeLabel} until you switch.</Text>
+            <Text size="sm">Everything is copied in the background. The app keeps using {s.activeLabel} {afterCopy ?? "until you switch"}.</Text>
             <Group gap="xs" wrap="wrap">
-              <TextInput placeholder="Why are you moving the files?" aria-label="Reason for the move" style={{ flex: "1 1 260px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
+              <TextInput placeholder={`Why are you moving the ${noun}?`} aria-label="Reason for the move" style={{ flex: "1 1 260px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
               <Button loading={busy} disabled={!reason.trim()} onClick={start}>Start copying</Button>
             </Group>
             {error && <Alert color="red" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}

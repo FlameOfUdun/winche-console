@@ -9,7 +9,7 @@ import { when } from "../authentication/UsersView";
 import { EmptyState } from "../../components/EmptyState";
 import { IconKey, IconTerminal2 } from "@tabler/icons-react";
 
-const SCOPE_LABEL: Record<string, string> = { functions: "Deploy functions", rules: "Deploy rules" };
+const SCOPE_LABEL: Record<string, string> = { functions: "Deploy functions", rules: "Deploy rules", indexes: "Deploy indexes", assets: "Publish assets" };
 const DAYS = [{ value: "30", label: "30 days" }, { value: "90", label: "90 days" }, { value: "365", label: "1 year" }, { value: "730", label: "2 years" }];
 
 /**

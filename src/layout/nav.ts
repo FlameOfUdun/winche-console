@@ -1,6 +1,6 @@
 import type { AuthState, SessionUser } from "../api/types";
 
-export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "settings" | "page";
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "assets" | "settings" | "page";
 
 /** One of a product's pages (Database → Rules), under it in the sidebar. */
 export interface NavPage { to: string; label: string }
@@ -35,13 +35,13 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   const c = state?.capabilities;
   const admin = user?.role === "Admin";
   const out: NavItem[] = [{ to: "/overview", label: "Overview", icon: "home", group: "top", pages: [] }];
-  const productPages = (base: string, product: "database" | "storage", primary: string): NavPage[] => [
+  const productPages = (base: string, product: "database" | "storage" | "assets", primary: string): NavPage[] => [
     { to: base, label: primary },
     ...(facts.rules?.includes(product) ? [{ to: `${base}/rules`, label: "Rules" }] : []),
     ...(product === "database" && c?.settings?.database ? [{ to: `${base}/indexes`, label: "Indexes" }] : []),
     ...(product === "database" && c?.history ? [{ to: `${base}/history`, label: "History" }] : []),
     ...(c?.hooks ? [{ to: `${base}/webhooks`, label: "Webhooks" }] : []),
-    ...(c?.logs?.[product] ? [{ to: `${base}/logs`, label: "Logs" }] : []),
+    ...(product !== "assets" && c?.logs?.[product] ? [{ to: `${base}/logs`, label: "Logs" }] : []),
     ...(c?.settings?.[product] ? [{ to: `${base}/settings`, label: "Settings" }] : []),
   ];
   // Webhooks are each product's own page (Authentication, Database, Storage → Webhooks); triggered functions are Functions'.
@@ -59,6 +59,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   }
   if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build", pages: productPages("/database", "database", "Data") });
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
+  if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Releases") });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
   for (const p of facts.consolePages ?? []) out.push({ to: `/pages/${p.name}`, label: p.title, icon: "page", tablerIcon: p.icon, group: "pages", pages: [] });
   if (c?.logs?.app) {

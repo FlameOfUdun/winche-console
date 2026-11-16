@@ -13,7 +13,7 @@
 //     must produce and consume this exact PascalCase + lowercase-kind shape when it parses or
 //     builds a rulesJson string. Do not camelCase these fields.
 
-export type RuleSubsystem = "database" | "storage";
+export type RuleSubsystem = "database" | "storage" | "assets";
 
 export type RuleOperation = "Get" | "List" | "Create" | "Update" | "Delete";
 

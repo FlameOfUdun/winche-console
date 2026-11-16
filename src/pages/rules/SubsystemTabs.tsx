@@ -6,6 +6,7 @@ import { ScopedLogs } from "../logs/ScopedLogs";
 import { HistoryView } from "../history/HistoryView";
 import { DatabaseIndexesView, DatabaseSettingsView } from "../settings/DatabaseSettingsView";
 import { StorageSettingsView } from "../settings/StorageSettingsView";
+import { AssetsSettingsView } from "../assets/AssetsSettingsView";
 import { NavPageHeader } from "../../components/NavPageHeader";
 import { ProductHooks } from "../hooks/ProductHooks";
 import { useProjectNav } from "../../layout/useProjectNav";
@@ -38,9 +39,9 @@ export function SubsystemTabs({ subsystem, basePath, children }: {
           {page === "rules" && <RulesEditor subsystem={subsystem} />}
           {page === "indexes" && <DatabaseIndexesView />}
           {page === "history" && <HistoryView />}
-          {page === "logs" && <ScopedLogs scope={subsystem} />}
+          {page === "logs" && subsystem !== "assets" && <ScopedLogs scope={subsystem} />}
           {page === "webhooks" && <ProductHooks source={subsystem} />}
-          {page === "settings" && (subsystem === "database" ? <DatabaseSettingsView /> : <StorageSettingsView />)}
+          {page === "settings" && (subsystem === "database" ? <DatabaseSettingsView /> : subsystem === "assets" ? <AssetsSettingsView /> : <StorageSettingsView />)}
         </div>
       )}
     </>

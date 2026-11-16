@@ -46,11 +46,13 @@ export interface Capabilities {
   /** The Database tab's History sub-tab (who changed which document). */
   history?: boolean;
   /** Database / Storage → Settings (admins, when the packages use settings). */
-  settings?: { database?: boolean; storage?: boolean };
+  settings?: { database?: boolean; storage?: boolean; assets?: boolean };
   /** The Hooks page (admins, when the app uses Winche.Webhooks). */
   hooks?: boolean;
   /** The Functions page (admins, when the app uses Winche.Functions). */
   functions?: boolean;
+  /** The Assets pages: releases and channels (and their rules, webhooks, settings). */
+  assets?: boolean;
   /** The project's own console pages (consolePage in its functions): anyone with a role here. */
   consolePages?: boolean;
   /** The Authentication tab: the app's users (Winche Auth). Admins only. */

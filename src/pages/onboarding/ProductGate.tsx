@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import {
-  IconArrowRight, IconBolt, IconBrandGoogle, IconBucket, IconClock, IconCloudOff, IconDatabase, IconFolder, IconLambda, IconMail, IconPlugConnected,
+  IconArrowRight, IconBolt, IconBrandGoogle, IconBucket, IconClock, IconCloudOff, IconDatabase, IconFolder, IconHistory, IconLambda, IconMail, IconPackage, IconRoute, IconPlugConnected,
   IconShieldCheck, IconShieldLock, IconUpload, IconUsers,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -50,6 +50,15 @@ const INFO: Record<ProductId, { name: string; title: string; about: ReactNode; i
       { icon: IconPlugConnected, title: "Called by your apps", about: "With the signed-in user passed in." },
       { icon: IconBolt, title: "On changes", about: "When documents, files or users change." },
       { icon: IconClock, title: "On a schedule", about: "Every few minutes, hours or days." },
+    ],
+  },
+  assets: {
+    name: "Assets", title: "Start assets", icon: IconPackage,
+    about: "Content your apps download and keep offline: translations, pages, images and videos, published in releases.",
+    features: [
+      { icon: IconHistory, title: "Releases", about: "Numbered and kept, so going back is one click." },
+      { icon: IconRoute, title: "Channels", about: "Production, beta or one per app version." },
+      { icon: IconShieldCheck, title: "Rules", about: "Who may read which paths." },
     ],
   },
 };

@@ -15,10 +15,11 @@ const newId = () => Math.random().toString(36).slice(2, 10);
 const EVENT_LABEL: Record<string, string> = {
   created: "created", updated: "updated", deleted: "deleted", uploaded: "uploaded", metadataUpdated: "metadata changed",
   disabled: "disabled", enabled: "enabled", claimsChanged: "claims changed", signedIn: "signed in",
+  released: "published", channelMoved: "pointed at by a channel",
 };
 
-/** Which product's events a Webhooks tab is about: "database", "storage" or "auth". */
-export type HookSource = "database" | "storage" | "auth";
+/** Which product's events a Webhooks tab is about: "database", "storage", "auth" or "assets". */
+export type HookSource = "database" | "storage" | "auth" | "assets";
 
 /**
  * A product's Webhooks tab (Authentication, Database, Storage): when its documents, files or users change, call an
@@ -39,7 +40,7 @@ export function ProductHooks({ source }: { source: HookSource }) {
 function describe(h: Hook, d: HooksPageData): { when: string; then: string } {
   const source = d.sources.find((s) => s.name === h.when.source);
   const events = h.when.events.length ? h.when.events.map((e) => EVENT_LABEL[e] ?? e).join(" or ") : "changed";
-  const what = source?.name === "auth" ? "a user is" : source?.name === "storage" ? "a file is" : "a document is";
+  const what = source?.name === "auth" ? "a user is" : source?.name === "storage" ? "a file is" : source?.name === "assets" ? "a release is" : "a document is";
   const where = h.when.path ? ` at ${h.when.path}` : "";
   return { when: `When ${what} ${events}${where}`, then: `call ${h.do.url}` };
 }
@@ -88,7 +89,7 @@ function HooksList({ source: only }: { source: HookSource }) {
       {!available && <Alert color="yellow">This server doesn't pass these events to webhooks.</Alert>}
       {mine.length === 0 && (
         <EmptyState icon={IconWebhook} title="No webhooks yet"
-          description={`When ${only === "database" ? "documents" : only === "storage" ? "files" : "users"} change, call an address of yours. To do something on the server instead, write a function with that trigger (Functions).`}
+          description={`When ${only === "database" ? "documents" : only === "storage" ? "files" : only === "assets" ? "releases or channels" : "users"} change, call an address of yours. To do something on the server instead, write a function with that trigger (Functions).`}
           action={d.editable && <Button disabled={!available} onClick={addHook}>Add webhook</Button>} />
       )}
       {mine.map((h) => {

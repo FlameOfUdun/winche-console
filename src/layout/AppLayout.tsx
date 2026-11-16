@@ -5,7 +5,7 @@ import {
   useMantineColorScheme,
 } from "@mantine/core";
 import {
-  IconDatabase, IconDeviceDesktop, IconFolder, IconHome, IconLambda, IconLayoutSidebarLeftCollapse,
+  IconDatabase, IconDeviceDesktop, IconFolder, IconHome, IconLambda, IconPackage, IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand, IconListDetails, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconSun,
   IconUsers, IconWebhook, IconKey, IconUserCircle, IconFile,
 } from "@tabler/icons-react";
@@ -24,7 +24,7 @@ import logoUrl from "../assets/winche-logo.png";
 
 const ICONS: Record<NavIcon, React.ElementType> = {
   home: IconHome, database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers,
-  hooks: IconWebhook, functions: IconLambda, settings: IconSettings, page: IconFile,
+  hooks: IconWebhook, functions: IconLambda, assets: IconPackage, settings: IconSettings, page: IconFile,
 };
 
 const TOPBAR = 52;

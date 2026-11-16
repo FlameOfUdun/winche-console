@@ -22,6 +22,8 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api/client";
 import { ProductGate } from "./pages/onboarding/ProductGate";
+import type { ProductId } from "./api/project";
+import { AssetsPage } from "./pages/assets/AssetsPage";
 import { RequireProject } from "./pages/onboarding/RequireProject";
 
 export function App() {
@@ -39,7 +41,7 @@ function GatedApp() {
   const { state, user } = useSession();
   const home = homePath(state, user) ?? "/settings/general";
   const caps = state?.capabilities;
-  const gated = (product: "database" | "storage" | "authentication" | "functions", ok: boolean | undefined, page: ReactNode) =>
+  const gated = (product: ProductId, ok: boolean | undefined, page: ReactNode) =>
     ok ? <ProductGate product={product}>{page}</ProductGate> : <Navigate to={home} replace />;
   return (
     <AuthGate>
@@ -63,6 +65,7 @@ function GatedApp() {
           <Route path="logs/*" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={<Navigate to="/overview" replace />} />
           <Route path="functions" element={gated("functions", caps?.functions, <FunctionsPage />)} />
+          <Route path="assets/*" element={gated("assets", caps?.assets, <AssetsPage />)} />
           <Route path="pages/:name" element={caps?.consolePages ? <ConsolePageView /> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />

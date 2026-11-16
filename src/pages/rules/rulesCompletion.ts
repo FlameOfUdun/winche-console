@@ -279,7 +279,7 @@ export function suggest(ctx: CursorContext, fields: FieldInfo[], subsystem: Rule
     return METHODS;
   }
   if (doc !== null) {
-    if (subsystem === "storage") {
+    if (subsystem !== "database") {
       if (doc.length === 0) return [...fieldsUnder(fields, ""), ...METHODS];
       return [...fieldsUnder(fields, doc.join(".")), ...METHODS];
     }

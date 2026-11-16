@@ -242,6 +242,18 @@ export const api = {
   hookDeliveries: (hookId?: string, status?: string) =>
     http<{ deliveries: HookDelivery[] }>("GET", `api/hooks/deliveries?${new URLSearchParams({ ...(hookId ? { hookId } : {}), ...(status ? { status } : {}) })}`),
   retryHookDelivery: (id: string) => http<void>("POST", `api/hooks/deliveries/${id}/retry`),
+  assets: () => http<import("./assets").AssetsPageData>("GET", "api/assets"),
+  assetReleases: (limit = 100) => http<{ releases: import("./assets").AssetReleaseSummary[] }>("GET", `api/assets/releases?limit=${limit}`),
+  assetRelease: (n: number) => http<import("./assets").AssetRelease>("GET", `api/assets/releases/${n}`),
+  assetDiff: (from: number, to: number) => http<import("./assets").AssetDiff>("GET", `api/assets/releases/${from}/diff/${to}`),
+  assetChannelHistory: (name: string) => http<{ moves: import("./assets").AssetChannelMove[] }>("GET", `api/assets/channels/${encodeURIComponent(name)}/history`),
+  moveAssetChannel: (name: string, release: number) => http<import("./assets").AssetChannel>("POST", `api/assets/channels/${encodeURIComponent(name)}`, { release }),
+  removeAssetChannel: (name: string) => http<void>("DELETE", `api/assets/channels/${encodeURIComponent(name)}`),
+  assetLocation: () => http<import("./assets").AssetLocationState>("GET", "api/assets/location"),
+  testAssetLocation: (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "api/assets/location/test", { location, secretKey }),
+  startAssetMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
+    http<void>("POST", "api/assets/location/move", { location, secretKey, reason }),
+  cancelAssetMove: () => http<void>("POST", "api/assets/location/move/cancel"),
   storageLocation: () => http<StorageLocationState>("GET", "api/settings/storage/location"),
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "api/settings/storage/location/test", { location, secretKey }),

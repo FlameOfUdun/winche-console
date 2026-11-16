@@ -1,6 +1,9 @@
 import type { SettingsVersionInfo } from "./appAuth";
 
-export type DataArea = "database" | "database.live" | "storage" | "functions";
+export type DataArea = "database" | "database.live" | "storage" | "functions" | "assets";
+
+/** Assets → Settings: limits on releases and how many are kept. */
+export interface AssetLimits { maxFilesPerRelease: number; maxFileBytes: number; keepReleases: number }
 
 /** Functions → Settings: the project's default run time and each function's own, in seconds. */
 export interface FunctionsSettings { defaultTimeoutSeconds: number; timeouts: Record<string, number> }
