@@ -14,7 +14,6 @@ import { AddAppDialog } from "../apps/AppsPage";
 import { NEW_PROVIDER, type ConsoleSignIn } from "../../api/server";
 import { ProviderEditor, saveProvider } from "../server/ConsoleProviders";
 import { surface } from "../../theme";
-import { ProjectDatabaseFields, useProjectDatabase } from "../../components/ProjectDatabase";
 import logoUrl from "../../assets/winche-logo.png";
 
 type StepId = "code" | "account" | "secure" | "providers" | "project" | "app" | "done";
@@ -44,6 +43,8 @@ export const onboardingInProgress = () => read() !== null;
  */
 export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const { state, refresh } = useSession();
+  // The server's own console sets up sign-in only: projects are made on its Projects page afterwards.
+  const serverConsole = state?.server === true;
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [setupCode, setSetupCode] = useState<string>(() => readCode() ?? "");
@@ -64,10 +65,6 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const [account, setAccount] = useState({ firstName: "", lastName: "", email: "", password: "" });
   // Project
   const [name, setName] = useState("");
-  // On Winche Server (several projects): the project's own database is chosen with it.
-  const dbs = useProjectDatabase();
-  const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, enabled: step === "project", retry: false });
-  const onServer = projects.data?.available === true;
   const [id, setId] = useState("");
   const [idEdited, setIdEdited] = useState(false);
   const [created, setCreated] = useState(false);
@@ -77,11 +74,11 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const apps = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]), enabled: step === "app" });
-  const project = useQuery({ queryKey: ["project"], queryFn: api.project, enabled: !["code", "account"].includes(step) });
+  const project = useQuery({ queryKey: ["project"], queryFn: api.project, enabled: !serverConsole && !["code", "account"].includes(step) });
   const server = useQuery({ queryKey: ["server-settings"], queryFn: api.serverSettings, enabled: step === "providers", retry: false });
   const afterSecure = () => setStep("providers");
   // No server settings here (a console on its own, not in Winche Server): no providers to add.
-  useEffect(() => { if (step === "providers" && server.isError) setStep("project"); }, [step, server.isError]);
+  useEffect(() => { if (step === "providers" && server.isError) afterAccess(); }, [step, server.isError]);
 
   useEffect(() => { if (!idEdited) setId(projectIdFrom(name)); }, [name, idEdited]);
   // No project setup on this console (a library host): nothing more to set up after the account.
@@ -106,8 +103,11 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
   const addProvider = () => run(async () => {
     await saveProvider(server.data!.settings, provider, providerSecret, "Set up with the server");
     await qc.invalidateQueries({ queryKey: ["server-settings"] });
-    setStep("project");
+    afterAccess();
   });
+
+  // Sign-in is set up: on to the project (a console of its own), or done (the server's: projects come next, there).
+  function afterAccess() { if (serverConsole) finish(); else setStep("project"); }
 
   const createAccount = () => run(async () => {
     await api.setup({ ...account, setupCode: setupCode || null });
@@ -120,7 +120,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
 
   // Every product starts off: each is set up from its own page.
   const createProject = () => run(async () => {
-    await api.createProject({ name: name.trim(), id, products: [], database: onServer ? dbs.target() : null });
+    await api.createProject({ name: name.trim(), id, products: [], database: null });
     setCreated(true);
     await Promise.all(["project", "overview"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
     setStep("app");
@@ -128,14 +128,13 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
 
   const finish = () => {
     write(null);
-    navigate("/overview", { replace: true });
+    navigate(serverConsole ? "/projects" : "/overview", { replace: true });
     void refresh();
   };
 
   const parts: { id: string; label: string; steps: StepId[] }[] = [
     ...(mode === "first-run" ? [{ id: "access", label: "Sign-in", steps: ["code", "account", "secure", "providers"] as StepId[] }] : []),
-    { id: "project", label: "Project", steps: ["project"] },
-    { id: "app", label: "App", steps: ["app"] },
+    ...(serverConsole ? [] : [{ id: "project", label: "Project", steps: ["project"] as StepId[] }, { id: "app", label: "App", steps: ["app"] as StepId[] }]),
   ];
   const partIndex = parts.findIndex((p) => p.steps.includes(step));
 
@@ -208,7 +207,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
                 <ProviderEditor value={provider} onChange={setProvider} secret={providerSecret} onSecret={setProviderSecret} page={server.data} />
               )}
               {error && <Alert color="red" p="xs" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
-              <Nav onBack={() => setStep("secure")} backLabel="Two-step sign-in" onSkip={() => setStep("project")} skipLabel="Skip for now" onNext={addProvider} nextLabel="Add provider" busy={busy}
+              <Nav onBack={() => setStep("secure")} backLabel="Two-step sign-in" onSkip={afterAccess} skipLabel="Skip for now" onNext={addProvider} nextLabel="Add provider" busy={busy}
                 disabled={!server.data || !provider.issuer || !provider.clientId} />
             </Screen>
           )}
@@ -218,14 +217,8 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
               <TextInput label="Project name" size="lg" value={name} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
               <TextInput label="Project id" size="md" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
                 onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
-              {/* On Winche Server: its own database, never the server's. */}
-              {onServer && <ProjectDatabaseFields state={dbs} />}
-              {onServer && dbs.where === "elsewhere" && (
-                <Group><Button variant="default" disabled={!dbs.ready || !isProjectId(id) || busy}
-                  onClick={() => run(async () => dbs.setCheck(await api.checkProjectDatabase(id, dbs.target())))}>Check</Button></Group>
-              )}
               {/* The project is required: no skipping, no cancelling. */}
-              <Nav onNext={createProject} nextLabel="Create project" busy={busy} disabled={!name.trim() || !isProjectId(id) || (onServer && !dbs.ready)} />
+              <Nav onNext={createProject} nextLabel="Create project" busy={busy} disabled={!name.trim() || !isProjectId(id)} />
             </Screen>
           )}
 

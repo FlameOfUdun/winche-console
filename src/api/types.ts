@@ -67,6 +67,8 @@ export type AuthConfig = { provider: "identity"; project?: { id: string; name: s
 
 export interface AuthState {
   provider: AuthProvider;
+  /** The server's own console (Winche Server's root): its projects, accounts and settings, and no project of its own. */
+  server?: boolean;
   initialized: boolean;
   /** Not set up yet: whether setup asks for the code (in the server's log). */
   setup?: { code: boolean } | null;

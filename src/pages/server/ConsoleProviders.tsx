@@ -230,14 +230,11 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
         </UnstyledButton>
         <Collapse in={more}>
           <Stack gap="sm">
-            <TextInput label="Claim with groups or roles" description="Empty: roles are given in the console." placeholder="groups" styles={mono}
+            <TextInput label="Claim with groups or roles" description="Empty: server admins are made in the console." placeholder="groups" styles={mono}
               value={value.roleClaim ?? ""} onChange={(e) => set({ roleClaim: e.currentTarget.value || null })} />
             {value.roleClaim && (
-              <Group grow wrap="wrap" align="flex-start">
-                <TagsInput label="Server admin" placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
-                <TagsInput label="Member" placeholder="e.g. developers" value={value.memberValues} onChange={(v) => set({ memberValues: v })} />
-                <TagsInput label="Viewer" placeholder="e.g. support" value={value.viewerValues} onChange={(v) => set({ viewerValues: v })} />
-              </Group>
+              <TagsInput label="Server admin" description="What people do in a project is that project's members list."
+                placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
             )}
             <TextInput label="Scopes" styles={mono} value={value.scopes} onChange={(e) => set({ scopes: e.currentTarget.value })} />
           </Stack>

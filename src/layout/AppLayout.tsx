@@ -11,12 +11,13 @@ import {
 } from "@tabler/icons-react";
 import { TablerIcon } from "../components/TablerIcon";
 import { useQuery } from "@tanstack/react-query";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useSession } from "../auth/session";
 import { TwoFactorSetup } from "../auth/TwoFactorSetup";
 import { StatusPill } from "../components/PageHeader";
 import type { NavIcon, NavItem } from "./nav";
+import { serverConsoleUrl } from "./nav";
 import { useProjectNav } from "./useProjectNav";
 import { ProjectPicker } from "./ProjectSwitcher";
 import { SERVER_SECTIONS, sectionPath } from "../pages/server/sections";
@@ -70,16 +71,24 @@ function Shell({ crumb, sidebar, children }: { crumb: ReactNode; sidebar: ((coll
 }
 
 function TopBar({ crumb, menu }: { crumb: ReactNode; menu: { open: boolean; toggle: () => void } | null }) {
-  const { user } = useSession();
+  const { state, user } = useSession();
   const { pathname } = useLocation();
   const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, staleTime: 30_000 });
-  const many = !!projects.data?.available;
-  const inServer = pathname.startsWith("/server");
+  // On a server, the projects and its settings are the server's own console's: from a project's, they're links there.
+  const onServer = state?.server || !!projects.data?.available;
+  const local = !!state?.server;
+  const inServer = local && pathname.startsWith("/server");
+  const navigate = useNavigate();
+  // A link into the server's console: navigated in place there, a page load from a project's.
+  const to = (path: string) => ({
+    component: "a" as const, href: serverConsoleUrl(path),
+    onClick: (e: React.MouseEvent) => { if (local && !e.metaKey && !e.ctrlKey) { e.preventDefault(); navigate(`/${path}`); } },
+  });
   return (
     <Group h={TOPBAR} px="md" justify="space-between" wrap="nowrap" gap="sm">
       <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
         {menu && <Burger opened={menu.open} onClick={menu.toggle} size="sm" aria-label={menu.open ? "Close the menu" : "Open the menu"} />}
-        <UnstyledButton component={Link} to={many ? "/projects" : "/overview"} aria-label={many ? "All projects" : "Overview"}
+        <UnstyledButton {...to(onServer ? "projects" : "overview")} aria-label={onServer ? "All projects" : "Overview"}
           className="winche-brand">
           <span className="winche-logo-tile"><img src={logoUrl} alt="" width={22} height={22} /></span>
           <Text fw={700} fz={15} visibleFrom="sm">Winche</Text>
@@ -89,7 +98,7 @@ function TopBar({ crumb, menu }: { crumb: ReactNode; menu: { open: boolean; togg
       </Group>
       <Group gap={6} wrap="nowrap">
         {user?.serverAdmin && (
-          <Button component={Link} to="/server" size="compact-sm" h={32} px={10} variant={inServer ? "light" : "subtle"}
+          <Button {...to("server")} size="compact-sm" h={32} px={10} variant={inServer ? "light" : "subtle"}
             color={inServer ? "winche" : "gray"} leftSection={<IconServer size={16} stroke={1.8} />} aria-current={inServer ? "page" : undefined}>
             Server
           </Button>

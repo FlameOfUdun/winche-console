@@ -15,12 +15,10 @@ import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { AcceptInvitePage } from "./pages/AcceptInvitePage";
 import { CliLoginPage } from "./pages/CliLoginPage";
-import { homePath, isDefaultConsole } from "./layout/nav";
+import { homePath, serverConsoleUrl } from "./layout/nav";
 import { ServerLayout } from "./layout/AppLayout";
 import { ProjectsPage } from "./pages/server/ProjectsPage";
 import type { ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { api } from "./api/client";
 import { ProductGate } from "./pages/onboarding/ProductGate";
 import type { ProductId } from "./api/project";
 import { AssetsPage } from "./pages/assets/AssetsPage";
@@ -38,6 +36,36 @@ export function App() {
 }
 
 function GatedApp() {
+  const { state } = useSession();
+  return state?.server ? <ServerConsole /> : <ProjectConsole />;
+}
+
+/** The server's own console: its projects (everyone signed in), and its settings (server admins). */
+function ServerConsole() {
+  const { user } = useSession();
+  return (
+    <AuthGate>
+      <Routes>
+        <Route path="cli-login" element={<CliLoginPage />} />
+        <Route element={<ServerLayout />}>
+          <Route path="projects" element={<ProjectsPage />} />
+          <Route path="server" element={<Navigate to="/server/authentication/sign-in" replace />} />
+          <Route path="server/:section/:tab?" element={user?.serverAdmin ? <ServerSettingsPage /> : <Navigate to="/projects" replace />} />
+          <Route path="*" element={<Navigate to="/projects" replace />} />
+        </Route>
+      </Routes>
+    </AuthGate>
+  );
+}
+
+/** Leaves for the server's own console (its projects and settings live there, not in a project's). */
+function ToServer({ path }: { path: string }) {
+  window.location.replace(serverConsoleUrl(path));
+  return null;
+}
+
+/** A project's console (at /p/<id>/…). */
+function ProjectConsole() {
   const { state, user } = useSession();
   const home = homePath(state, user) ?? "/settings/general";
   const caps = state?.capabilities;
@@ -48,16 +76,11 @@ function GatedApp() {
       <RequireProject>
       <Routes>
         <Route path="cli-login" element={<CliLoginPage />} />
-        <Route element={<ServerLayout />}>
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="server" element={<Navigate to="/server/authentication/sign-in" replace />} />
-          {/* Addresses of before. */}
-          <Route path="server/settings" element={<Navigate to="/server/authentication/sign-in" replace />} />
-          <Route path="server/settings/:old" element={<Navigate to="/server/authentication/sign-in" replace />} />
-          <Route path="server/:section/:tab?" element={user?.serverAdmin ? <ServerSettingsPage /> : <Navigate to="/projects" replace />} />
-        </Route>
+        {/* The server's pages are its own console's. */}
+        <Route path="projects" element={<ToServer path="projects" />} />
+        <Route path="server/*" element={<ToServer path="server" />} />
         <Route element={<AppLayout />}>
-          <Route index element={<Landing home={home} />} />
+          <Route index element={<Navigate to={home} replace />} />
           <Route path="database/*" element={gated("database", caps?.database, <DataBrowserPage />)} />
           <Route path="storage/*" element={gated("storage", caps?.storage, <StorageBrowserPage />)} />
           <Route path="authentication" element={<Navigate to="/authentication/users" replace />} />
@@ -80,9 +103,3 @@ function GatedApp() {
   );
 }
 
-/** Signing in to the server's own console lands on its projects; a project's own address, on that project. */
-function Landing({ home }: { home: string }) {
-  const projects = useQuery({ queryKey: ["server-projects"], queryFn: api.projects, staleTime: 30_000 });
-  if (projects.isLoading) return null;
-  return <Navigate to={projects.data?.available && isDefaultConsole() ? "/projects" : home} replace />;
-}

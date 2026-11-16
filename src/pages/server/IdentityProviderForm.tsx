@@ -50,11 +50,7 @@ export function IdentityProviderForm({ value, onChange, secretSlot, unsavedSecre
           {value.roleClaim && (
             <>
               <TagsInput label="Server admin" placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
-              <Group grow align="flex-start" wrap="wrap">
-                <TagsInput label="Member" placeholder="e.g. developers" value={value.memberValues} onChange={(v) => set({ memberValues: v })} />
-                <TagsInput label="Viewer" placeholder="e.g. support" value={value.viewerValues} onChange={(v) => set({ viewerValues: v })} />
-              </Group>
-              <Text size="xs" c={surface.muted}>Checked at every sign-in. Member and Viewer are roles in the first project; other projects go by their members list.</Text>
+              <Text size="xs" c={surface.muted}>Checked at every sign-in. What people do in a project is that project's members list.</Text>
             </>
           )}
         </Stack>

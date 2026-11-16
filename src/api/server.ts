@@ -21,8 +21,6 @@ export interface ConsoleSignIn {
   buttonLabel: string | null;
   roleClaim: string | null;
   adminValues: string[];
-  memberValues: string[];
-  viewerValues: string[];
   createAccounts: boolean;
   trustProviderTwoStep: boolean;
   /** A Keycloak realm's: console accounts follow its users (its client secret is a server secret). */
@@ -32,7 +30,7 @@ export interface ConsoleSignIn {
 /** A provider being added. */
 export const NEW_PROVIDER: ConsoleSignIn = {
   id: "", enabled: true, issuer: null, clientId: null, scopes: "openid profile email", buttonLabel: null, roleClaim: null,
-  adminValues: [], memberValues: [], viewerValues: [], createAccounts: true, trustProviderTwoStep: true,
+  adminValues: [], createAccounts: true, trustProviderTwoStep: true,
 };
 
 /** A provider's client secret's name with the server's secrets. */

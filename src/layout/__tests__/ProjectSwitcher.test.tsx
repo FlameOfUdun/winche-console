@@ -94,11 +94,11 @@ test("a console that runs one project shows just its name, with nothing to pick"
 
 test("the projects page lists every project, each opening its console", async () => {
   mock(api.projects).mockResolvedValue({ available: true, canCreate: true, current: "clinic",
-    projects: [{ ...clinic, isDefault: true, products: ["authentication", "database"] }, wards] });
+    projects: [{ ...clinic, products: ["authentication", "database"] }, wards] });
   renderIt(<ProjectsPage />);
   const cards = await screen.findAllByTestId("project-card");
   expect(cards).toHaveLength(2);
-  expect(within(cards[0]).getByText("First project")).toBeInTheDocument();
+  expect(within(cards[0]).queryByText("First project")).toBeNull();   // no project is special
   expect(within(cards[0]).getByText("Database")).toBeInTheDocument();
   expect(within(cards[0]).getByText("Storage off")).toBeInTheDocument();
   expect(within(cards[1]).queryByTestId("project-products")).toBeNull();   // a host that doesn't say

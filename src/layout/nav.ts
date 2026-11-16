@@ -99,7 +99,12 @@ export function homePath(state: AuthState | null, _user: SessionUser | null): st
   return state ? "/overview" : null;
 }
 
-/** This console is the default project's (not under /p/<id>): signing in lands on the server's projects. */
-export function isDefaultConsole(): boolean {
-  return !/\/p\/[^/]+\//.test(new URL(document.baseURI).pathname);
+/**
+ * An address in the server's own console (Winche Server's root: its projects and settings), from a project's console
+ * at /p/<id>/… or from the server's console itself: e.g. serverConsoleUrl("projects").
+ */
+export function serverConsoleUrl(path = ""): string {
+  const url = new URL(document.baseURI);
+  url.pathname = url.pathname.replace(/\/p\/[^/]+(?=\/)/, "");
+  return url.toString().replace(/\/?$/, "/") + path;
 }

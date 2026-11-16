@@ -18,6 +18,7 @@ import { useSession } from "../../auth/session";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { ConfirmByIdDialog } from "../../components/ProjectDangerDialogs";
 import { surface } from "../../theme";
+import { serverConsoleUrl } from "../../layout/nav";
 
 /** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
 const SDKS: { id: string; label: string; icon: typeof IconWorld; ready: boolean }[] = [
@@ -153,7 +154,7 @@ function YourProject({ fallbackName, fallbackId }: { fallbackName: string; fallb
 }
 
 /**
- * Archiving this project (server admins, not the server's first project): it stops and its address is refused until
+ * Archiving this project (server admins): it stops and its address is refused until
  * it's restored; nothing is deleted.
  */
 function ArchiveProject() {
@@ -162,14 +163,13 @@ function ArchiveProject() {
   const [open, setOpen] = useState(false);
   const data = projects.data;
   const current = data?.projects.find((p) => p.id === data.current);
-  if (!user?.serverAdmin || !data?.available || !current || current.isDefault) return null;
-  const home = data.projects.find((p) => p.isDefault);
+  if (!user?.serverAdmin || !data?.available || !current) return null;
   return (
     <EditCard danger title="Archive this project" description="It stops, and its apps and console are refused until a server admin restores it. Nothing is deleted."
       actions={<Button color="red" variant="light" onClick={() => setOpen(true)}>Archive project</Button>}>
       <ConfirmByIdDialog opened={open} id={current.id} title={`Archive ${current.name}?`} action="Archive project" onClose={() => setOpen(false)}
         body="Its apps get errors until it's restored. Its data, users and files are kept: restore or delete it on the server's Projects page, under Archived."
-        onConfirm={async () => { await api.archiveProject(current.id); window.location.assign(`${home?.consoleUrl ?? "/_console"}/projects`); }} />
+        onConfirm={async () => { await api.archiveProject(current.id); window.location.assign(serverConsoleUrl("projects")); }} />
     </EditCard>
   );
 }

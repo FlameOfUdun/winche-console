@@ -14,8 +14,9 @@ export interface ServerProjects {
   available: boolean;
   canCreate: boolean;
   /** This console's project. */
-  current: string;
-  projects: { id: string; name: string; consoleUrl: string; imageVersion: string | null; isDefault?: boolean;
+  /** This console's project; null in the server's own console. */
+  current: string | null;
+  projects: { id: string; name: string; consoleUrl: string; imageVersion: string | null;
     /** The products started in it; missing on hosts that don't say. */
     products?: ProductId[] }[];
   /** Archived projects (server admins only). */

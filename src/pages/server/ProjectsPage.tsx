@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Alert, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, UnstyledButton } from "@mantine/core";
 import { IconArchive, IconArrowRight, IconPlus, IconStack2 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -26,7 +26,9 @@ export function ProjectsPage() {
     <PageBand title="Your projects" description="Each project has its own database, users, files and settings, on this server." actions={d.projects.length > 0 && add} />
     <Stack gap="xl" pb={28}>
       {d.projects.length === 0 ? (
-        <EmptyState icon={IconStack2} title="No projects yet" description="Add one to get its database, users and files." action={add} />
+        <EmptyState icon={IconStack2} title="No projects yet"
+          description={d.canCreate ? "Add one to get its database, users and files." : "A server admin adds you to projects: they appear here once you're in one."}
+          action={add} />
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
           {d.projects.map((p) => (
@@ -40,7 +42,6 @@ export function ProjectsPage() {
                       <Text size="sm" c={surface.faint} ff="monospace" truncate>{p.id}</Text>
                     </div>
                   </Group>
-                  {p.isDefault && <Badge variant="light" color="gray" tt="none">First project</Badge>}
                 </Group>
                 <Group justify="space-between" align="flex-end" mt="lg" gap="xs" wrap="nowrap">
                   {p.products ? <ProductDots on={p.products} /> : <span />}

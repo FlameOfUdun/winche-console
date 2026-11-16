@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { vi, expect, test, beforeEach } from "vitest";
 import { Onboarding } from "../Onboarding";
 import { ProductGate } from "../ProductGate";
@@ -64,6 +64,27 @@ test("first run: the account, then the project (every product off), then a skipp
 
   await userEvent.click(await screen.findByRole("button", { name: "Skip for now" }));
   expect(await screen.findByRole("button", { name: "Go to the console" })).toBeInTheDocument();
+});
+
+test("the server's own console sets up sign-in only, then lands on its projects (no project is made)", async () => {
+  mock(useSession).mockReturnValue({ state: { server: true, initialized: false, capabilities: {} }, user: null, refresh: vi.fn() });
+  mock(api.setup).mockResolvedValue({ email: "ann@example.com" });
+  mock(api.login).mockResolvedValue({ requiresTwoFactor: false });
+  mock(api.twoFactorSetup).mockResolvedValue({ sharedKey: "K", authenticatorUri: "otpauth://totp/x" });
+  renderIt(
+    <Routes>
+      <Route path="/" element={<Onboarding mode="first-run" />} />
+      <Route path="/projects" element={<p>The projects</p>} />
+    </Routes>,
+  );
+  expect(screen.queryByText("Project")).toBeNull();   // no project part in its steps
+  await userEvent.type(screen.getByLabelText("Email"), "ann@example.com");
+  await userEvent.type(screen.getByLabelText("Password"), "correct horse battery");
+  await userEvent.click(screen.getByRole("button", { name: "Create account" }));
+  await userEvent.click(await screen.findByText("Do it later"));
+  expect(await screen.findByText("The projects")).toBeInTheDocument();
+  expect(api.createProject).not.toHaveBeenCalled();
+  expect(api.project).not.toHaveBeenCalled();
 });
 
 test("a server asks for the setup code first; the admin account is made with it", async () => {
@@ -205,21 +226,4 @@ test("starting a product follows its setup on the server; a failed step says why
   mock(api.productSetup).mockResolvedValue({ product: "storage", state: "done", steps: [{ title: "Create the file tables", state: "done" }], startedAt: "", finishedAt: "" });
   await userEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(api.startProduct).toHaveBeenCalledTimes(2));
-});
-
-test("on Winche Server, the first project gets a database of its own: another PostgreSQL server, checked, then sent with it", async () => {
-  mock(useSession).mockReturnValue({ state: { initialized: true, capabilities: {} }, user: { email: "ann@example.com", role: "Admin", twoFactorEnabled: true }, refresh: vi.fn() });
-  mock(api.projects).mockResolvedValue({ available: true, projects: [], canCreate: true });
-  mock(api.checkProjectDatabase).mockResolvedValue({ ok: true, problem: null, version: "17.2", exists: false, rowsToCopy: 0 });
-  mock(api.createProject).mockResolvedValue({ setup: true, created: true, id: "clinic", name: "Clinic", products: products([]) });
-  renderIt(<Onboarding mode="create" />);
-  await userEvent.type(await screen.findByLabelText("Project name"), "Clinic");
-  await userEvent.click(await screen.findByText("Another PostgreSQL server"));
-  await userEvent.type(screen.getByLabelText("Host"), "db.example.com");
-  await userEvent.type(screen.getByLabelText("User"), "winche");
-  await userEvent.click(screen.getByRole("button", { name: "Check" }));
-  expect(await screen.findByTestId("project-db-check")).toHaveTextContent("The database will be created");
-  await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  await waitFor(() => expect(api.createProject).toHaveBeenCalledWith({ name: "Clinic", id: "clinic", products: [],
-    database: expect.objectContaining({ host: "db.example.com", username: "winche", port: 5432 }) }));
 });
