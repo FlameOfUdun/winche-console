@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, Paper, PasswordInput, Stack, Table, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, NumberInput, Paper, PasswordInput, Stack, Table, Text, Textarea, TextInput } from "@mantine/core";
+import type { FunctionsSettings } from "../../api/dataSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -16,16 +17,17 @@ import { IconHistory, IconKey, IconLambda } from "@tabler/icons-react";
  * the secrets functions read.
  */
 export function FunctionsPage() {
-  const [tab, setTab] = useState<"deployed" | "versions" | "secrets">("deployed");
+  const [tab, setTab] = useState<"deployed" | "versions" | "secrets" | "settings">("deployed");
   return (
     <>
       <PageBand title="Functions" tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
         { label: "Versions", active: tab === "versions", onClick: () => setTab("versions") },
         { label: "Secrets", active: tab === "secrets", onClick: () => setTab("secrets") },
+        { label: "Settings", active: tab === "settings", onClick: () => setTab("settings") },
       ]} />
       <div style={{ paddingBottom: 28 }}>
-        {tab === "deployed" ? <DeployedTab /> : tab === "versions" ? <VersionsTab /> : <SecretsTab />}
+        {tab === "deployed" ? <DeployedTab /> : tab === "versions" ? <VersionsTab /> : tab === "secrets" ? <SecretsTab /> : <SettingsTab />}
       </div>
     </>
   );
@@ -290,6 +292,94 @@ function SecretForm({ name: fixed, onDone }: { name?: string; onDone: (saved: bo
         <Button variant="default" onClick={() => onDone(false)}>Cancel</Button>
       </Group>
       {error && <Alert color="red">{error}</Alert>}
+    </Stack>
+  );
+}
+
+const time = (seconds: number) => seconds % 60 === 0 ? `${seconds / 60} min` : seconds > 60 ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` : `${seconds} s`;
+
+/**
+ * How long functions may run: the project's default, and each function's own time over what its code says, up to the
+ * server's longest. Applied from the next run; each save is a version with its reason.
+ */
+function SettingsTab() {
+  const qc = useQueryClient();
+  const page = useQuery({ queryKey: ["functions"], queryFn: api.functions });
+  const saved = useQuery({ queryKey: ["data-settings", "functions"], queryFn: () => api.dataSettings<FunctionsSettings>("functions") });
+  const [draft, setDraft] = useState<FunctionsSettings | null>(null);
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  if (page.isLoading || saved.isLoading) return <Loader size="sm" />;
+  if (saved.isError || !saved.data) return <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>;
+  const s = draft ?? saved.data.settings;
+  const max = page.data?.maxTimeoutSeconds ?? 540;
+  const functions = (page.data?.current?.functions ?? []).filter((f) => f.kind !== "consolePage" && f.kind !== "before");
+  const edit = (patch: Partial<FunctionsSettings>) => setDraft({ ...s, ...patch });
+  const own = (name: string, seconds: number | null) => {
+    const timeouts = { ...s.timeouts };
+    if (seconds === null) delete timeouts[name]; else timeouts[name] = seconds;
+    edit({ timeouts });
+  };
+  const save = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await api.saveDataSettings("functions", s, reason.trim(), saved.data.version?.number ?? 0);
+      setDraft(null);
+      setReason("");
+      for (const key of ["data-settings", "functions"]) await qc.invalidateQueries({ queryKey: [key] });
+    } catch (e) { setError(errorWithList(e)); }
+    finally { setBusy(false); }
+  };
+  const seconds = (v: string | number) => (typeof v === "number" && v > 0 ? Math.round(v) : null);
+  return (
+    <Stack gap="sm">
+      <Text size="sm" c="dimmed">
+        A function's time is its own here, else the one its code sets (<Code>timeoutSeconds</Code>), else the default. This server allows {time(max)} at most.
+        A run that long still ends if the server restarts: long work should save its progress as it goes.
+      </Text>
+      {!saved.data.editable && <Alert color="gray">{saved.data.whyReadOnly}</Alert>}
+      <Paper withBorder p="sm">
+        <Group align="flex-end">
+          <NumberInput label="Default run time" description="For functions with no time of their own or in their code" w={260} min={1} max={max} suffix=" s"
+            disabled={!saved.data.editable} value={s.defaultTimeoutSeconds} onChange={(v) => edit({ defaultTimeoutSeconds: seconds(v) ?? 60 })} />
+        </Group>
+      </Paper>
+      {functions.length > 0 && (
+        <Paper withBorder style={{ overflowX: "auto" }}>
+          <Table fz="sm" verticalSpacing={6} miw={640}>
+            <Table.Thead>
+              <Table.Tr><Table.Th>Function</Table.Th><Table.Th>In its code</Table.Th><Table.Th>Its own time</Table.Th><Table.Th>In force</Table.Th></Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {functions.map((f) => {
+                const mine = s.timeouts[f.name];
+                const inForce = Math.min(mine ?? f.codeTimeoutSeconds ?? s.defaultTimeoutSeconds, max);
+                return (
+                  <Table.Tr key={f.name} data-testid="function-time">
+                    <Table.Td><Group gap={6}><Text ff="monospace" fw={600}>{f.name}</Text><Badge variant="light" tt="none">{f.kind}</Badge></Group></Table.Td>
+                    <Table.Td><Text size="xs">{f.codeTimeoutSeconds ? time(f.codeTimeoutSeconds) : "—"}</Text></Table.Td>
+                    <Table.Td>
+                      <NumberInput aria-label={`Own time of ${f.name}`} w={150} min={1} max={max} suffix=" s" placeholder="not set" size="xs"
+                        disabled={!saved.data.editable} value={mine ?? ""} onChange={(v) => own(f.name, seconds(v))} />
+                    </Table.Td>
+                    <Table.Td><Text size="xs">{time(inForce)}</Text></Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      )}
+      {draft && (
+        <Group align="flex-end">
+          <TextInput label="Reason for the change" style={{ flex: "1 1 300px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
+          <Button loading={busy} disabled={!reason.trim()} onClick={save}>Save</Button>
+          <Button variant="default" onClick={() => { setDraft(null); setReason(""); }}>Cancel</Button>
+        </Group>
+      )}
+      {error && <Alert color="red" style={{ whiteSpace: "pre-wrap" }}>{error}</Alert>}
     </Stack>
   );
 }

@@ -14,7 +14,7 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
-      functionSecrets: vi.fn(), setFunctionSecret: vi.fn(), removeFunctionSecret: vi.fn(),
+      functionSecrets: vi.fn(), setFunctionSecret: vi.fn(), removeFunctionSecret: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(),
     },
   };
 });
@@ -112,4 +112,24 @@ test("secrets: listed without values, set, replaced and removed", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
   await userEvent.type(screen.getByLabelText("Name"), "bad-name");
   expect(screen.getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
+});
+
+test("settings: a function's own run time over its code's, the default, saved with a reason", async () => {
+  mock(api.functions).mockResolvedValue(page({ maxTimeoutSeconds: 1800, current: { ...v1, functions: [
+    { ...v1.functions[0], timeoutSeconds: 60, codeTimeoutSeconds: null },
+    { ...v1.functions[1], name: "backfill", kind: "schedule", timeoutSeconds: 480, codeTimeoutSeconds: 480 },
+  ] } }));
+  mock(api.dataSettings).mockResolvedValue({ settings: { defaultTimeoutSeconds: 60, timeouts: {} }, codeDefault: { defaultTimeoutSeconds: 60, timeouts: {} },
+    source: "code", version: null, editable: true, whyReadOnly: null });
+  mock(api.saveDataSettings).mockResolvedValue({ number: 1 });
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
+  expect(await screen.findByText(/This server allows 30 min at most/)).toBeInTheDocument();
+  const rows = await screen.findAllByTestId("function-time");
+  expect(rows[1]).toHaveTextContent("8 min");   // its code's
+  await userEvent.type(within(rows[1]).getByLabelText("Own time of backfill"), "1500");
+  expect(rows[1]).toHaveTextContent("25 min");
+  await userEvent.type(screen.getByLabelText("Reason for the change"), "Longer backfill");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("functions", { defaultTimeoutSeconds: 60, timeouts: { backfill: 1500 } }, "Longer backfill", 0));
 });

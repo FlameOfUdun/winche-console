@@ -2,6 +2,8 @@
 export interface ServerSettings {
   publicUrl: string;
   requireTwoFactorForSettings: boolean;
+  /** The longest any project's function may run, in minutes (1–60). */
+  functionsMaxMinutes: number;
   /** The identity providers people can sign in to the console with, beside email and password (always there). */
   consoleProviders: ConsoleSignIn[];
   /** With a provider on: passwords only for server admins (the way in when it's down). */

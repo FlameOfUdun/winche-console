@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from "react";
+import { NumberInput } from "@mantine/core";
 import {
   Alert, Badge, Group, Loader, Paper, Switch, Text, Timeline, Tooltip,
   UnstyledButton,
 } from "@mantine/core";
 import {
-  IconArrowBackUp, IconCheck, IconHistory, IconServer, IconShieldLock,
+  IconArrowBackUp, IconCheck, IconClockHour4, IconHistory, IconServer, IconShieldLock,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -149,6 +150,19 @@ export function ServerSettingsPage() {
                     onChange={(e) => set({ requireTwoFactorForSettings: e.currentTarget.checked })} />
                 </Group>
               </Setting>
+            </SettingsCard>
+          )} />
+        <EditCard title="Functions" description="How long a project's function may run at most. Projects choose their default and each function's own time up to this." {...card("functions")}
+          rows={[{ label: "Longest run", hint: source(s.functionsMaxMinutes, dep.functionsMaxMinutes), value: `${s.functionsMaxMinutes} min` }]}
+          form={draft && (
+            <SettingsCard>
+              <Setting icon={IconClockHour4} label="Longest run" value={x.functionsMaxMinutes} deployed={dep.functionsMaxMinutes} onReset={() => reset("functionsMaxMinutes")}>
+                <Group justify="flex-end">
+                  <NumberInput aria-label="Longest run in minutes" w={140} min={1} max={60} suffix=" min" value={x.functionsMaxMinutes}
+                    onChange={(v) => set({ functionsMaxMinutes: typeof v === "number" ? v : 9 })} />
+                </Group>
+              </Setting>
+              <Text size="xs" c="dimmed" mt="xs">A run that long still ends if the server restarts: long work should save its progress as it goes.</Text>
             </SettingsCard>
           )} />
         {s.consoleProviders.some((p) => p.keycloakSync) && <ConsoleAccountsScope><KeycloakSyncView /></ConsoleAccountsScope>}

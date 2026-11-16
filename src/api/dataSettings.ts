@@ -1,6 +1,9 @@
 import type { SettingsVersionInfo } from "./appAuth";
 
-export type DataArea = "database" | "database.live" | "storage";
+export type DataArea = "database" | "database.live" | "storage" | "functions";
+
+/** Functions → Settings: the project's default run time and each function's own, in seconds. */
+export interface FunctionsSettings { defaultTimeoutSeconds: number; timeouts: Record<string, number> }
 
 export interface LiveConnectionSettings {
   maxConnectionsPerUser: number; maxSubscriptionsPerConnection: number; requestsPerSecond: number; requestBurst: number; maxMessageKb: number;

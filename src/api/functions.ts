@@ -1,8 +1,10 @@
 export interface FunctionInfo {
-  name: string; kind: "documents" | "files" | "users" | "schedule" | "callable"; events: string[] | null; path: string | null;
+  name: string; kind: "documents" | "files" | "users" | "schedule" | "callable" | "before" | "http" | "consolePage" | "consoleAction"; events: string[] | null; path: string | null;
   cron: string | null; timeZone: string | null; description: string; timeoutSeconds: number;
   /** The secrets it declared (options.secrets). */
   secrets?: string[];
+  /** The run time its code sets, if it does (timeoutSeconds is the one in force). */
+  codeTimeoutSeconds?: number | null;
 }
 
 /** A function secret: never its value. */
@@ -19,6 +21,8 @@ export interface FunctionsPageData {
   /** The deployed files' names (the code lives in the app's repository). */
   files: string[];
   runtimeProblem: string | null;
+  /** The server's longest run for a function, in seconds. */
+  maxTimeoutSeconds?: number;
 }
 
 export interface FunctionRun {

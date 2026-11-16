@@ -19,7 +19,7 @@ vi.mock("../../api/client", async (orig) => {
 });
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const deployment: ServerSettings = {
-  publicUrl: "https://api.example.com", requireTwoFactorForSettings: true, consoleProviders: [], consolePasswordsOnlyForAdmins: false,
+  publicUrl: "https://api.example.com", requireTwoFactorForSettings: true, functionsMaxMinutes: 9, consoleProviders: [], consolePasswordsOnlyForAdmins: false,
 };
 const accountsSignIn = {
   emailPassword: { enabled: true, minLength: 8, requireVerifiedEmail: false }, anonymous: false, emailLink: { enabled: false, linkUrl: "" },
@@ -73,6 +73,19 @@ test("changing settings: the two-step rule says whether it's the deployment's or
   await userEvent.type(within(card).getByLabelText("Reason for the change"), "Back to the deployment");
   await userEvent.click(within(card).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(api.saveServerSettings).toHaveBeenCalledWith(expect.objectContaining({ requireTwoFactorForSettings: true }), "Back to the deployment", expect.any(Number)));
+});
+
+test("functions: the longest a function may run, saved with a reason", async () => {
+  renderIt("sign-in");
+  await screen.findByRole("heading", { name: "Functions" });
+  expect(screen.getByText("9 min")).toBeInTheDocument();
+  const card = await editCard("Functions");
+  const input = within(card).getByLabelText("Longest run in minutes");
+  await userEvent.clear(input);
+  await userEvent.type(input, "30");
+  await userEvent.type(within(card).getByLabelText("Reason for the change"), "Long backfills");
+  await userEvent.click(within(card).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(api.saveServerSettings).toHaveBeenCalledWith(expect.objectContaining({ functionsMaxMinutes: 30 }), "Long backfills", expect.any(Number)));
 });
 
 test("users: Authentication's own list, of the console's accounts; one made a server admin, another's email changed", async () => {
