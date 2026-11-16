@@ -15,6 +15,7 @@ vi.mock("../../../api/client", async (orig) => {
     api: {
       ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
       functionSecrets: vi.fn(), setFunctionSecret: vi.fn(), removeFunctionSecret: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(),
+      secretSources: vi.fn(), testSecretReference: vi.fn(), testFunctionSecret: vi.fn(),
     },
   };
 });
@@ -129,6 +130,35 @@ test("secrets: listed without values, set, replaced and removed", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
   await userEvent.type(screen.getByLabelText("Name"), "bad-name");
   expect(screen.getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
+});
+
+test("secrets: a reference to AWS instead of a value, tried before saving, and shown as where it's read from", async () => {
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [
+    { name: "aws-sm", title: "AWS Secrets Manager", hint: "a secret's ARN or its name", key: "secrets.source.aws" },
+    { name: "aws-ssm", title: "AWS Parameter Store", hint: "a parameter's name", key: "secrets.source.aws" },
+  ] });
+  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
+    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
+    { name: "SES_SECRET", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [], reference: "aws-ssm:/app/ses" },
+  ] });
+  mock(api.testSecretReference).mockResolvedValue({ ok: false, problem: "AWS Parameter Store has nothing at /app/mail.", code: "not-found" });
+  mock(api.testFunctionSecret).mockResolvedValue({ ok: true, problem: null, code: null });
+  mock(api.setFunctionSecret).mockResolvedValue(undefined);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "Secrets" }));
+  const rows = await screen.findAllByTestId("function-secret");
+  expect(rows[1]).toHaveTextContent("From AWS Parameter Store");
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "Test" }));
+  expect(await within(rows[1]).findByText("Read just now: it works.")).toBeInTheDocument();
+
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
+  await userEvent.click(await within(rows[0]).findByText("Reference"));
+  await userEvent.type(within(rows[0]).getByLabelText("New value of MAIL_KEY (reference)"), "aws-ssm:/app/mail");
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Test" }));
+  expect(await within(rows[0]).findByText("AWS Parameter Store has nothing at /app/mail.")).toBeInTheDocument();
+  expect(mock(api.testSecretReference)).toHaveBeenCalledWith("aws-ssm:/app/mail");
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "\u0000ref:aws-ssm:/app/mail"));
 });
 
 test("settings: a function's own run time over its code's, the default, saved with a reason", async () => {

@@ -6,18 +6,19 @@ import { useSession } from "../../auth/session";
 import { GeneralSettings } from "../apps/AppsPage";
 import { InvitesTab, UsersTab } from "../UsersPage";
 import { CiTokensTab } from "../access/CiTokensTab";
+import { SecretSourcesTab } from "./SecretSourcesTab";
 import { NavPageHeader } from "../../components/NavPageHeader";
 
 /**
- * Project settings, at the bottom of the sidebar: General (the project and its apps) for everyone; Members, and CLI
- * and CI, for admins; Data (where its data is kept) for server admins. One page each.
+ * Project settings, at the bottom of the sidebar: General (the project and its apps) for everyone; Members, Secrets
+ * (where secrets are read from), and CLI and CI, for admins; Data (where its data is kept) for server admins. One page each.
  */
 export function ProjectSettingsPage() {
   const { tab } = useParams();
   const { state, user } = useSession();
   const admin = user?.role === "Admin";
   const serverAdmin = !!user?.serverAdmin;
-  const tabs = ["general", ...(admin ? ["members", "ci"] : []), ...(serverAdmin ? ["data"] : [])];
+  const tabs = ["general", ...(admin ? ["members", "secrets", "ci"] : []), ...(serverAdmin ? ["data"] : [])];
   if (tab === "users") return <Navigate to="/settings/members" replace />;
   if (!tab || !tabs.includes(tab)) return <Navigate to="/settings/general" replace />;
 
@@ -27,6 +28,7 @@ export function ProjectSettingsPage() {
     <Stack gap={0} pb={40}>
       {tab === "general" && <GeneralSettings />}
       {tab === "members" && (state?.capabilities?.members ? <ProjectMembersPanel /> : <UsersAndPermissions manageUsers={!!state?.capabilities?.manageUsers} />)}
+      {tab === "secrets" && <SecretSourcesTab />}
       {tab === "ci" && <CiTokensTab />}
       {tab === "data" && <DataLocationTab />}
     </Stack>

@@ -70,9 +70,9 @@ export type SignInSettingsResponse =
   | { available: false; whyReadOnly: string }
   | {
       available: true; settings: WincheAuthSettings; codeDefault: WincheAuthSettings; source: "code" | "console"; version: SettingsVersionInfo | null;
-      editable: boolean; whyReadOnly: string | null; smtpPassword: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; appSender: boolean;
+      editable: boolean; whyReadOnly: string | null; smtpPassword: { setAt: string; setBy: string | null; reference?: string | null } | null; secretsAvailable: boolean; appSender: boolean;
       /** Which providers' Keycloak sync has its client secret set. */
-      syncSecrets?: Record<string, { setAt: string; setBy: string | null } | null>;
+      syncSecrets?: Record<string, { setAt: string; setBy: string | null; reference?: string | null } | null>;
     };
 
 export interface AppSession {

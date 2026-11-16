@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, NumberInput, Paper, PasswordInput, Stack, Table, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, NumberInput, Paper, Stack, Table, Text, Textarea, TextInput, Tooltip } from "@mantine/core";
 import type { FunctionsSettings } from "../../api/dataSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -8,6 +8,8 @@ import type { FunctionInfo, FunctionRun } from "../../api/functions";
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
+import { SecretInput, sourceTitle, useSecretSources } from "../../components/SecretInput";
+import { secretTyped } from "../../api/secrets";
 import { EmptyState } from "../../components/EmptyState";
 import { IconHistory, IconKey, IconLambda } from "@tabler/icons-react";
 
@@ -237,8 +239,17 @@ function SecretsTab() {
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sources = useSecretSources();
+  const [testing, setTesting] = useState<string | null>(null);
+  const [tested, setTested] = useState<{ name: string; ok: boolean; problem: string | null } | null>(null);
   if (list.isLoading) return <Loader size="sm" />;
   if (list.isError || !list.data) return <Alert color="red">Couldn't load the secrets: {errorMessage(list.error)}</Alert>;
+  const test = async (name: string) => {
+    setTesting(name); setTested(null);
+    try { setTested({ name, ...(await api.testFunctionSecret(name)) }); }
+    catch (e) { setTested({ name, ok: false, problem: errorMessage(e) }); }
+    finally { setTesting(null); }
+  };
   const refresh = () => qc.invalidateQueries({ queryKey: ["function-secrets"] });
   const remove = async (name: string) => {
     if (!window.confirm(`Remove the secret ${name}? Functions that read it fail until it's set again.`)) return;
@@ -257,7 +268,7 @@ function SecretsTab() {
       {adding && <SecretForm onDone={async (saved) => { setAdding(false); if (saved) await refresh(); }} />}
       {secrets.length === 0 && !adding ? (
         <EmptyState icon={IconKey} title="No secrets yet"
-          description="Add one here or with `winche functions secrets set NAME`. Values are kept encrypted and never shown again." />
+          description="Add one here or with `winche functions secrets set NAME`. Values are kept encrypted and never shown again; or read from AWS Secrets Manager or Parameter Store by reference." />
       ) : secrets.length > 0 && (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table fz="sm" verticalSpacing={6} miw={640}>
@@ -265,15 +276,21 @@ function SecretsTab() {
               {secrets.map((s) => (
                 <Table.Tr key={s.name} data-testid="function-secret">
                   <Table.Td><Text ff="monospace" fw={600}>{s.name}</Text></Table.Td>
-                  <Table.Td>{s.isSet ? <Badge color="teal" variant="light" tt="none">Set</Badge> : <Badge color="red" variant="light" tt="none">Not set</Badge>}</Table.Td>
+                  <Table.Td>
+                    {!s.isSet ? <Badge color="red" variant="light" tt="none">Not set</Badge>
+                      : s.reference ? <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">From {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>
+                      : <Badge color="teal" variant="light" tt="none">Set</Badge>}
+                  </Table.Td>
                   <Table.Td><Text size="xs">{s.isSet ? `${when(s.setAt!)}${s.setBy ? ` by ${s.setBy}` : ""}` : "—"}</Text></Table.Td>
                   <Table.Td><Text size="xs" c="dimmed">{s.usedBy.length ? `used by ${s.usedBy.join(", ")}` : "no function declares it"}</Text></Table.Td>
                   <Table.Td ta="right">
                     <Group gap={6} justify="flex-end" wrap="nowrap">
+                      {s.reference && <Button size="xs" variant="subtle" loading={testing === s.name} onClick={() => test(s.name)}>Test</Button>}
                       <Button size="xs" variant="default" onClick={() => setEditing(editing === s.name ? null : s.name)}>{s.isSet ? "Replace" : "Set"}</Button>
                       {s.isSet && <Button size="xs" variant="subtle" color="red" onClick={() => remove(s.name)}>Remove</Button>}
                     </Group>
-                    {editing === s.name && <SecretForm name={s.name} onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />}
+                    {tested?.name === s.name && <Text size="xs" ta="left" c={tested.ok ? "teal" : "red"} mt={4}>{tested.ok ? "Read just now: it works." : tested.problem}</Text>}
+                    {editing === s.name && <SecretForm name={s.name} savedReference={s.reference} onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />}
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -285,7 +302,7 @@ function SecretsTab() {
   );
 }
 
-function SecretForm({ name: fixed, onDone }: { name?: string; onDone: (saved: boolean) => void | Promise<void> }) {
+function SecretForm({ name: fixed, savedReference, onDone }: { name?: string; savedReference?: string | null; onDone: (saved: boolean) => void | Promise<void> }) {
   const [name, setName] = useState(fixed ?? "");
   const [value, setValue] = useState("");
   const [busy, setBusy] = useState(false);
@@ -305,8 +322,8 @@ function SecretForm({ name: fixed, onDone }: { name?: string; onDone: (saved: bo
           <TextInput label="Name" placeholder="MAIL_API_KEY" ff="monospace" value={name} onChange={(e) => setName(e.currentTarget.value.toUpperCase())}
             error={badName ? "Capitals, digits and underscores, starting with a letter" : undefined} />
         )}
-        <PasswordInput label={fixed ? `New value of ${fixed}` : "Value"} style={{ flex: "1 1 260px" }} value={value} onChange={(e) => setValue(e.currentTarget.value)} autoComplete="off" />
-        <Button loading={busy} disabled={!name || badName || !value} onClick={save}>Save</Button>
+        <SecretInput label={fixed ? `New value of ${fixed}` : "Value"} style={{ flex: "1 1 320px" }} value={value} onChange={setValue} autoComplete="off" savedReference={savedReference} />
+        <Button loading={busy} disabled={!name || badName || !secretTyped(value)} onClick={save}>Save</Button>
         <Button variant="default" onClick={() => onDone(false)}>Cancel</Button>
       </Group>
       {error && <Alert color="red">{error}</Alert>}

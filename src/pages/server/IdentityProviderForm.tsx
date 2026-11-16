@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ActionIcon, Alert, Badge, Button, Code, CopyButton, Group, Paper, PasswordInput, Stack, Switch, TagsInput, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Badge, Button, Code, CopyButton, Group, Paper, Stack, Switch, TagsInput, Text, TextInput, Tooltip } from "@mantine/core";
+import { SecretInput } from "../../components/SecretInput";
 import { IconCheck, IconCopy, IconPlayerPlay } from "@tabler/icons-react";
 import { api } from "../../api/client";
 import { errorWithList } from "../../api/appAuth";
@@ -181,7 +182,7 @@ function TestResult({ result, mapsRoles }: { result: SignInTestResult; mapsRoles
 }
 
 /** A client secret typed here, saved with the provider (empty: keep the saved one, or none for a public client). */
-export function SecretField({ value, onChange, savedAt }: { value: string; onChange: (v: string) => void; savedAt?: string | null }) {
-  return <PasswordInput label="Client secret" autoComplete="new-password" value={value} onChange={(e) => onChange(e.currentTarget.value)}
+export function SecretField({ value, onChange, savedAt, savedReference }: { value: string; onChange: (v: string) => void; savedAt?: string | null; savedReference?: string | null }) {
+  return <SecretInput label="Client secret" value={value} onChange={onChange} savedReference={savedReference}
     description={savedAt ? "One is saved. Type a new one to replace it, or leave it empty to keep it." : "Leave empty for a public client."} />;
 }

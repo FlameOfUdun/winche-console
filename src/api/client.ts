@@ -2,6 +2,13 @@ import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserIt
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { ConsolePageEntry, FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
+import { secretBody, type SecretSources, type SecretTest } from "./secrets";
+
+/** The typed secrets that are values (or references), by name; undefined when there are none. */
+const pick = (typed: Record<string, string> | undefined, kind: "value" | "reference") => {
+  const found = Object.entries(typed ?? {}).flatMap(([k, v]) => { const b = secretBody(v)[kind]; return b ? [[k, b] as const] : []; });
+  return found.length ? Object.fromEntries(found) : undefined;
+};
 import type { AppsPageData, AppFields, RegisteredAppsData } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { SignInSettingsResponse, WincheAuthSettings } from "./appAuth";
@@ -84,9 +91,14 @@ export function authApi(base: string) {
     resetSettings: (area: string, reason: string) => http<SettingsVersionInfo>("POST", `${base}/settings/${encodeURIComponent(area)}/reset`, { reason }),
     signInSettings: () => http<SignInSettingsResponse>("GET", `${base}/settings/signin`),
     saveSignInSettings: (settings: WincheAuthSettings, smtpPassword: string | null, reason: string, syncSecrets?: Record<string, string>, basedOn?: number) =>
-      http<SettingsVersionInfo>("PUT", `${base}/settings/signin`, { settings, smtpPassword, reason, syncSecrets, basedOn }),
+      http<SettingsVersionInfo>("PUT", `${base}/settings/signin`, {
+        settings, reason, basedOn,
+        // Each secret typed is a value or a reference (aws-ssm:…): they go in their own fields.
+        smtpPassword: secretBody(smtpPassword).value ?? null, smtpPasswordReference: secretBody(smtpPassword).reference ?? null,
+        syncSecrets: pick(syncSecrets, "value"), syncSecretReferences: pick(syncSecrets, "reference"),
+      }),
     testSignInEmail: (settings: WincheAuthSettings, smtpPassword: string | null, to: string | null) =>
-      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, { settings, smtpPassword, to }),
+      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, { settings, smtpPassword: secretBody(smtpPassword).value ?? null, to }),
     appAuthConfig: () => http<AppAuthConfig>("GET", `${base}/config`),
     rotateAppAuthKeys: () => http<void>("POST", `${base}/keys/rotate`),
     keycloakSyncs: () => http<{ syncs: import("./appAuth").KeycloakSync[] }>("GET", `${base}/providers/sync`),
@@ -130,14 +142,14 @@ export const api = {
   serverSettingsHistory: () => http<{ versions: import("./server").ServerSettingsVersion[] }>("GET", "api/server/settings/history"),
   sendServerTestEmail: (to: string) => http<{ sentTo: string }>("POST", "api/server/console-email/test", { to }),
   testConsoleSignIn: (settings: import("./server").ConsoleSignIn, clientSecret: string | null) =>
-    http<{ url: string; callbackUrl: string }>("POST", "api/server/console-sign-in/test", { settings, clientSecret }),
+    http<{ url: string; callbackUrl: string }>("POST", "api/server/console-sign-in/test", { settings, clientSecret: secretBody(clientSecret).value ?? null }),
   dataLocation: () => http<import("./dataLocation").DataLocationInfo>("GET", "api/data-location"),
   checkDataTarget: (t: import("./dataLocation").DataMoveTarget) => http<import("./dataLocation").DataMoveCheck>("POST", "api/data-location/check", t),
   moveData: (t: import("./dataLocation").DataMoveTarget) => http<void>("POST", "api/data-location/move", t),
   finishDataMove: (deleteOld: boolean) => http<void>("POST", "api/data-location/finish", { deleteOld }),
   setDataPool: (maxConnections: number | null, commandTimeoutSeconds: number | null) =>
     http<void>("PUT", "api/data-location/pool", { maxConnections, commandTimeoutSeconds }),
-  setServerSecret: (name: string, value: string | null) => http<void>("PUT", `api/server/secrets/${encodeURIComponent(name)}`, { value }),
+  setServerSecret: (name: string, value: string | null) => http<void>("PUT", `api/server/secrets/${encodeURIComponent(name)}`, value ? secretBody(value) : { value: null }),
   startProduct: (product: string) => http<import("./project").ProductSetupRun>("POST", `api/project/products/${encodeURIComponent(product)}/start`),
   productSetup: (product: string) => http<import("./project").ProductSetupRun>("GET", `api/project/products/${encodeURIComponent(product)}/setup`),
   authState: () => http<AuthState>("GET", "api/auth/state"),
@@ -232,7 +244,12 @@ export const api = {
   openConsolePage: (name: string) => http<{ url: string; user: { email: string | null; role: "viewer" | "member" | "admin" } }>("POST", `api/console-pages/${encodeURIComponent(name)}/open`),
   runConsoleAction: (name: string, data: unknown) => http<{ data: unknown }>("POST", `api/console-pages/actions/${encodeURIComponent(name)}`, { data: data ?? null }),
   functionSecrets: () => http<{ available: boolean; secrets: FunctionSecret[] }>("GET", "api/functions/secrets"),
-  setFunctionSecret: (name: string, value: string) => http<void>("PUT", `api/functions/secrets/${encodeURIComponent(name)}`, { value }),
+  setFunctionSecret: (name: string, value: string) => http<void>("PUT", `api/functions/secrets/${encodeURIComponent(name)}`, secretBody(value)),
+  testFunctionSecret: (name: string) => http<SecretTest>("POST", `api/functions/secrets/${encodeURIComponent(name)}/test`),
+  secretSources: () => http<SecretSources>("GET", "api/secrets/sources"),
+  testSecretReference: (reference: string) => http<SecretTest>("POST", "api/secrets/test", { reference }),
+  setSourceKey: (name: string, values: Record<string, string>) => http<void>("PUT", `api/secrets/keys/${encodeURIComponent(name)}`, { values }),
+  removeSourceKey: (name: string) => http<void>("DELETE", `api/secrets/keys/${encodeURIComponent(name)}`),
   removeFunctionSecret: (name: string) => http<void>("DELETE", `api/functions/secrets/${encodeURIComponent(name)}`),
   hooks: () => http<HooksPageData>("GET", "api/hooks"),
   saveHooks: (hooks: Hook[], reason: string, basedOn?: number) => http<SettingsVersionInfo>("PUT", "api/hooks", { settings: { hooks }, reason, basedOn }),

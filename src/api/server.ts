@@ -65,7 +65,7 @@ export interface ServerSettingsPage {
   deployment: ServerSettings;
   source: "deployment" | "console";
   version: { number: number; at: string; by: string | null; reason: string | null } | null;
-  secrets: { name: string; about: string; setAt: string | null; setBy: string | null }[];
+  secrets: { name: string; about: string; setAt: string | null; setBy: string | null; reference?: string | null }[];
   /** The addresses to register at an identity provider: where it sends people back, and where it says they signed out. */
   consoleSignIn?: { callbackUrl: string; logoutUrl: string };
 }

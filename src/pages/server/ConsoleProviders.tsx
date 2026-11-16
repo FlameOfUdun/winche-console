@@ -13,6 +13,7 @@ import type { WincheAuthSettings } from "../../api/appAuth";
 import { KeycloakSyncFields } from "../authentication/KeycloakSyncFields";
 import { ProviderRow } from "../authentication/SignInSettings";
 import { IdentityProviderForm, RegisterAddresses, SecretField, TestSignIn } from "./IdentityProviderForm";
+import { secretBody, secretTyped } from "../../api/secrets";
 import { surface } from "../../theme";
 
 /**
@@ -24,7 +25,7 @@ export async function saveProvider(settings: ServerSettings, provider: ConsoleSi
   const p = provider.id ? provider : { ...provider, id: newProviderId(provider, list.map((x) => x.id)) };
   const next = list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p];
   await api.saveServerSettings({ ...settings, consoleProviders: next }, reason);
-  if (secret) await api.setServerSecret(providerSecretName(p.id), secret);
+  if (secretTyped(secret)) await api.setServerSecret(providerSecretName(p.id), secret);
   return p;
 }
 
@@ -34,9 +35,9 @@ export function ProviderEditor({ value, onChange, secret, onSecret, page }: {
 }) {
   const saved = value.id ? page?.secrets.find((s) => s.name === providerSecretName(value.id)) : undefined;
   return (
-    <IdentityProviderForm value={value} onChange={onChange} unsavedSecret={secret || null}
+    <IdentityProviderForm value={value} onChange={onChange} unsavedSecret={secretBody(secret).value ?? null}
       callbackUrl={page?.consoleSignIn?.callbackUrl} logoutUrl={page?.consoleSignIn?.logoutUrl}
-      secretSlot={<SecretField value={secret} onChange={onSecret} savedAt={saved?.setAt} />} />
+      secretSlot={<SecretField value={secret} onChange={onSecret} savedAt={saved?.setAt} savedReference={saved?.reference} />} />
   );
 }
 
@@ -72,8 +73,8 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
     const i = editing?.startsWith("provider:") ? Number(editing.slice(9)) : -1;
     const list = draft.consoleProviders.map((p) => (p.id ? p : { ...p, id: newProviderId(p, draft.consoleProviders.map((x) => x.id)) }));
     await api.saveServerSettings({ ...draft, consoleProviders: removing ? list.filter((_, j) => j !== i) : list }, reason, page.version?.number ?? 0);
-    if (secret && !removing && list[i]) await api.setServerSecret(providerSecretName(list[i].id), secret);
-    if (syncSecret && !removing && list[i]?.keycloakSync) await api.setServerSecret(syncSecretName(list[i].id), syncSecret);
+    if (secretTyped(secret) && !removing && list[i]) await api.setServerSecret(providerSecretName(list[i].id), secret);
+    if (secretTyped(syncSecret) && !removing && list[i]?.keycloakSync) await api.setServerSecret(syncSecretName(list[i].id), syncSecret);
     if (editing === "passwords" && own && ownDraft && JSON.stringify(own) !== JSON.stringify(ownDraft)) {
       await serverAuthApi.saveSignInSettings(ownDraft, null, reason);
       await qc.invalidateQueries({ queryKey: ["console-accounts-signin"] });
@@ -145,7 +146,8 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
                   checked={shown.enabled} onChange={(e) => setProvider(i, { ...shown, enabled: e.currentTarget.checked })} />
                 <ProviderEditor value={shown} onChange={(v) => setProvider(i, v)} secret={secret} onSecret={setSecret} page={page} />
                 <KeycloakSyncFields value={shown.keycloakSync} onChange={(k) => setProvider(i, { ...shown, keycloakSync: k })}
-                  secret={syncSecret} onSecret={setSyncSecret} secretSet={!!shown.id && !!page.secrets.find((x) => x.name === syncSecretName(shown.id))?.setAt} />
+                  secret={syncSecret} onSecret={setSyncSecret} secretSet={!!shown.id && !!page.secrets.find((x) => x.name === syncSecretName(shown.id))?.setAt}
+                  secretReference={shown.id ? page.secrets.find((x) => x.name === syncSecretName(shown.id))?.reference : null} />
                 {i < providers.length && (
                   <Group justify="flex-end" gap="sm">
                     {removing && <Text size="sm" c="red">Removed when you save: its sessions end and its client secret is deleted.</Text>}
@@ -239,7 +241,7 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
             <TextInput label="Scopes" styles={mono} value={value.scopes} onChange={(e) => set({ scopes: e.currentTarget.value })} />
           </Stack>
         </Collapse>
-        <TestSignIn value={value} unsavedSecret={secret || null} />
+        <TestSignIn value={value} unsavedSecret={secretBody(secret).value ?? null} />
         {error && <Alert color="red" p="xs" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
         <TextInput placeholder="Why are you making this change?" aria-label="Reason for the change" value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
         <Group justify="flex-end" gap="xs">

@@ -2,8 +2,10 @@ import { KeycloakSyncFields } from "./KeycloakSyncFields";
 import { useAuthApi } from "./authScope";
 import { useState, type ReactNode } from "react";
 import {
-  Alert, Badge, Button, Collapse, Group, Loader, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Text, TextInput, UnstyledButton,
+  Alert, Badge, Button, Collapse, Group, Loader, Modal, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Text, TextInput, UnstyledButton,
 } from "@mantine/core";
+import { SecretInput } from "../../components/SecretInput";
+import { secretTyped } from "../../api/secrets";
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, errorWithList, type SignInProviderSettings, type SmtpSettings, type WincheAuthSettings } from "../../api/appAuth";
@@ -44,9 +46,9 @@ export function useSignInCards() {
   const cancel = () => { setEditing(null); setDraft(null); setSmtpPassword(""); setSyncSecrets({}); };
   const save = async (reason: string) => {
     if (!draft) return;
-    const typed = Object.fromEntries(Object.entries(syncSecrets).filter(([n, v]) => v && draft.providers.some((p) => p.name === n && p.keycloakSync)));
+    const typed = Object.fromEntries(Object.entries(syncSecrets).filter(([n, v]) => secretTyped(v) && draft.providers.some((p) => p.name === n && p.keycloakSync)));
     const basedOn = data?.version?.number ?? 0;   // someone else's save since: refused, not undone
-    await authApi.saveSignInSettings(draft, smtpPassword || null, reason, Object.keys(typed).length ? typed : undefined, basedOn);
+    await authApi.saveSignInSettings(draft, secretTyped(smtpPassword) ? smtpPassword : null, reason, Object.keys(typed).length ? typed : undefined, basedOn);
     for (const key of ["signin-settings", "settings-history", "app-auth-config"]) await qc.invalidateQueries({ queryKey: [key] });
     cancel();
   };
@@ -55,6 +57,7 @@ export function useSignInCards() {
   const set = (patch: Partial<WincheAuthSettings>) => draft && setDraft({ ...draft, ...patch });
   const syncSecret = (name: string) => ({
     secret: syncSecrets[name] ?? "", onSecret: (v: string) => setSyncSecrets({ ...syncSecrets, [name]: v }), secretSet: !!data?.syncSecrets?.[name],
+    secretReference: data?.syncSecrets?.[name]?.reference ?? null,
   });
   return { saved, data, editing, draft, set, edit, cancel, save, card, editable, smtpPassword, setSmtpPassword, syncSecret };
 }
@@ -158,7 +161,7 @@ function AddProviderDialog({ settings, onClose }: { settings: WincheAuthSettings
     setBusy(true); setError(null);
     try {
       const next = { ...settings, providers: [...settings.providers, value] };
-      if (value.keycloakSync && syncSecret) await authApi.saveSignInSettings(next, null, reason.trim(), { [value.name]: syncSecret });
+      if (value.keycloakSync && secretTyped(syncSecret)) await authApi.saveSignInSettings(next, null, reason.trim(), { [value.name]: syncSecret });
       else await authApi.saveSignInSettings(next, null, reason.trim());
       for (const key of ["signin-settings", "settings-history", "app-auth-config"]) await qc.invalidateQueries({ queryKey: [key] });
       onClose();
@@ -340,7 +343,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
           { label: "App name", value: e.appName || "—" },
           { label: "Sent", value: e.sender === "smtp" && e.smtp ? <code>{e.smtp.host}:{e.smtp.port}</code> : e.sender === "logLinks" ? "Only logged (development)" : serverEmail ? `Through the server's email (${serverEmail})` : "By the app" },
           ...(e.sender === "smtp" && e.smtp ? [{ label: "From", value: e.smtp.fromName ? `${e.smtp.fromName} <${e.smtp.fromAddress}>` : e.smtp.fromAddress },
-            { label: "Password", value: sc.data.smtpPassword ? `Set ${when(sc.data.smtpPassword.setAt)}` : <OnOff on={false} offLabel="Not set" /> }] : []),
+            { label: "Password", value: sc.data.smtpPassword?.reference ? `From ${sc.data.smtpPassword.reference}` : sc.data.smtpPassword ? `Set ${when(sc.data.smtpPassword.setAt)}` : <OnOff on={false} offLabel="Not set" /> }] : []),
           { label: "Verify link on sign-up", value: <OnOff on={e.sendVerificationOnSignUp} /> },
         ] : [{ label: "Winche Auth sends email", value: <OnOff on={false} /> }]}
         form={d && (
@@ -371,7 +374,7 @@ function Card({ title, children }: { title: string; hint?: string; children: Rea
 }
 
 function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, password, setPassword }: PartProps & {
-  passwordSet: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; password: string; setPassword: (s: string) => void;
+  passwordSet: { setAt: string; setBy: string | null; reference?: string | null } | null; secretsAvailable: boolean; password: string; setPassword: (s: string) => void;
 }) {
   const authApi = useAuthApi();
   const config = useQuery({ queryKey: ["app-auth-config", "server-email"], queryFn: authApi.appAuthConfig, staleTime: 60_000 });
@@ -441,13 +444,15 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
                 <TextInput label="Username" disabled={!editable} value={smtp.username ?? ""} onChange={(ev) => setSmtp({ username: ev.currentTarget.value || null })} />
                 {passwordSet && !replacing ? (
                   <Group gap="xs" data-testid="smtp-password-set">
-                    <Text size="sm">Password: <Badge variant="light" color="teal" tt="none">set</Badge></Text>
+                    <Text size="sm">Password: {passwordSet.reference
+                      ? <Badge variant="light" color="blue" tt="none" title={passwordSet.reference}>from {passwordSet.reference.split(":")[0]}</Badge>
+                      : <Badge variant="light" color="teal" tt="none">set</Badge>}</Text>
                     <Text size="xs" c="dimmed">{when(passwordSet.setAt)} · never shown</Text>
                     {editable && <Button size="xs" variant="subtle" onClick={() => setReplacing(true)}>Replace</Button>}
                   </Group>
                 ) : (
-                  <PasswordInput label="Password" description="Saved encrypted; it can't be read back." disabled={!editable || !secretsAvailable}
-                    value={password} onChange={(ev) => setPassword(ev.currentTarget.value)} />
+                  <SecretInput label="Password" description="Saved encrypted; it can't be read back." disabled={!editable || !secretsAvailable}
+                    value={password} onChange={setPassword} savedReference={passwordSet?.reference} />
                 )}
               </Group>
               <Group grow wrap="wrap">

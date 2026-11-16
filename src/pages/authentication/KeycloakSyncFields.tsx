@@ -1,13 +1,14 @@
-import { NumberInput, PasswordInput, Stack, Switch, TextInput } from "@mantine/core";
+import { NumberInput, Stack, Switch, TextInput } from "@mantine/core";
+import { SecretInput } from "../../components/SecretInput";
 import { NEW_KEYCLOAK_SYNC, type KeycloakSyncSettings } from "../../api/appAuth";
 
 /**
  * A Keycloak provider's sync: its users are managed in Keycloak (the realm), and Winche Auth follows (new, changed,
  * turned off and deleted users, their sessions). Off by default; on, it needs a client that can read the realm's users.
  */
-export function KeycloakSyncFields({ value, onChange, secret, onSecret, secretSet }: {
+export function KeycloakSyncFields({ value, onChange, secret, onSecret, secretSet, secretReference }: {
   value: KeycloakSyncSettings | null | undefined; onChange: (v: KeycloakSyncSettings | null) => void;
-  secret: string; onSecret: (v: string) => void; secretSet: boolean;
+  secret: string; onSecret: (v: string) => void; secretSet: boolean; secretReference?: string | null;
 }) {
   const on = !!value;
   const set = (p: Partial<KeycloakSyncSettings>) => value && onChange({ ...value, ...p });
@@ -21,7 +22,7 @@ export function KeycloakSyncFields({ value, onChange, secret, onSecret, secretSe
           <TextInput label="Sync client id" required placeholder="winche-sync" value={value.clientId}
             description="A confidential client in the realm with a service account holding view-users and view-events."
             onChange={(e) => set({ clientId: e.currentTarget.value })} />
-          <PasswordInput label="Sync client secret" autoComplete="new-password" value={secret} onChange={(e) => onSecret(e.currentTarget.value)}
+          <SecretInput label="Sync client secret" value={secret} onChange={onSecret} savedReference={secretReference}
             description={secretSet ? "One is saved. Type a new one to replace it, or leave it empty to keep it." : "Kept encrypted, never shown again."} />
           <TextInput label="Keycloak address for the server" placeholder="Same as the provider's" value={value.adminServer ?? ""}
             description="Only when the server reaches Keycloak at another address (e.g. inside a private network)."

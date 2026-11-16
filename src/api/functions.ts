@@ -17,6 +17,8 @@ export interface FunctionInfo {
 /** A function secret: never its value. */
 export interface FunctionSecret {
   name: string; isSet: boolean; setAt: string | null; setBy: string | null; usedBy: string[];
+  /** Where it's read from (aws-ssm:…); null for a value kept here. */
+  reference?: string | null;
 }
 
 export interface FunctionVersion {
