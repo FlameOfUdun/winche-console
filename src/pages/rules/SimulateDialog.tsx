@@ -11,9 +11,9 @@ import { surface } from "../../theme";
 const OPERATIONS: RuleOperation[] = ["Get", "List", "Create", "Update", "Delete"];
 
 /** A field's kind, as the rules see it. */
-type Kind = "text" | "number" | "yesno" | "time" | "reference" | "null" | "json";
+type Kind = "text" | "number" | "boolean" | "time" | "reference" | "null" | "json";
 const KINDS: { value: Kind; label: string }[] = [
-  { value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "yesno", label: "Yes / no" },
+  { value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "boolean", label: "Boolean" },
   { value: "time", label: "Time" }, { value: "reference", label: "Document reference" }, { value: "null", label: "Null" },
   { value: "json", label: "List or map (JSON)" },
 ];
@@ -25,7 +25,7 @@ export function ruleLiteral(row: FieldRow): unknown {
   switch (row.kind) {
     case "text": return row.value;
     case "number": return /^-?\d+$/.test(v) ? { $integer: v } : { $double: Number(v) };
-    case "yesno": return v === "true";
+    case "boolean": return v === "true";
     case "time": return { $timestamp: v ? new Date(v).toISOString() : new Date().toISOString() };
     case "reference": return { $documentReference: v };
     case "null": return null;
@@ -34,7 +34,7 @@ export function ruleLiteral(row: FieldRow): unknown {
 }
 /** A claim as plain JSON (what a token carries). */
 const plain = (row: FieldRow): unknown =>
-  row.kind === "number" ? Number(row.value) : row.kind === "yesno" ? row.value === "true" : row.kind === "json" ? JSON.parse(row.value || "null") : row.value;
+  row.kind === "number" ? Number(row.value) : row.kind === "boolean" ? row.value === "true" : row.kind === "json" ? JSON.parse(row.value || "null") : row.value;
 
 function rowsToMap(rows: FieldRow[], convert: (r: FieldRow) => unknown): Record<string, unknown> {
   return Object.fromEntries(rows.filter((r) => r.name.trim()).map((r) => [r.name.trim(), convert(r)]));
@@ -52,8 +52,8 @@ function Fields({ rows, onChange, kinds = KINDS, addLabel, testId }: {
           <TextInput size="xs" placeholder="name" aria-label="Field name" style={{ flex: "0 0 30%" }} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
             value={r.name} onChange={(e) => set(i, { name: e.currentTarget.value })} />
           <Select size="xs" data={kinds} value={r.kind} allowDeselect={false} aria-label="Kind" style={{ flex: "0 0 24%" }}
-            onChange={(v) => v && set(i, { kind: v as Kind, value: v === "yesno" ? "true" : v === "null" ? "" : r.value })} />
-          {r.kind === "yesno" ? (
+            onChange={(v) => v && set(i, { kind: v as Kind, value: v === "boolean" ? "true" : v === "null" ? "" : r.value })} />
+          {r.kind === "boolean" ? (
             <SegmentedControl size="xs" style={{ flex: 1 }} value={r.value} onChange={(v) => set(i, { value: v })}
               data={[{ value: "true", label: "true" }, { value: "false", label: "false" }]} />
           ) : r.kind === "null" ? (
@@ -161,7 +161,7 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
               </Group>
               <Text size="xs" c={surface.muted}>Other token claims (request.auth.token)</Text>
               <Fields rows={claims} onChange={setClaims} addLabel="Add a claim" testId="claims"
-                kinds={KINDS.filter((k) => ["text", "number", "yesno", "json"].includes(k.value))} />
+                kinds={KINDS.filter((k) => ["text", "number", "boolean", "json"].includes(k.value))} />
             </Stack>
           ) : (
             <Text size="sm" c={surface.muted}>request.auth is null.</Text>
