@@ -5,6 +5,13 @@ export interface FunctionInfo {
   secrets?: string[];
   /** The run time its code sets, if it does (timeoutSeconds is the one in force). */
   codeTimeoutSeconds?: number | null;
+  /** What it does (options.description). */
+  about?: string | null;
+  /** What it takes and returns, as JSON Schema (options.input / output): shown, not checked. */
+  input?: unknown;
+  output?: unknown;
+  /** The input to start a run from: its example, or one made from its input schema. */
+  example?: unknown;
 }
 
 /** A function secret: never its value. */

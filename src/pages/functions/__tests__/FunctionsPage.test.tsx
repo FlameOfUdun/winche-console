@@ -75,6 +75,23 @@ test("a callable runs from the page with its result and logs", async () => {
   expect(screen.queryAllByTestId("function")[1]).not.toHaveTextContent("Run");   // only callables run from here
 });
 
+test("a function says what it does, shows its shapes, and starts a run from its example", async () => {
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: [{
+    ...v1.functions[0], about: "A language's strings.",
+    input: { type: "object", properties: { lang: { enum: ["de", "en"] } } }, output: { type: "object" }, example: { lang: "de" },
+  }] } }));
+  mock(api.runFunction).mockResolvedValue({ ok: true, result: {}, error: null, durationMs: 3, logs: [] });
+  renderPage();
+  const fn = (await screen.findAllByTestId("function"))[0];
+  expect(within(fn).getByTestId("function-about")).toHaveTextContent("A language's strings.");
+  await userEvent.click(within(fn).getByRole("button", { name: "Shapes" }));
+  expect(within(fn).getByTestId("function-shapes")).toHaveTextContent('"enum"');
+  await userEvent.click(within(fn).getByRole("button", { name: "Run" }));
+  expect((within(fn).getByLabelText("Data (JSON)") as HTMLTextAreaElement).value).toBe('{\n  "lang": "de"\n}');
+  await userEvent.click(within(fn).getAllByRole("button", { name: "Run" }).at(-1)!);
+  await waitFor(() => expect(mock(api.runFunction)).toHaveBeenCalledWith("hello", { lang: "de" }, null));
+});
+
 test("versions: roll back an older one", async () => {
   mock(api.rollBackFunctions).mockResolvedValue({ ...v1, version: 3 });
   vi.spyOn(window, "confirm").mockReturnValue(true);

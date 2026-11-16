@@ -73,6 +73,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
   const { state } = useSession();
   const [running, setRunning] = useState<string | null>(null);
   const [runs, setRuns] = useState<string | null>(null);
+  const [shapes, setShapes] = useState<string | null>(null);
   const canSeeRuns = !!state?.capabilities?.hooks;
   if (version === null) return (
     <EmptyState icon={IconLambda} title="No functions yet"
@@ -87,14 +88,21 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
           <Group justify="space-between" wrap="nowrap">
             <div>
               <Group gap={6}><Text fw={600} ff="monospace">{f.name}</Text><Badge variant="light" tt="none">{f.kind}</Badge></Group>
+              {f.about && <Text size="sm" mt={2} data-testid="function-about">{f.about}</Text>}
               <Text size="xs" c="dimmed">{f.description} · up to {f.timeoutSeconds} s{f.secrets?.length ? ` · secrets ${f.secrets.join(", ")}` : ""}</Text>
             </div>
-            {f.kind === "callable" && <Button size="xs" variant="default" onClick={() => setRunning(running === f.name ? null : f.name)}>Run</Button>}
+            <Group gap={6} wrap="nowrap">
+              {(f.input != null || f.output != null) && (
+                <Button size="xs" variant="subtle" px={8} onClick={() => setShapes(shapes === f.name ? null : f.name)}>{shapes === f.name ? "Hide shapes" : "Shapes"}</Button>
+              )}
+              {f.kind === "callable" && <Button size="xs" variant="default" onClick={() => setRunning(running === f.name ? null : f.name)}>Run</Button>}
             {triggered(f) && canSeeRuns && (
               <Button size="xs" variant="default" onClick={() => setRuns(runs === f.name ? null : f.name)}>{runs === f.name ? "Hide runs" : "Runs"}</Button>
             )}
+            </Group>
           </Group>
-          {running === f.name && <RunPanel name={f.name} />}
+          {shapes === f.name && <Shapes f={f} />}
+          {running === f.name && <RunPanel name={f.name} example={f.example} />}
           {runs === f.name && <TriggeredRuns name={f.name} />}
         </Paper>
       ))}
@@ -135,8 +143,18 @@ function TriggeredRuns({ name }: { name: string }) {
   );
 }
 
-function RunPanel({ name }: { name: string }) {
-  const [data, setData] = useState("{}");
+/** What a function takes and returns (its input and output JSON Schemas), as written in its options. */
+function Shapes({ f }: { f: FunctionInfo }) {
+  return (
+    <Group align="flex-start" gap="sm" mt="sm" grow data-testid="function-shapes">
+      {f.input != null && <Stack gap={4}><Text size="xs" fw={600}>Input</Text><Code block>{JSON.stringify(f.input, null, 2)}</Code></Stack>}
+      {f.output != null && <Stack gap={4}><Text size="xs" fw={600}>Output</Text><Code block>{JSON.stringify(f.output, null, 2)}</Code></Stack>}
+    </Group>
+  );
+}
+
+function RunPanel({ name, example }: { name: string; example?: unknown }) {
+  const [data, setData] = useState(example === undefined || example === null ? "{}" : JSON.stringify(example, null, 2));
   const [uid, setUid] = useState("");
   const [result, setResult] = useState<FunctionRun | "running" | null>(null);
   const [error, setError] = useState<string | null>(null);
