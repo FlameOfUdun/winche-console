@@ -45,7 +45,7 @@ export function IdentityProviderForm({ value, onChange, secretSlot, unsavedSecre
       <Paper withBorder radius="md" p="md" bg={surface.subtle}>
         <Stack gap="sm">
           <Text fw={600} size="sm">Roles from the provider</Text>
-          <TextInput label="Claim with groups or roles" placeholder="groups (or realm_access.roles); empty: roles are given here" styles={mono}
+          <TextInput label="Claim with groups or roles" placeholder="groups (or realm_access.roles); empty: server admins are made here" styles={mono}
             value={value.roleClaim ?? ""} onChange={(e) => set({ roleClaim: e.currentTarget.value || null })} />
           {value.roleClaim && (
             <>
