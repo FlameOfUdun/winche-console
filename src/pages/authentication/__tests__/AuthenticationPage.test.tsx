@@ -357,10 +357,13 @@ test("sign-in method: an OpenID Connect provider kept in step with Keycloak, its
   await userEvent.click(within(dialog).getByLabelText(/^Keep its users in step with Keycloak/));
   await userEvent.type(within(dialog).getByLabelText(/^Sync client id/), "winche-sync");
   await userEvent.type(within(dialog).getByLabelText("Sync client secret"), "s3cret");
+  expect(within(dialog).getByText("Their account here stays, turned off, with nothing removed.")).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("textbox", { name: "Someone deleted in Keycloak" }));
+  await userEvent.click(await screen.findByRole("option", { name: "Is deleted here too" }));
   await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Staff");
   await userEvent.click(within(dialog).getByRole("button", { name: "Add provider" }));
   await waitFor(() => expect(mock(api.saveSignInSettings)).toHaveBeenCalledWith(
-    expect.objectContaining({ providers: expect.arrayContaining([expect.objectContaining({ name: "staff", keycloakSync: expect.objectContaining({ clientId: "winche-sync" }) })]) }),
+    expect.objectContaining({ providers: expect.arrayContaining([expect.objectContaining({ name: "staff", keycloakSync: expect.objectContaining({ clientId: "winche-sync", whenDeleted: "delete" }) })]) }),
     null, "Staff", { staff: "s3cret" }));
 });
 

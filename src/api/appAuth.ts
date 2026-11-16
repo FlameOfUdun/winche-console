@@ -42,10 +42,12 @@ export interface KeycloakSyncSettings {
   adminServer: string | null;
   pollSeconds: number;
   reconcileHours: number;
+  /** Someone deleted in Keycloak: disabled and unlinked here (default), or deleted here too. */
+  whenDeleted?: "disable" | "delete";
   attributes: Record<string, string>;
 }
 
-export const NEW_KEYCLOAK_SYNC: KeycloakSyncSettings = { clientId: "", adminServer: null, pollSeconds: 10, reconcileHours: 24, attributes: {} };
+export const NEW_KEYCLOAK_SYNC: KeycloakSyncSettings = { clientId: "", adminServer: null, pollSeconds: 10, reconcileHours: 24, whenDeleted: "disable", attributes: {} };
 
 export interface SmtpSettings {
   host: string; port: number; security: "startTls" | "tls" | "none"; username: string | null; fromAddress: string; fromName: string | null;
@@ -159,7 +161,7 @@ export function providerLabel(name: string, config?: AppAuthConfig | null): stri
 /** A provider's Keycloak sync (o.…SyncFromKeycloak): its settings and how it's doing. */
 export interface KeycloakSync {
   provider: string; displayName: string; clientId: string; server: string;
-  pollSeconds: number; reconcileHours: number; claims: string[]; attributes: Record<string, string>;
+  pollSeconds: number; reconcileHours: number; whenDeleted?: "disable" | "delete"; claims: string[]; attributes: Record<string, string>;
   /** Where a Keycloak webhook plugin posts, when a webhook secret is set. */
   webhookUrl: string | null;
   lastRunAt: string | null; eventsAfter: string | null; reconciledAt: string | null; lastChangeAt: string | null; lastError: string | null;
