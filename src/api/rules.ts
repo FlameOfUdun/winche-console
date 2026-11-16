@@ -23,7 +23,7 @@ export type ComparisonOperator = "Eq" | "Ne" | "Lt" | "Le" | "Gt" | "Ge";
  * The value type used in `literal` expression nodes. The backend `RuleValue` serializes via a
  * custom converter using a tagged-object convention: plain JSON for null/bool/string, and tagged
  * objects for other primitives — `{"$integer": "..."}`, `{"$double": ...}`, `{"$timestamp": "..."}`,
- * `{"$bytes": "..."}`, `{"$path": "..."}` — with maps represented as JSON objects and lists as JSON
+ * `{"$bytes": "..."}`, `{"$documentReference": "..."}` — with maps represented as JSON objects and lists as JSON
  * arrays. Modeled permissively here; a precise typed model is not required for this task (a later
  * expression-builder task will handle construction).
  */

@@ -14,7 +14,7 @@ const OPERATIONS: RuleOperation[] = ["Get", "List", "Create", "Update", "Delete"
 type Kind = "text" | "number" | "yesno" | "time" | "reference" | "null" | "json";
 const KINDS: { value: Kind; label: string }[] = [
   { value: "text", label: "Text" }, { value: "number", label: "Number" }, { value: "yesno", label: "Yes / no" },
-  { value: "time", label: "Time" }, { value: "reference", label: "Reference" }, { value: "null", label: "Null" },
+  { value: "time", label: "Time" }, { value: "reference", label: "Document reference" }, { value: "null", label: "Null" },
   { value: "json", label: "List or map (JSON)" },
 ];
 export interface FieldRow { name: string; kind: Kind; value: string }
@@ -27,7 +27,7 @@ export function ruleLiteral(row: FieldRow): unknown {
     case "number": return /^-?\d+$/.test(v) ? { $integer: v } : { $double: Number(v) };
     case "yesno": return v === "true";
     case "time": return { $timestamp: v ? new Date(v).toISOString() : new Date().toISOString() };
-    case "reference": return { $path: v };
+    case "reference": return { $documentReference: v };
     case "null": return null;
     case "json": return JSON.parse(v || "null");
   }

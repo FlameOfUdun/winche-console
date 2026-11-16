@@ -19,13 +19,13 @@ function Caret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   );
 }
 
-/** Read-only preview of a scalar value (strings quoted, geopoints bracketed). */
+/** Read-only preview of a scalar value (strings quoted, geo points bracketed). */
 function valuePreview(v: EditValue): string {
   switch (v.type) {
     case "string": return `"${v.text ?? ""}"`;
     case "boolean": return v.bool ? "true" : "false";
     case "null": return "null";
-    case "geopoint": return `[${v.lat ?? "0"}, ${v.lng ?? "0"}]`;
+    case "geoPoint": return `[${v.lat ?? "0"}, ${v.lng ?? "0"}]`;
     default: return v.text ?? "";
   }
 }
@@ -41,7 +41,7 @@ function ValueInput({ value, onChange, onEnter }: {
           data={[{ value: "true", label: "true" }, { value: "false", label: "false" }]}
           value={value.bool ? "true" : "false"} onChange={(v) => onChange({ ...value, bool: v === "true" })} />
       );
-    case "geopoint":
+    case "geoPoint":
       return (
         <Group gap={6} wrap="nowrap">
           <TextInput size="xs" w={100} placeholder="latitude" value={value.lat ?? ""} onChange={(e) => onChange({ ...value, lat: e.currentTarget.value })} />
@@ -57,7 +57,7 @@ function ValueInput({ value, onChange, onEnter }: {
       return (
         <TextInput
           size="xs" style={{ flex: 1, minWidth: 180 }} value={value.text ?? ""}
-          placeholder={value.type === "reference" ? "users/alice" : value.type === "fileRef" ? "scans/a.png" : value.type === "userRef" ? "uid" : value.type === "timestamp" ? "2026-01-01T00:00:00Z" : "value"}
+          placeholder={value.type === "documentReference" ? "users/alice" : value.type === "fileReference" ? "scans/a.png" : value.type === "userReference" ? "uid" : value.type === "timestamp" ? "2026-01-01T00:00:00Z" : "value"}
           inputMode={value.type === "integer" || value.type === "double" ? "decimal" : undefined}
           onChange={(e) => onChange({ ...value, text: e.currentTarget.value })}
           onKeyDown={(e) => { if (e.key === "Enter") onEnter(); }} />

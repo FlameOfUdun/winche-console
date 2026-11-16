@@ -53,9 +53,9 @@ function plain(v: unknown): unknown {
   if ("booleanValue" in o) return o.booleanValue;
   if ("nullValue" in o) return null;
   if ("timestampValue" in o) return o.timestampValue;
-  if ("docRefValue" in o) return o.docRefValue;
-  if ("fileRefValue" in o) return o.fileRefValue;
-  if ("userRefValue" in o) return o.userRefValue;
+  if ("documentReferenceValue" in o) return o.documentReferenceValue;
+  if ("fileReferenceValue" in o) return o.fileReferenceValue;
+  if ("userReferenceValue" in o) return o.userReferenceValue;
   if ("bytesValue" in o) return "<bytes>";
   if ("geoPointValue" in o) return o.geoPointValue;
   if ("arrayValue" in o) return ((o.arrayValue as { values?: unknown[] })?.values ?? []).map(plain);

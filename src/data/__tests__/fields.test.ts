@@ -13,7 +13,7 @@ describe("document fields model (recursive)", () => {
     expect(byName.name).toEqual({ type: "string", text: "Alice" });
     expect(byName.age).toEqual({ type: "integer", text: "30" });
     expect(byName.active).toEqual({ type: "boolean", bool: true });
-    expect(byName.at).toEqual({ type: "geopoint", lat: "1", lng: "2" });
+    expect(byName.at).toEqual({ type: "geoPoint", lat: "1", lng: "2" });
   });
 
   test("parses nested array and map", () => {
