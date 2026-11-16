@@ -105,6 +105,8 @@ export interface AppAuthConfig {
   directory?: { kind: "wincheAuth"; label: string; capabilities: DirectoryCapabilities } | null;
   emailPassword: { minLength: number; requireVerifiedEmail: boolean } | null;
   email: { appName: string; actionUrl: string; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number; logLinksOnly: boolean; sender: string | null } | null;
+  /** The server's own email (its email service, with the credentials of its environment), offered besides SMTP. */
+  serverEmail?: string | null;
   emailLink: { linkUrl: string } | null;
   mfa?: { issuer: string; recoveryCodes: number; pendingMinutes: number } | null;
   identityProviders: {

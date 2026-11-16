@@ -78,6 +78,8 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   const storage = useQuery({ queryKey: ["data-settings", "storage"], queryFn: () => api.dataSettings<StorageSettings>("storage"), enabled: opened && product === "storage" });
   // Authentication
   const signIn = useQuery({ queryKey: ["signin-settings"], queryFn: api.signInSettings, enabled: opened && product === "authentication" });
+  const authConfig = useQuery({ queryKey: ["app-auth-config", "server-email"], queryFn: api.appAuthConfig, enabled: opened && product === "authentication", staleTime: 60_000 });
+  const serverEmail = authConfig.data?.serverEmail ?? null;
   const [auth, setAuth] = useState<WincheAuthSettings | null>(null);
   const [smtpPassword, setSmtpPassword] = useState("");
   // Functions
@@ -164,9 +166,10 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
           ) },
           { label: "Email", content: (
             <Stack gap="md">
-              <SegmentedControl value={auth.email.sender === "smtp" ? "smtp" : "logLinks"}
-                onChange={(v) => setA({ email: { ...auth.email, enabled: true, sender: v as "smtp" | "logLinks", smtp: v === "smtp" ? auth.email.smtp ?? { host: "", port: 587, security: "startTls", username: null, fromAddress: "", fromName: null } : auth.email.smtp } })}
-                data={[{ value: "logLinks", label: "Not yet: log the links" }, { value: "smtp", label: "Send with SMTP" }]} />
+              <SegmentedControl value={auth.email.sender === "smtp" ? "smtp" : auth.email.sender === "app" && serverEmail ? "app" : "logLinks"}
+                onChange={(v) => setA({ email: { ...auth.email, enabled: true, sender: v as "app" | "smtp" | "logLinks", smtp: v === "smtp" ? auth.email.smtp ?? { host: "", port: 587, security: "startTls", username: null, fromAddress: "", fromName: null } : auth.email.smtp } })}
+                data={[...(serverEmail ? [{ value: "app", label: "The server's email" }] : []), { value: "logLinks", label: "Not yet: log the links" }, { value: "smtp", label: "Send with SMTP" }]} />
+              {auth.email.sender === "app" && serverEmail && <Text size="sm" c={surface.faint}>Sent through {serverEmail}, from your app's name: nothing to set up.</Text>}
               {auth.email.sender === "smtp" && auth.email.smtp && (
                 <Stack gap="xs">
                   <SimpleGrid cols={2} spacing="xs">

@@ -292,6 +292,9 @@ export function SignInMethodView() {
  */
 export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
   const sc = useSignInCards();
+  const authApi = useAuthApi();
+  const config = useQuery({ queryKey: ["app-auth-config", "server-email"], queryFn: authApi.appAuthConfig, staleTime: 60_000, enabled: wincheAuth });
+  const serverEmail = config.data?.serverEmail ?? null;
   if (!wincheAuth) return <CardsPage><Alert color="gray">Winche Auth isn't in this app: its users are those of the providers it trusts (Trusted issuers).</Alert></CardsPage>;
   if (sc.saved.isLoading) return <Loader size="sm" />;
   if (sc.saved.isError || !sc.saved.data) return <Alert color="red">Couldn't load the sign-in settings: {errorMessage(sc.saved.error)}</Alert>;
@@ -335,7 +338,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
       <EditCard title="Emails to users" description="Verification, password reset and sign-in link emails: who they're from and how they're sent." {...sc.card("email")}
         rows={e.enabled ? [
           { label: "App name", value: e.appName || "—" },
-          { label: "Sent", value: e.sender === "smtp" && e.smtp ? <code>{e.smtp.host}:{e.smtp.port}</code> : e.sender === "logLinks" ? "Only logged (development)" : "By the app" },
+          { label: "Sent", value: e.sender === "smtp" && e.smtp ? <code>{e.smtp.host}:{e.smtp.port}</code> : e.sender === "logLinks" ? "Only logged (development)" : serverEmail ? `Through the server's email (${serverEmail})` : "By the app" },
           ...(e.sender === "smtp" && e.smtp ? [{ label: "From", value: e.smtp.fromName ? `${e.smtp.fromName} <${e.smtp.fromAddress}>` : e.smtp.fromAddress },
             { label: "Password", value: sc.data.smtpPassword ? `Set ${when(sc.data.smtpPassword.setAt)}` : <OnOff on={false} offLabel="Not set" /> }] : []),
           { label: "Verify link on sign-up", value: <OnOff on={e.sendVerificationOnSignUp} /> },
@@ -371,6 +374,8 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
   passwordSet: { setAt: string; setBy: string | null } | null; secretsAvailable: boolean; password: string; setPassword: (s: string) => void;
 }) {
   const authApi = useAuthApi();
+  const config = useQuery({ queryKey: ["app-auth-config", "server-email"], queryFn: authApi.appAuthConfig, staleTime: 60_000 });
+  const serverEmail = config.data?.serverEmail ?? null;
   const e = draft.email;
   const setE = (p: Partial<WincheAuthSettings["email"]>) => set({ email: { ...e, ...p } });
   const smtp = e.smtp ?? NEW_SMTP;
@@ -416,9 +421,11 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
       {e.enabled && (
         <Card title="How it's sent">
           <SegmentedControl aria-label="Sender" w="fit-content" disabled={!editable} value={e.sender}
-            data={[{ value: "smtp", label: "SMTP server" }, { value: "logLinks", label: "Log only" }]}
+            data={[...(serverEmail ? [{ value: "app", label: "The server's email" }] : []), { value: "smtp", label: "SMTP server" }, { value: "logLinks", label: "Log only" }]}
             onChange={(v) => setE({ sender: v as WincheAuthSettings["email"]["sender"], smtp: v === "smtp" ? smtp : e.smtp })} />
-          {e.sender === "app" && <Alert color="gray">Choose how emails are sent: an SMTP server, or only logged for now.</Alert>}
+          {e.sender === "app" && (serverEmail
+            ? <Alert color="teal">Sent through the server's own email: {serverEmail}. Nothing to set up here; it's from your app name.</Alert>
+            : <Alert color="gray">Choose how emails are sent: an SMTP server, or only logged for now.</Alert>)}
           {e.sender === "logLinks" && <Alert color="yellow">Nothing is sent: links go to the server's log. For local development only.</Alert>}
           {e.sender === "smtp" && (
             <Stack gap="sm">
