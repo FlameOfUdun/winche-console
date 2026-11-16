@@ -12,7 +12,10 @@ vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return {
     ...actual,
-    api: { ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn() },
+    api: {
+      ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
+      functionSecrets: vi.fn(), setFunctionSecret: vi.fn(), removeFunctionSecret: vi.fn(),
+    },
   };
 });
 
@@ -81,4 +84,32 @@ test("versions: roll back an older one", async () => {
   expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
   await userEvent.click(within(rows[1]).getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, null));
+});
+
+test("secrets: listed without values, set, replaced and removed", async () => {
+  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
+    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
+    { name: "OLD_TOKEN", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [] },
+  ] });
+  mock(api.setFunctionSecret).mockResolvedValue(undefined);
+  mock(api.removeFunctionSecret).mockResolvedValue(undefined);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "Secrets" }));
+  const rows = await screen.findAllByTestId("function-secret");
+  expect(rows[0]).toHaveTextContent("Not set");
+  expect(rows[0]).toHaveTextContent("used by sendReport");
+  expect(rows[1]).toHaveTextContent("no function declares it");
+
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
+  await userEvent.type(within(rows[0]).getByLabelText("New value of MAIL_KEY"), "k-123");
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "k-123"));
+
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(mock(api.removeFunctionSecret)).toHaveBeenCalledWith("OLD_TOKEN"));
+
+  await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
+  await userEvent.type(screen.getByLabelText("Name"), "bad-name");
+  expect(screen.getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
 });

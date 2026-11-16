@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, Paper, Stack, Table, Text, Textarea, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, Paper, PasswordInput, Stack, Table, Text, Textarea, TextInput } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -8,22 +8,24 @@ import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
 import { EmptyState } from "../../components/EmptyState";
-import { IconHistory, IconLambda } from "@tabler/icons-react";
+import { IconHistory, IconKey, IconLambda } from "@tabler/icons-react";
 
 /**
  * Functions: TypeScript run on the server when data changes, on a schedule, or when apps call them. The code lives in
- * the app's repository and is deployed with the CLI; here: what's live, running a callable, versions and rollback.
+ * the app's repository and is deployed with the CLI; here: what's live, running a callable, versions and rollback, and
+ * the secrets functions read.
  */
 export function FunctionsPage() {
-  const [tab, setTab] = useState<"deployed" | "versions">("deployed");
+  const [tab, setTab] = useState<"deployed" | "versions" | "secrets">("deployed");
   return (
     <>
       <PageBand title="Functions" tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
         { label: "Versions", active: tab === "versions", onClick: () => setTab("versions") },
+        { label: "Secrets", active: tab === "secrets", onClick: () => setTab("secrets") },
       ]} />
       <div style={{ paddingBottom: 28 }}>
-        {tab === "deployed" ? <DeployedTab /> : <VersionsTab />}
+        {tab === "deployed" ? <DeployedTab /> : tab === "versions" ? <VersionsTab /> : <SecretsTab />}
       </div>
     </>
   );
@@ -83,7 +85,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
           <Group justify="space-between" wrap="nowrap">
             <div>
               <Group gap={6}><Text fw={600} ff="monospace">{f.name}</Text><Badge variant="light" tt="none">{f.kind}</Badge></Group>
-              <Text size="xs" c="dimmed">{f.description} · up to {f.timeoutSeconds} s</Text>
+              <Text size="xs" c="dimmed">{f.description} · up to {f.timeoutSeconds} s{f.secrets?.length ? ` · secrets ${f.secrets.join(", ")}` : ""}</Text>
             </div>
             {f.kind === "callable" && <Button size="xs" variant="default" onClick={() => setRunning(running === f.name ? null : f.name)}>Run</Button>}
             {triggered(f) && canSeeRuns && (
@@ -199,6 +201,95 @@ function VersionsTab() {
           </Table.Tbody>
         </Table>
       </Paper>
+    </Stack>
+  );
+}
+
+const SECRET_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
+
+/**
+ * Secrets functions read with ctx.secrets.get: set or replaced here (or with `winche functions secrets set`), never
+ * shown again. Lists the saved ones and those the live code declares but nobody has set.
+ */
+function SecretsTab() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ["function-secrets"], queryFn: api.functionSecrets });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (list.isLoading) return <Loader size="sm" />;
+  if (list.isError || !list.data) return <Alert color="red">Couldn't load the secrets: {errorMessage(list.error)}</Alert>;
+  const refresh = () => qc.invalidateQueries({ queryKey: ["function-secrets"] });
+  const remove = async (name: string) => {
+    if (!window.confirm(`Remove the secret ${name}? Functions that read it fail until it's set again.`)) return;
+    setError(null);
+    try { await api.removeFunctionSecret(name); await refresh(); } catch (e) { setError(errorMessage(e)); }
+  };
+  const secrets = list.data.secrets;
+  return (
+    <Stack gap="sm">
+      {!list.data.available && <Alert color="yellow">Secrets need the server's master key.</Alert>}
+      {error && <Alert color="red">{error}</Alert>}
+      <Group justify="space-between">
+        <Text size="sm" c="dimmed">API keys and passwords your functions read with <Code>ctx.secrets.get("NAME")</Code>. A function declares the ones it uses: <Code>{'{ secrets: ["NAME"] }'}</Code>.</Text>
+        {!adding && <Button size="xs" onClick={() => setAdding(true)} disabled={!list.data.available}>Add a secret</Button>}
+      </Group>
+      {adding && <SecretForm onDone={async (saved) => { setAdding(false); if (saved) await refresh(); }} />}
+      {secrets.length === 0 && !adding ? (
+        <EmptyState icon={IconKey} title="No secrets yet"
+          description="Add one here or with `winche functions secrets set NAME`. Values are kept encrypted and never shown again." />
+      ) : secrets.length > 0 && (
+        <Paper withBorder style={{ overflowX: "auto" }}>
+          <Table fz="sm" verticalSpacing={6} miw={640}>
+            <Table.Tbody>
+              {secrets.map((s) => (
+                <Table.Tr key={s.name} data-testid="function-secret">
+                  <Table.Td><Text ff="monospace" fw={600}>{s.name}</Text></Table.Td>
+                  <Table.Td>{s.isSet ? <Badge color="teal" variant="light" tt="none">Set</Badge> : <Badge color="red" variant="light" tt="none">Not set</Badge>}</Table.Td>
+                  <Table.Td><Text size="xs">{s.isSet ? `${when(s.setAt!)}${s.setBy ? ` by ${s.setBy}` : ""}` : "—"}</Text></Table.Td>
+                  <Table.Td><Text size="xs" c="dimmed">{s.usedBy.length ? `used by ${s.usedBy.join(", ")}` : "no function declares it"}</Text></Table.Td>
+                  <Table.Td ta="right">
+                    <Group gap={6} justify="flex-end" wrap="nowrap">
+                      <Button size="xs" variant="default" onClick={() => setEditing(editing === s.name ? null : s.name)}>{s.isSet ? "Replace" : "Set"}</Button>
+                      {s.isSet && <Button size="xs" variant="subtle" color="red" onClick={() => remove(s.name)}>Remove</Button>}
+                    </Group>
+                    {editing === s.name && <SecretForm name={s.name} onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Paper>
+      )}
+    </Stack>
+  );
+}
+
+function SecretForm({ name: fixed, onDone }: { name?: string; onDone: (saved: boolean) => void | Promise<void> }) {
+  const [name, setName] = useState(fixed ?? "");
+  const [value, setValue] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const badName = name !== "" && !SECRET_NAME.test(name);
+  const save = async () => {
+    setError(null);
+    setBusy(true);
+    try { await api.setFunctionSecret(name, value); await onDone(true); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Stack gap="xs" mt="xs" ta="left">
+      <Group align="flex-end" wrap="wrap">
+        {!fixed && (
+          <TextInput label="Name" placeholder="MAIL_API_KEY" ff="monospace" value={name} onChange={(e) => setName(e.currentTarget.value.toUpperCase())}
+            error={badName ? "Capitals, digits and underscores, starting with a letter" : undefined} />
+        )}
+        <PasswordInput label={fixed ? `New value of ${fixed}` : "Value"} style={{ flex: "1 1 260px" }} value={value} onChange={(e) => setValue(e.currentTarget.value)} autoComplete="off" />
+        <Button loading={busy} disabled={!name || badName || !value} onClick={save}>Save</Button>
+        <Button variant="default" onClick={() => onDone(false)}>Cancel</Button>
+      </Group>
+      {error && <Alert color="red">{error}</Alert>}
     </Stack>
   );
 }

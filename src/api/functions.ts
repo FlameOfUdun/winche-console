@@ -1,6 +1,13 @@
 export interface FunctionInfo {
   name: string; kind: "documents" | "files" | "users" | "schedule" | "callable"; events: string[] | null; path: string | null;
   cron: string | null; timeZone: string | null; description: string; timeoutSeconds: number;
+  /** The secrets it declared (options.secrets). */
+  secrets?: string[];
+}
+
+/** A function secret: never its value. */
+export interface FunctionSecret {
+  name: string; isSet: boolean; setAt: string | null; setBy: string | null; usedBy: string[];
 }
 
 export interface FunctionVersion {
