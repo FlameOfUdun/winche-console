@@ -85,7 +85,7 @@ function AssetLocationCard() {
               {error && <Alert color="red" p="xs">{error}</Alert>}
             </Stack>
           ) : (
-            <ChooseLocation s={{ ...s, codeLabel: "the app's own location" }} noun="assets" afterCopy="until everything is there, then switches by itself"
+            <ChooseLocation s={s} noun="assets" afterCopy="until everything is there, then switches by itself"
               test={api.testAssetLocation} start={api.startAssetMove}
               onDone={async () => { setChoosing(false); await refresh(); }} onCancel={() => setChoosing(false)} />
           )}

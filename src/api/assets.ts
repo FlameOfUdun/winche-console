@@ -24,6 +24,8 @@ export interface AssetsPageData {
 export interface AssetLocationState {
   active: import("./dataSettings").ArchiveLocation | null;
   activeLabel: string;
+  /** The app's own location, in words. */
+  codeLabel: string;
   move: { to: import("./dataSettings").ArchiveLocation; copied: number; total: number; error: string | null; startedAt: string | null } | null;
   editable: boolean;
   secretsAvailable: boolean;
