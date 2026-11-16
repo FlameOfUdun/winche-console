@@ -1,4 +1,4 @@
-import { NumberInput, PasswordInput, Select, Stack, Switch, TextInput } from "@mantine/core";
+import { NumberInput, PasswordInput, Stack, Switch, TextInput } from "@mantine/core";
 import { NEW_KEYCLOAK_SYNC, type KeycloakSyncSettings } from "../../api/appAuth";
 
 /**
@@ -29,12 +29,6 @@ export function KeycloakSyncFields({ value, onChange, secret, onSecret, secretSe
           <NumberInput label="Check for changes every" w={220} min={2} max={3600} value={value.pollSeconds}
             rightSection={<span style={{ fontSize: 12, paddingRight: 8, opacity: 0.6 }}>s</span>}
             onChange={(v) => set({ pollSeconds: typeof v === "number" ? v : 10 })} />
-          <Select label="Someone deleted in Keycloak" allowDeselect={false} value={value.whenDeleted ?? "disable"}
-            data={[{ value: "disable", label: "Is turned off and unlinked here (an admin decides)" }, { value: "delete", label: "Is deleted here too" }]}
-            description={(value.whenDeleted ?? "disable") === "delete"
-              ? "Their account here goes, and the app's users.onDeleted functions and webhooks run: use it when Keycloak is where accounts are kept."
-              : "Their account here stays, turned off, with nothing removed."}
-            onChange={(v) => set({ whenDeleted: v === "delete" ? "delete" : "disable" })} />
         </>
       )}
     </Stack>

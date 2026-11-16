@@ -60,7 +60,6 @@ function SyncCard({ s }: { s: KeycloakSync }) {
         <Row k="Last full comparison" v={s.reconciledAt ? when(s.reconciledAt) : "not yet"} />
         <Row k="Reads events every" v={every(s.pollSeconds)} />
         <Row k="Compares every user every" v={every(s.reconcileHours * 3600)} />
-        <Row k="Someone deleted in Keycloak" v={s.whenDeleted === "delete" ? "is deleted here too" : "is turned off here"} />
         <Row k="Keycloak" v={s.server} />
         <Row k="Client" v={s.clientId} />
         <Row k="Claims kept in step" v={s.claims.length ? s.claims.join(", ") : "none"} />
