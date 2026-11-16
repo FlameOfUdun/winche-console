@@ -1,5 +1,6 @@
 import { ServerSettingsPage } from "./pages/server/ServerSettingsPage";
 import { FunctionsPage } from "./pages/functions/FunctionsPage";
+import { ConsolePageView } from "./pages/functions/ConsolePageView";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
 import { useSession } from "./auth/session";
@@ -62,6 +63,7 @@ function GatedApp() {
           <Route path="logs/*" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={<Navigate to="/overview" replace />} />
           <Route path="functions" element={gated("functions", caps?.functions, <FunctionsPage />)} />
+          <Route path="pages/:name" element={caps?.consolePages ? <ConsolePageView /> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />
           <Route path="settings/:tab" element={<ProjectSettingsPage />} />

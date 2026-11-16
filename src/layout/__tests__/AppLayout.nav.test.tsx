@@ -8,7 +8,7 @@ import { SessionContext } from "../../auth/session";
 
 vi.mock("../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../api/client")>();
-  return { ...actual, api: { ...actual.api, logout: vi.fn(), rulesSubsystems: vi.fn().mockResolvedValue([{ id: "database" }]), projects: vi.fn().mockResolvedValue({ available: true, canCreate: true, current: "p", projects: [] }), project: vi.fn().mockResolvedValue({ setup: false }), overview: vi.fn().mockResolvedValue({ project: { id: "clinic", name: "Clinic" }, products: [], changes: [] }) } };
+  return { ...actual, api: { ...actual.api, logout: vi.fn(), rulesSubsystems: vi.fn().mockResolvedValue([{ id: "database" }]), projects: vi.fn().mockResolvedValue({ available: true, canCreate: true, current: "p", projects: [] }), project: vi.fn().mockResolvedValue({ setup: false }), overview: vi.fn().mockResolvedValue({ project: { id: "clinic", name: "Clinic" }, products: [], changes: [] }), consolePages: vi.fn().mockResolvedValue({ pages: [{ name: "reports", title: "Weekly reports", icon: "chart-bar", order: 0 }] }) } };
 });
 
 const session = {
@@ -65,4 +65,25 @@ test("a flat sidebar of products (their pages are tabs); Server in the top bar f
   expect(screen.getByRole("link", { name: "Server" })).toHaveAttribute("href", "/server");
   expect(screen.getByRole("link", { name: /Project settings/ })).toHaveAttribute("href", "/settings/general");
   expect(await screen.findByText("Clinic")).toBeInTheDocument();
+});
+
+test("the project's own pages are listed under Project pages", async () => {
+  const s = { ...session, state: { ...session.state, capabilities: { ...session.state.capabilities, consolePages: true } } } as any;
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <SessionContext.Provider value={s}>
+          <MemoryRouter initialEntries={["/storage"]}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="storage" element={<div>storage</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </SessionContext.Provider>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  expect(await screen.findByText("Project pages")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Weekly reports/ })).toHaveAttribute("href", "/pages/reports");
 });

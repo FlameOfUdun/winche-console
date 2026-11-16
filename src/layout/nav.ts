@@ -1,12 +1,16 @@
 import type { AuthState, SessionUser } from "../api/types";
 
-export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "settings";
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "settings" | "page";
 
 /** One of a product's pages (Database → Rules), under it in the sidebar. */
 export interface NavPage { to: string; label: string }
 
 /** A sidebar entry: a product (or Logs) and, when it has more than one, its pages. */
-export interface NavItem { to: string; label: string; icon: NavIcon; group: "top" | "build" | "monitor" | "bottom"; pages: NavPage[] }
+export interface NavItem {
+  to: string; label: string; icon: NavIcon; group: "top" | "build" | "monitor" | "pages" | "bottom"; pages: NavPage[];
+  /** The project's own pages: a Tabler icon name of theirs. */
+  tablerIcon?: string | null;
+}
 
 /** What the session can't tell on its own, from the server: who may edit rules, what auth runs. */
 export interface NavFacts {
@@ -18,6 +22,8 @@ export interface NavFacts {
   authUsers?: boolean;
   /** Tokens from other issuers can be trusted here (the Trusted issuers page). */
   trustedIssuers?: boolean;
+  /** The project's own console pages. */
+  consolePages?: { name: string; title: string; icon: string | null }[];
 }
 
 /**
@@ -54,6 +60,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build", pages: productPages("/database", "database", "Data") });
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
+  for (const p of facts.consolePages ?? []) out.push({ to: `/pages/${p.name}`, label: p.title, icon: "page", tablerIcon: p.icon, group: "pages", pages: [] });
   if (c?.logs?.app) {
     out.push({ to: "/logs", label: "Logs", icon: "logs", group: "monitor", pages: [
       { to: "/logs", label: "Explorer" }, { to: "/logs/saved", label: "Saved queries" },

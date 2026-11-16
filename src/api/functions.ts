@@ -25,3 +25,6 @@ export interface FunctionRun {
   ok: boolean; result: unknown; error: { code: string; message: string } | null; durationMs: number;
   logs: { level: string; message: string; at: string }[];
 }
+
+/** A page of the project's own (consolePage in its functions), for the sidebar. */
+export interface ConsolePageEntry { name: string; title: string; icon: string | null; order: number }

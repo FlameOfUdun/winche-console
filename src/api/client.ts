@@ -1,7 +1,7 @@
 import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserItem, FileRecord, InvitePreview, QueryResult, WincheDocument } from "./types";
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
-import type { FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
+import type { ConsolePageEntry, FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
 import type { AppsPageData, AppFields, RegisteredAppsData } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { SignInSettingsResponse, WincheAuthSettings } from "./appAuth";
@@ -228,6 +228,9 @@ export const api = {
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "api/functions/versions"),
   rollBackFunctions: (v: number, note: string | null) => http<FunctionVersion>("POST", `api/functions/versions/${v}/rollback`, { note }),
   runFunction: (name: string, data: unknown, asUid: string | null) => http<FunctionRun>("POST", "api/functions/run", { name, data, asUid }),
+  consolePages: () => http<{ pages: ConsolePageEntry[] }>("GET", "api/console-pages"),
+  openConsolePage: (name: string) => http<{ url: string; user: { email: string | null; role: "viewer" | "member" | "admin" } }>("POST", `api/console-pages/${encodeURIComponent(name)}/open`),
+  runConsoleAction: (name: string, data: unknown) => http<{ data: unknown }>("POST", `api/console-pages/actions/${encodeURIComponent(name)}`, { data: data ?? null }),
   functionSecrets: () => http<{ available: boolean; secrets: FunctionSecret[] }>("GET", "api/functions/secrets"),
   setFunctionSecret: (name: string, value: string) => http<void>("PUT", `api/functions/secrets/${encodeURIComponent(name)}`, { value }),
   removeFunctionSecret: (name: string) => http<void>("DELETE", `api/functions/secrets/${encodeURIComponent(name)}`),

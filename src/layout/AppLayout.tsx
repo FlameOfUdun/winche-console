@@ -7,8 +7,9 @@ import {
 import {
   IconDatabase, IconDeviceDesktop, IconFolder, IconHome, IconLambda, IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpand, IconListDetails, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconSun,
-  IconUsers, IconWebhook, IconKey, IconUserCircle,
+  IconUsers, IconWebhook, IconKey, IconUserCircle, IconFile,
 } from "@tabler/icons-react";
+import { TablerIcon } from "../components/TablerIcon";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useLocation } from "react-router-dom";
 import { api } from "../api/client";
@@ -23,7 +24,7 @@ import logoUrl from "../assets/winche-logo.png";
 
 const ICONS: Record<NavIcon, React.ElementType> = {
   home: IconHome, database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers,
-  hooks: IconWebhook, functions: IconLambda, settings: IconSettings,
+  hooks: IconWebhook, functions: IconLambda, settings: IconSettings, page: IconFile,
 };
 
 const TOPBAR = 52;
@@ -189,7 +190,8 @@ function NavEntry({ item, collapsed, off }: { item: NavItem; collapsed: boolean;
   const inside = pathname === item.to || pathname.startsWith(item.to + "/");
   // A product's pages are tabs on its page: the sidebar opens its first.
   const first = off ? item.to : item.pages[0]?.to ?? item.to;
-  return <SideLink to={first} label={item.label} icon={ICONS[item.icon]} active={inside} collapsed={collapsed}
+  const icon = item.tablerIcon ? (props: { size?: number; stroke?: number; style?: React.CSSProperties }) => <TablerIcon name={item.tablerIcon!} fallback={IconFile} {...props} /> : ICONS[item.icon];
+  return <SideLink to={first} label={item.label} icon={icon} active={inside} collapsed={collapsed}
     right={off ? <StatusPill tone="off">Off</StatusPill> : undefined} />;
 }
 
@@ -205,7 +207,7 @@ export function AppLayout() {
     if (!p?.setup || item.group !== "build") return false;
     return !p.created || p.products.some((x) => x.id === item.to.slice(1) && !x.started);
   };
-  const groups: { id: NavItem["group"]; label?: string }[] = [{ id: "top" }, { id: "build", label: "Build" }, { id: "monitor", label: "Monitor" }];
+  const groups: { id: NavItem["group"]; label?: string }[] = [{ id: "top" }, { id: "build", label: "Build" }, { id: "monitor", label: "Monitor" }, { id: "pages", label: "Project pages" }];
   const bottom = items.filter((n) => n.group === "bottom");
   return (
     <Shell

@@ -51,6 +51,8 @@ export interface Capabilities {
   hooks?: boolean;
   /** The Functions page (admins, when the app uses Winche.Functions). */
   functions?: boolean;
+  /** The project's own console pages (consolePage in its functions): anyone with a role here. */
+  consolePages?: boolean;
   /** The Authentication tab: the app's users (Winche Auth). Admins only. */
   authentication?: boolean;
   invites: boolean;
