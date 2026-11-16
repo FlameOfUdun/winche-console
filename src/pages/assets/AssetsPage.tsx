@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title } from "@mantine/core";
 import { IconPackage, IconRoute } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -115,10 +115,10 @@ function ChannelsCard({ channels, releases, admin }: { channels: AssetChannel[];
                 <Table.Td><Badge variant="light" tt="none">#{c.release}</Badge></Table.Td>
                 <Table.Td><Text size="sm" c={surface.muted}>{when(c.updatedAt)}{c.by ? ` by ${c.by}` : ""}</Text></Table.Td>
                 <Table.Td>
-                  <Group gap="xs" justify="flex-end" wrap="nowrap">
-                    <Anchor size="sm" onClick={() => setHistory(c.name)}>History</Anchor>
+                  <Group gap={6} justify="flex-end" wrap="nowrap">
+                    <Button size="xs" variant="subtle" px={8} onClick={() => setHistory(c.name)}>History</Button>
                     {admin && <Button size="xs" variant="default" onClick={() => setMoving(c)}>Move…</Button>}
-                    {admin && <Button size="xs" variant="subtle" color="red" onClick={() => setRemoving(c.name)}>Remove</Button>}
+                    {admin && <Button size="xs" variant="subtle" color="red" px={8} onClick={() => setRemoving(c.name)}>Remove</Button>}
                   </Group>
                 </Table.Td>
               </Table.Tr>
