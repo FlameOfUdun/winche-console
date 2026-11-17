@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, SimpleGrid, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, Select, SimpleGrid, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, UnstyledButton } from "@mantine/core";
 import type { FunctionsSettings } from "../../api/dataSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -141,12 +141,25 @@ function Details({ f }: { f: FunctionInfo }) {
   );
 }
 
-/** The function's own run time, over its code's and the project's default; saved with a reason, as a settings version. */
+type LimitKey = "memoryMb" | "minInstances" | "maxInstances" | "reservedInstances";
+const LIMITS: { key: LimitKey; label: string; suffix?: string; hint: string }[] = [
+  { key: "memoryMb", label: "Memory", suffix: " MB", hint: "The most an instance may hold after a run: past it, the instance is replaced." },
+  { key: "minInstances", label: "Kept loaded", hint: "Instances kept ready even when idle, so a call never waits." },
+  { key: "maxInstances", label: "Most at once", hint: "Runs of it at the same time; more wait their turn." },
+  { key: "reservedInstances", label: "Reserved", hint: "Runs of the project's limit kept for it, so busy functions can't take them all." },
+];
+const FROM: Record<string, string> = { setting: "its setting", code: "its code", default: "the default" };
+
+/**
+ * The function's own settings, over its code's and the project's defaults: its run time and its instances (memory,
+ * how many kept loaded, at most at once, reserved, its own process). Saved together with a reason, as a settings version.
+ */
 function OwnTime({ f }: { f: FunctionInfo }) {
   const qc = useQueryClient();
   const page = useQuery({ queryKey: ["functions"], queryFn: api.functions });
   const saved = useQuery({ queryKey: ["data-settings", "functions"], queryFn: () => api.dataSettings<FunctionsSettings>("functions") });
-  const [mine, setMine] = useState<number | null | undefined>(undefined);
+  type Draft = { time?: number | null; isolate?: boolean | null } & Partial<Record<LimitKey, number | null>>;
+  const [draft, setDraft] = useState<Draft>({});
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,40 +167,73 @@ function OwnTime({ f }: { f: FunctionInfo }) {
   if (saved.isLoading) return <Loader size="sm" />;
   if (saved.isError || !saved.data) return <Alert color="red">Couldn't load the settings: {errorMessage(saved.error)}</Alert>;
   const s = saved.data.settings;
+  const editable = saved.data.editable;
   const max = page.data?.maxTimeoutSeconds ?? 540;
-  const current = s.timeouts[f.name] ?? null;
-  const value = mine === undefined ? current : mine;
-  const inForce = Math.min(value ?? f.codeTimeoutSeconds ?? s.defaultTimeoutSeconds, max);
-  const changed = value !== current;
+  const own = s.limits?.[f.name] ?? {};
+  const savedOf = (k: keyof Draft): number | boolean | null => (k === "time" ? s.timeouts[f.name] : own[k as LimitKey | "isolate"]) ?? null;
+  const valueOf = (k: keyof Draft) => (k in draft ? draft[k] ?? null : savedOf(k));
+  const set = (k: keyof Draft, v: number | boolean | null) => { setDone(false); setDraft({ ...draft, [k]: v }); };
+  const changed = (Object.keys(draft) as (keyof Draft)[]).some((k) => draft[k] !== savedOf(k));
+  const time = valueOf("time") as number | null;
+  const timeInForce = Math.min(time ?? f.codeTimeoutSeconds ?? s.defaultTimeoutSeconds, max);
   const save = async () => {
     setBusy(true); setError(null);
     const timeouts = { ...s.timeouts };
-    if (value === null) delete timeouts[f.name]; else timeouts[f.name] = value;
+    if ("time" in draft) { if (draft.time == null) delete timeouts[f.name]; else timeouts[f.name] = draft.time; }
+    const mine: Record<string, number | boolean> = { ...own };
+    for (const k of [...LIMITS.map((l) => l.key), "isolate"] as (keyof Draft)[]) {
+      if (!(k in draft)) continue;
+      const v = draft[k];
+      if (v == null) delete mine[k]; else mine[k] = v;
+    }
+    const limits = { ...(s.limits ?? {}) };
+    if (Object.keys(mine).length) limits[f.name] = mine; else delete limits[f.name];
     try {
-      await api.saveDataSettings("functions", { ...s, timeouts }, reason.trim(), saved.data.version?.number ?? 0);
+      await api.saveDataSettings("functions", { ...s, timeouts, limits }, reason.trim(), saved.data.version?.number ?? 0);
       for (const key of ["data-settings", "functions"]) await qc.invalidateQueries({ queryKey: [key] });
-      setMine(undefined); setReason(""); setDone(true);
+      setDraft({}); setReason(""); setDone(true);
     } catch (e) { setError(errorWithList(e)); }
     finally { setBusy(false); }
   };
+  const l = f.limits;
+  const number = (v: string | number) => (typeof v === "number" && v >= 0 ? Math.round(v) : null);
   return (
-    <Stack gap="sm">
-      {!saved.data.editable && <Alert color="gray">{saved.data.whyReadOnly}</Alert>}
-      <NumberInput label="Its own run time" w={260} min={1} max={max} suffix=" s" placeholder="not set" data-testid="own-time"
-        description={`In its code: ${f.codeTimeoutSeconds ? time(f.codeTimeoutSeconds) : "not set"} · the default: ${time(s.defaultTimeoutSeconds)} · this server's longest: ${time(max)}`}
-        disabled={!saved.data.editable} value={value ?? ""}
-        onChange={(v) => { setDone(false); setMine(typeof v === "number" && v > 0 ? Math.round(v) : null); }} />
-      <Text size="sm">In force: <b>{time(inForce)}</b>{value ? "" : f.codeTimeoutSeconds ? " (its code's)" : " (the default)"}</Text>
+    <Stack gap="md">
+      {!editable && <Alert color="gray">{saved.data.whyReadOnly}</Alert>}
+      <NumberInput label="Run time" w={260} min={1} max={max} suffix=" s" placeholder={`${timeInForce} (${f.codeTimeoutSeconds ? "its code" : "the default"})`} data-testid="own-time"
+        description={`In force: ${timeTextOf(timeInForce)}${time ? " (its setting)" : f.codeTimeoutSeconds ? " (its code's)" : " (the default)"} · this server's longest: ${timeTextOf(max)}`}
+        disabled={!editable} value={time ?? ""} onChange={(v) => set("time", typeof v === "number" && v > 0 ? Math.round(v) : null)} />
+      {l && (
+        <>
+          <Text fw={600} size="sm" mt={4}>Instances</Text>
+          <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+            {LIMITS.map((x) => {
+              const v = valueOf(x.key) as number | null;
+              return (
+                <NumberInput key={x.key} label={x.label} suffix={x.suffix} min={x.key === "memoryMb" ? 64 : 0}
+                  max={x.key === "memoryMb" ? page.data?.maxMemoryMb : page.data?.maxConcurrency} disabled={!editable} value={v ?? ""}
+                  placeholder={`${l[x.key]}${x.suffix ?? ""} (${FROM[l.from[x.key]] ?? l.from[x.key]})`} data-testid={`limit-${x.key}`}
+                  description={x.hint} onChange={(n) => set(x.key, number(n))} />
+              );
+            })}
+          </SimpleGrid>
+          <Select label="Process" w={320} disabled={!editable} data-testid="limit-isolate"
+            description={`In force: ${l.isolate ? "its own" : "shared"} (${FROM[l.from.isolate] ?? l.from.isolate}). Its own: nothing it does can stop other functions' runs.`}
+            data={[{ value: "", label: "As its code says" }, { value: "own", label: "Its own process" }, { value: "shared", label: "The shared process" }]}
+            value={valueOf("isolate") === true ? "own" : valueOf("isolate") === false ? "shared" : ""}
+            onChange={(v) => set("isolate", v === "own" ? true : v === "shared" ? false : null)} />
+        </>
+      )}
       {changed && (
         <Group align="flex-end">
           <TextInput label="Reason for the change" style={{ flex: "1 1 260px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
           <Button loading={busy} disabled={!reason.trim()} onClick={save}>Save</Button>
-          <Button variant="default" onClick={() => { setMine(undefined); setReason(""); }}>Cancel</Button>
+          <Button variant="default" onClick={() => { setDraft({}); setReason(""); }}>Cancel</Button>
         </Group>
       )}
       {done && !changed && <Text size="xs" c="teal">Saved: it applies from the next run.</Text>}
       {error && <Alert color="red" style={{ whiteSpace: "pre-wrap" }}>{error}</Alert>}
-      <Text size="xs" c="dimmed">A run that long still ends if the server restarts: long work should save its progress as it goes.</Text>
+      <Text size="xs" c="dimmed">Empty: as its code says, else the project's default. A long run still ends if the server restarts: long work should save its progress as it goes.</Text>
     </Stack>
   );
 }
@@ -366,6 +412,7 @@ function VersionsTimeline() {
 }
 
 const time = (seconds: number) => seconds % 60 === 0 ? `${seconds / 60} min` : seconds > 60 ? `${Math.floor(seconds / 60)} min ${seconds % 60} s` : `${seconds} s`;
+const timeTextOf = time;
 
 /**
  * How long functions may run: the project's default, and each function's own time over what its code says, up to the
@@ -375,7 +422,7 @@ function SettingsTab() {
   const qc = useQueryClient();
   const page = useQuery({ queryKey: ["functions"], queryFn: api.functions });
   const saved = useQuery({ queryKey: ["data-settings", "functions"], queryFn: () => api.dataSettings<FunctionsSettings>("functions") });
-  const [draft, setDraft] = useState<number | null>(null);
+  const [draft, setDraft] = useState<{ time?: number; memory?: number; most?: number }>({});
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -385,12 +432,14 @@ function SettingsTab() {
   const max = page.data?.maxTimeoutSeconds ?? 540;
   const own = Object.entries(s.timeouts);
   const save = async () => {
-    if (draft === null) return;
     setError(null);
     setBusy(true);
     try {
-      await api.saveDataSettings("functions", { ...s, defaultTimeoutSeconds: draft }, reason.trim(), saved.data.version?.number ?? 0);
-      setDraft(null);
+      await api.saveDataSettings("functions", {
+        ...s, defaultTimeoutSeconds: draft.time ?? s.defaultTimeoutSeconds, defaultMemoryMb: draft.memory ?? s.defaultMemoryMb ?? 256,
+        defaultMaxInstances: draft.most ?? s.defaultMaxInstances ?? 10,
+      }, reason.trim(), saved.data.version?.number ?? 0);
+      setDraft({});
       setReason("");
       for (const key of ["data-settings", "functions"]) await qc.invalidateQueries({ queryKey: [key] });
     } catch (e) { setError(errorWithList(e)); }
@@ -411,17 +460,31 @@ function SettingsTab() {
         </div>
         {!saved.data.editable && <Alert color="gray">{saved.data.whyReadOnly}</Alert>}
         <NumberInput label="Default run time" w={260} min={1} max={max} suffix=" s" disabled={!saved.data.editable}
-          value={draft ?? s.defaultTimeoutSeconds} onChange={(v) => setDraft(typeof v === "number" && v > 0 ? Math.round(v) : 60)} />
+          value={draft.time ?? s.defaultTimeoutSeconds} onChange={(v) => setDraft({ ...draft, time: typeof v === "number" && v > 0 ? Math.round(v) : 60 })} />
+        <div>
+          <Text fw={600}>Instances</Text>
+          <Text size="sm" c="dimmed">
+            A function's instances (workers with its code loaded) unless it sets its own: the memory each may hold, and how
+            many may run at once. This server allows {page.data?.maxMemoryMb ?? 1024} MB and {page.data?.maxConcurrency ?? 16} runs at once at most.
+          </Text>
+        </div>
+        <Group gap="md" align="flex-start">
+          <NumberInput label="Default memory" w={200} min={64} max={page.data?.maxMemoryMb} suffix=" MB" disabled={!saved.data.editable}
+            value={draft.memory ?? s.defaultMemoryMb ?? 256} onChange={(v) => setDraft({ ...draft, memory: typeof v === "number" && v > 0 ? Math.round(v) : 256 })} />
+          <NumberInput label="Default most at once" w={200} min={1} max={page.data?.maxConcurrency} disabled={!saved.data.editable}
+            value={draft.most ?? s.defaultMaxInstances ?? 10} onChange={(v) => setDraft({ ...draft, most: typeof v === "number" && v > 0 ? Math.round(v) : 10 })} />
+        </Group>
         {own.length > 0 && (
           <Text size="sm" c="dimmed" data-testid="own-times">
             With their own time: {own.map(([n, t], i) => <span key={n}>{i > 0 && ", "}<Code>{n}</Code> {time(t)}</span>)}
           </Text>
         )}
-        {draft !== null && draft !== s.defaultTimeoutSeconds && (
+        {((draft.time !== undefined && draft.time !== s.defaultTimeoutSeconds) || (draft.memory !== undefined && draft.memory !== (s.defaultMemoryMb ?? 256))
+          || (draft.most !== undefined && draft.most !== (s.defaultMaxInstances ?? 10))) && (
           <Group align="flex-end">
             <TextInput label="Reason for the change" style={{ flex: "1 1 300px" }} value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
             <Button loading={busy} disabled={!reason.trim()} onClick={save}>Save</Button>
-            <Button variant="default" onClick={() => { setDraft(null); setReason(""); }}>Cancel</Button>
+            <Button variant="default" onClick={() => { setDraft({}); setReason(""); }}>Cancel</Button>
           </Group>
         )}
         {error && <Alert color="red" style={{ whiteSpace: "pre-wrap" }}>{error}</Alert>}

@@ -136,11 +136,11 @@ test("a function's own run time is set in its dialog; the Settings tab keeps the
   const dialog = await screen.findByRole("dialog");
   await userEvent.click(within(dialog).getByRole("tab", { name: "Settings" }));
   expect(await within(dialog).findByText(/In force:/)).toHaveTextContent("8 min (its code's)");
-  await userEvent.type(within(dialog).getByLabelText("Its own run time"), "1500");
+  await userEvent.type(within(dialog).getByLabelText("Run time"), "1500");
   expect(within(dialog).getByText(/In force:/)).toHaveTextContent("25 min");
   await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Longer backfill");
   await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("functions", { defaultTimeoutSeconds: 60, timeouts: { backfill: 1500 } }, "Longer backfill", 0));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("functions", { defaultTimeoutSeconds: 60, timeouts: { backfill: 1500 }, limits: {} }, "Longer backfill", 0));
 
   await userEvent.keyboard("{Escape}");
   await userEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -150,5 +150,34 @@ test("a function's own run time is set in its dialog; the Settings tab keeps the
   await userEvent.type(input, "120");
   await userEvent.type(screen.getByLabelText("Reason for the change"), "Slower API");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenLastCalledWith("functions", { defaultTimeoutSeconds: 120, timeouts: {} }, "Slower API", 0));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenLastCalledWith("functions", { defaultTimeoutSeconds: 120, timeouts: {}, defaultMemoryMb: 256, defaultMaxInstances: 10 }, "Slower API", 0));
+});
+
+test("a function's instances: memory, how many, its own process, over its code's, with where each comes from", async () => {
+  mock(api.functions).mockResolvedValue(page({ maxTimeoutSeconds: 540, maxMemoryMb: 1024, maxConcurrency: 16, current: { ...v1, functions: [
+    { ...v1.functions[0], name: "report", timeoutSeconds: 60, codeTimeoutSeconds: null,
+      limits: { memoryMb: 768, minInstances: 1, maxInstances: 3, reservedInstances: 0, isolate: true,
+        from: { memoryMb: "code", minInstances: "default", maxInstances: "code", reservedInstances: "default", isolate: "code" } },
+      codeLimits: { memoryMb: 768, maxInstances: 3, isolate: true } },
+  ] } }));
+  mock(api.dataSettings).mockResolvedValue({ settings: { defaultTimeoutSeconds: 60, timeouts: {}, limits: { other: { memoryMb: 128 } } },
+    codeDefault: { defaultTimeoutSeconds: 60, timeouts: {} }, source: "code", version: { number: 4 }, editable: true, whyReadOnly: null });
+  mock(api.saveDataSettings).mockResolvedValue({ number: 5 });
+  renderPage();
+  await userEvent.click((await screen.findAllByTestId("function"))[0]);
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Settings" }));
+  const memory = await within(dialog).findByLabelText("Memory");
+  expect(memory).toHaveAttribute("placeholder", "768 MB (its code)");
+  expect(within(dialog).getByLabelText("Kept loaded")).toHaveAttribute("placeholder", "1 (the default)");
+  await userEvent.type(memory, "512");
+  await userEvent.type(within(dialog).getByLabelText("Reserved"), "2");
+  await userEvent.click(within(dialog).getByRole("textbox", { name: "Process" }));
+  await userEvent.click(await screen.findByRole("option", { name: "The shared process" }));
+  await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Smaller, shared");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("functions", {
+    defaultTimeoutSeconds: 60, timeouts: {},
+    limits: { other: { memoryMb: 128 }, report: { memoryMb: 512, reservedInstances: 2, isolate: false } },
+  }, "Smaller, shared", 4));
 });

@@ -6,7 +6,12 @@ export type DataArea = "database" | "database.live" | "storage" | "functions" | 
 export interface AssetLimits { maxFilesPerRelease: number; maxFileBytes: number; keepReleases: number }
 
 /** Functions → Settings: the project's default run time and each function's own, in seconds. */
-export interface FunctionsSettings { defaultTimeoutSeconds: number; timeouts: Record<string, number> }
+export interface FunctionsSettings {
+  defaultTimeoutSeconds: number; timeouts: Record<string, number>;
+  defaultMemoryMb?: number; defaultMaxInstances?: number;
+  /** Each function's own limits, over its code's (only what's set). */
+  limits?: Record<string, Partial<{ memoryMb: number; minInstances: number; maxInstances: number; reservedInstances: number; isolate: boolean }>>;
+}
 
 export interface LiveConnectionSettings {
   maxConnectionsPerUser: number; maxSubscriptionsPerConnection: number; requestsPerSecond: number; requestBurst: number; maxMessageKb: number;

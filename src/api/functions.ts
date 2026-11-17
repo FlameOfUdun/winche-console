@@ -12,7 +12,14 @@ export interface FunctionInfo {
   output?: unknown;
   /** The input to start a run from: its example, or one made from its input schema. */
   example?: unknown;
+  /** Its instances' limits in force, and where each comes from ("setting", "code", "default"); null for before-functions. */
+  limits?: (FunctionLimits & { from: Record<string, string> }) | null;
+  /** What its code says about them (null where it doesn't). */
+  codeLimits?: Partial<Record<keyof FunctionLimits, number | boolean | null>>;
 }
+
+/** How a function's instances may run: memory per instance (MB), how many kept loaded, at most at once, reserved; its own process. */
+export interface FunctionLimits { memoryMb: number; minInstances: number; maxInstances: number; reservedInstances: number; isolate: boolean }
 
 /** A function secret: never its value. */
 export interface FunctionSecret {
@@ -32,6 +39,9 @@ export interface FunctionsPageData {
   runtimeProblem: string | null;
   /** The server's longest run for a function, in seconds. */
   maxTimeoutSeconds?: number;
+  /** The most memory a function may ask for (MB), and the most runs at once on the server. */
+  maxMemoryMb?: number;
+  maxConcurrency?: number;
 }
 
 export interface FunctionRun {
