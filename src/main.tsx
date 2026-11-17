@@ -14,9 +14,10 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { SessionProvider } from "./auth/session";
 import { wincheTheme } from "./theme";
+import { routerBase } from "./api/scope";
 
 const queryClient = new QueryClient();
-const basename = new URL(document.baseURI).pathname.replace(/\/$/, "");
+const basename = routerBase();   // a project's pages (/console/projects/<id>) or the console's (/console)
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

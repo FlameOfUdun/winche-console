@@ -101,7 +101,7 @@ export interface RulesSyntaxError {
   offset: number;
 }
 
-/** `api/rules/text/parse`: the rules file as rulesJson, or where it's wrong. */
+/** `rules/text/parse`: the rules file as rulesJson, or where it's wrong. */
 export interface ParseRulesTextResult {
   ok: boolean;
   rulesJson: string | null;

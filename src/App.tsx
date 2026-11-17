@@ -24,6 +24,7 @@ import { ProductGate } from "./pages/onboarding/ProductGate";
 import type { ProductId } from "./api/project";
 import { AssetsPage } from "./pages/assets/AssetsPage";
 import { RequireProject } from "./pages/onboarding/RequireProject";
+import { currentProject } from "./api/scope";
 
 export function App() {
   return (
@@ -37,8 +38,7 @@ export function App() {
 }
 
 function GatedApp() {
-  const { state } = useSession();
-  return state?.server ? <ServerConsole /> : <ProjectConsole />;
+  return currentProject() ? <ProjectConsole /> : <ServerConsole />;
 }
 
 /** The server's own console: its projects (everyone signed in), and its settings (server admins). */
@@ -65,7 +65,7 @@ function ToServer({ path }: { path: string }) {
   return null;
 }
 
-/** A project's console (at /p/<id>/…). */
+/** A project's pages (at /console/projects/<id>/…). */
 function ProjectConsole() {
   const { state, user } = useSession();
   const home = homePath(state, user) ?? "/settings/general";

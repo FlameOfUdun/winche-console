@@ -113,7 +113,7 @@ const serverPage = {
     consolePasswordsOnlyForAdmins: false,
     consoleEmail: { host: null, port: 587, security: "startTls", username: null, fromAddress: "", fromName: null } },
   deployment: {}, source: "deployment", version: null, secrets: [],
-  consoleSignIn: { callbackUrl: "https://w.example.com/_console/api/auth/oidc/callback", logoutUrl: "https://w.example.com/_console/api/auth/oidc/backchannel-logout" },
+  consoleSignIn: { callbackUrl: "https://w.example.com/_console/session/oidc/callback", logoutUrl: "https://w.example.com/_console/session/oidc/backchannel-logout" },
 };
 
 test("after two-step sign-in: the team's identity provider, optional, saved with its secret", async () => {
@@ -124,8 +124,8 @@ test("after two-step sign-in: the team's identity provider, optional, saved with
   renderIt(<Onboarding mode="first-run" />);
 
   expect(await screen.findByText("Add your company sign-in?")).toBeInTheDocument();
-  expect(await screen.findByText("https://w.example.com/_console/api/auth/oidc/callback")).toBeInTheDocument();
-  expect(screen.getByText("https://w.example.com/_console/api/auth/oidc/backchannel-logout")).toBeInTheDocument();
+  expect(await screen.findByText("https://w.example.com/_console/session/oidc/callback")).toBeInTheDocument();
+  expect(screen.getByText("https://w.example.com/_console/session/oidc/backchannel-logout")).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText("Issuer"), "https://login.example.com/realms/staff");
   await userEvent.type(screen.getByLabelText("Client ID"), "winche-console");
   await userEvent.type(screen.getByLabelText("Button"), "Sign in with Staff ID");

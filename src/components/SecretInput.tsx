@@ -19,7 +19,7 @@ export function sourceTitle(reference: string, sources: { name: string; title: s
 /**
  * A secret to type in: its value (a password field), or, where the app can read secrets from elsewhere (AWS Secrets
  * Manager, Parameter Store), a reference to it, with a Test that reads it now and says whether it works (never the
- * value). Holds either in one string (see api/secrets): forms keep it like a password.
+ * value). Holds either in one string (see secrets): forms keep it like a password.
  */
 export function SecretInput({ label, description, value, onChange, disabled, placeholder, savedReference, autoComplete = "new-password", style }: {
   label: string; description?: React.ReactNode; value: string; onChange: (v: string) => void; disabled?: boolean; placeholder?: string;

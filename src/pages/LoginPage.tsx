@@ -21,7 +21,7 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(!oidc?.passwordsOnlyForAdmins);
   const viaProvider = (id: string) => {
     const here = new URL(document.baseURI).pathname;
-    window.location.href = new URL(`api/auth/oidc/start?provider=${encodeURIComponent(id)}&returnUrl=${encodeURIComponent(here)}`, document.baseURI).toString();
+    window.location.href = new URL(`/console/v1/session/oidc/start?provider=${encodeURIComponent(id)}&returnUrl=${encodeURIComponent(here)}`, document.baseURI).toString();
   };
 
   const submitPassword = async () => {

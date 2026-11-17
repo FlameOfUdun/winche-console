@@ -35,7 +35,7 @@ test("several providers: a button each, starting that provider's sign-in", async
   renderWith({ providers: [{ id: "staff", label: "Sign in with Staff ID" }, { id: "partner", label: "Sign in with Partner ID" }], passwordsOnlyForAdmins: false });
   expect(screen.getByLabelText("Email")).toBeInTheDocument();   // passwords for everyone
   await userEvent.click(screen.getByRole("button", { name: "Sign in with Partner ID" }));
-  expect(assign.href).toContain("api/auth/oidc/start?provider=partner&returnUrl=");
+  expect(assign.href).toContain("session/oidc/start?provider=partner&returnUrl=");
 });
 
 test("back from a provider for the account's two-step: the code is asked for at once", () => {
