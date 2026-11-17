@@ -160,8 +160,16 @@ function Instances({ name }: { name: string }) {
   const d = q.data;
   const l = d.limits;
   const count = (state: string) => d.instances.filter((i) => i.state === state).length;
+  const others = d.otherServers ?? [];
   return (
     <Stack gap="md">
+      {others.length > 0 && (
+        <Alert color="blue" data-testid="other-servers">
+          This is server {d.server}'s view. {others.length === 1 ? "1 other server runs" : `${others.length} other servers run`} this
+          project ({others.join(", ")}), each with its own instances: they aren't counted here. Limits apply on each server;
+          replacements on any of them are in the server logs.
+        </Alert>
+      )}
       <Group gap="xl" data-testid="instances-summary">
         <div><Text size="xs" c="dimmed">Busy</Text><Text fw={600}>{count("busy")}{l && <Text span c="dimmed" fw={400}> of {l.maxInstances} at most</Text>}</Text></div>
         <div><Text size="xs" c="dimmed">Idle</Text><Text fw={600}>{count("idle") + count("loading")}{l && l.minInstances > 0 && <Text span c="dimmed" fw={400}> ({l.minInstances} kept loaded)</Text>}</Text></div>
@@ -215,7 +223,7 @@ function Instances({ name }: { name: string }) {
             </Stack>
           )}
       </div>
-      <Text size="xs" c="dimmed">On server {d.server}; with several servers, each has its own instances. Updated every few seconds.</Text>
+      <Text size="xs" c="dimmed">On server {d.server}. Updated every few seconds.</Text>
     </Stack>
   );
 }

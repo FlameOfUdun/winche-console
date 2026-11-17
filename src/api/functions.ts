@@ -21,6 +21,8 @@ export interface FunctionInfo {
 /** A function's instances on the server that answered, its process, and what happened to them lately. */
 export interface FunctionInstancesData {
   server: string;
+  /** Other servers running the project now: their instances aren't in this view. */
+  otherServers?: string[];
   limits: FunctionLimits | null;
   process: { own: boolean; running: boolean; pid: number | null; heapMb: number; startedAt: string | null; restarts: number } | null;
   /** It asks for a process of its own but runs in the shared one (the memory budget or the process count). */
