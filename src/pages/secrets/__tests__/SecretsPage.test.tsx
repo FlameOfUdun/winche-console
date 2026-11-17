@@ -50,7 +50,7 @@ test("the products' secrets are listed with where each is changed; never values"
   renderPage();
   const rows = await screen.findAllByTestId("kept-secret");
   expect(rows[0]).toHaveTextContent("SMTP password");
-  expect(rows[0]).toHaveTextContent("Value");
+  expect(rows[0]).toHaveTextContent("Encrypted");
   expect(within(rows[0]).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/authentication/settings");
   expect(rows[1]).toHaveTextContent("From aws-ssm");
   expect(rows[0]).toHaveTextContent("Authentication");
@@ -59,7 +59,8 @@ test("the products' secrets are listed with where each is changed; never values"
 test("without functions there are no secrets of its own to list", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
   renderPage();
-  expect(await screen.findByText("No secrets yet")).toBeInTheDocument();
+  expect(await screen.findByText("Kept by the products")).toBeInTheDocument();
+  expect(screen.queryByText("Read by functions")).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Add a secret" })).not.toBeInTheDocument();
 });
 
@@ -75,7 +76,7 @@ test("secrets: listed without values, added and set in a dialog, and removed", a
   const rows = await screen.findAllByTestId("function-secret");
   expect(rows[0]).toHaveTextContent("Not set");
   expect(rows[0]).toHaveTextContent("sendReport");
-  expect(rows[1]).toHaveTextContent("no function declares it");
+  expect(rows[1]).toHaveTextContent("No function declares it");
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
   let dialog = await screen.findByRole("dialog");

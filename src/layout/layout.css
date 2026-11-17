@@ -109,3 +109,8 @@
 /* A product's status on a project card: green when started. */
 .winche-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--w-border); flex-shrink: 0; }
 .winche-dot[data-on] { background: #17B26A; }
+
+/* Rows inside one card (Secrets): a line between them, none above the first. */
+.winche-secret-rows > .winche-secret-row:first-child { border-top: 0 !important; }
+.winche-secret-row { transition: background 120ms; }
+.winche-secret-row:hover { background: var(--w-hover); }

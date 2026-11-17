@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Alert, Badge, Button, Code, Group, Loader, Menu, Modal, Paper, Stack, Table, Text, TextInput, Tooltip, ActionIcon } from "@mantine/core";
-import { IconDots, IconKey } from "@tabler/icons-react";
+import { ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Menu, Modal, Paper, Stack, Text, TextInput, ThemeIcon, Tooltip } from "@mantine/core";
+import { IconArrowRight, IconCloudLock, IconDots, IconFolder, IconKey, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
-import { secretTyped, type KeptSecret } from "../../api/secrets";
+import { secretTyped } from "../../api/secrets";
 import type { FunctionSecret } from "../../api/functions";
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
@@ -15,9 +15,6 @@ import { SecretInput, sourceTitle, useSecretSources } from "../../components/Sec
 import { SourceKeyDialog } from "./SecretSources";
 
 const SECRET_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
-
-/** One row: a function secret (managed here) or one a product keeps (changed where it's used). */
-type Row = { kind: "function"; s: FunctionSecret } | { kind: "kept"; s: KeptSecret };
 
 /**
  * Secrets: every API key and password of the project in one table — the ones functions read (added, replaced, tested
@@ -51,81 +48,60 @@ export function SecretsPage() {
 
   const loading = (functions && fn.isLoading) || kept.isLoading;
   const failed = (functions && fn.isError) || kept.isError;
-  const rows: Row[] = [
-    ...(fn.data?.secrets ?? []).map((s) => ({ kind: "function" as const, s })),
-    ...(kept.data?.secrets ?? []).map((s) => ({ kind: "kept" as const, s })),
-  ];
+  const own = fn.data?.secrets ?? [];
+  const products = kept.data?.secrets ?? [];
   const available = (functions ? fn.data?.available : kept.data?.available) ?? true;
 
   return (
     <>
-      <PageBand title="Secrets" description="API keys and passwords: kept here encrypted and never shown again, or read from AWS by reference."
-        actions={<>
-          {key && (
-            <Button variant="default" leftSection={<IconKey size={15} />} onClick={() => setKeyOpen(true)} data-testid="aws-key-button"
-              rightSection={<Badge size="xs" variant="light" color={key.isSet ? "teal" : "gray"} tt="none">{key.isSet ? "set" : "not set"}</Badge>}>
-              {key.title}
-            </Button>
-          )}
-          {functions && <Button onClick={() => setEditing("new")} disabled={!available}>Add a secret</Button>}
-        </>} />
-      <Stack gap="sm" pb={28}>
+      <PageBand title="Secrets" description="API keys and passwords, encrypted here and never shown again, or read from AWS."
+        actions={functions && <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing("new")} disabled={!available}>Add a secret</Button>} />
+      <Stack gap="xl" pb={28}>
         {!available && <Alert color="yellow">Secrets need the server's master key.</Alert>}
         {error && <Alert color="red">{error}</Alert>}
-        {loading ? <Loader size="sm" /> : failed ? <Alert color="red">Couldn't load the secrets: {errorMessage(fn.error ?? kept.error)}</Alert>
-          : rows.length === 0 ? (
-            <EmptyState icon={IconKey} title="No secrets yet"
-              description={functions ? "Add the API keys and passwords your functions read with ctx.secrets.get(\"NAME\")." : "The products' passwords and keys appear here once they're set."} />
-          ) : (
-            <Paper withBorder radius="md" style={{ overflowX: "auto" }}>
-              <Table fz="sm" verticalSpacing={10} horizontalSpacing="md" miw={720} highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr><Table.Th>Secret</Table.Th><Table.Th>Used by</Table.Th><Table.Th>Kept as</Table.Th><Table.Th>Updated</Table.Th><Table.Th w={1} /></Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {rows.map((r) => r.kind === "function" ? (
-                    <Table.Tr key={r.s.name} data-testid="function-secret">
-                      <Table.Td>
-                        <Text ff="monospace" fw={600} size="sm">{r.s.name}</Text>
-                        {tested?.name === r.s.name && <Text size="xs" c={tested.ok ? "teal" : "red"}>{tested.ok ? "Read just now: it works." : tested.problem}</Text>}
-                      </Table.Td>
-                      <Table.Td><Text size="sm" c={r.s.usedBy.length ? undefined : "dimmed"} lineClamp={2}>{r.s.usedBy.length ? r.s.usedBy.join(", ") : "no function declares it"}</Text></Table.Td>
-                      <Table.Td><Kept s={r.s} isSet={r.s.isSet} /></Table.Td>
-                      <Table.Td><Text size="xs" c="dimmed">{r.s.isSet ? `${when(r.s.setAt!)}${r.s.setBy ? ` · ${r.s.setBy}` : ""}` : "—"}</Text></Table.Td>
-                      <Table.Td>
-                        <Group gap={4} wrap="nowrap" justify="flex-end">
-                          <Button size="xs" variant="default" onClick={() => setEditing(r.s)}>{r.s.isSet ? "Replace" : "Set"}</Button>
-                          {r.s.isSet && (
-                            <Menu position="bottom-end" withinPortal>
-                              <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`More for ${r.s.name}`}><IconDots size={16} /></ActionIcon></Menu.Target>
-                              <Menu.Dropdown>
-                                {r.s.reference && <Menu.Item onClick={() => test(r.s.name)}>Test</Menu.Item>}
-                                <Menu.Item color="red" onClick={() => remove(r.s.name)}>Remove</Menu.Item>
-                              </Menu.Dropdown>
-                            </Menu>
-                          )}
-                        </Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ) : (
-                    <Table.Tr key={r.s.name} data-testid="kept-secret">
-                      <Table.Td><Text size="sm" fw={500}>{r.s.title}</Text></Table.Td>
-                      <Table.Td><Text size="sm">{r.s.product}</Text></Table.Td>
-                      <Table.Td><Kept s={r.s} isSet /></Table.Td>
-                      <Table.Td><Text size="xs" c="dimmed">{when(r.s.setAt)}{r.s.setBy ? ` · ${r.s.setBy}` : ""}</Text></Table.Td>
-                      <Table.Td>
-                        <Group justify="flex-end">{r.s.link && <Button size="xs" variant="default" component={Link} to={r.s.link}>Open</Button>}</Group>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Paper>
-          )}
-        {functions && (
-          <Text size="xs" c="dimmed">
-            Functions read theirs with <Code>ctx.secrets.get("NAME")</Code>, declaring them in <Code>{'{ secrets: ["NAME"] }'}</Code>. The products' own are
-            changed where they're used: Open takes you there.
+        {loading ? <Loader size="sm" /> : failed ? <Alert color="red">Couldn't load the secrets: {errorMessage(fn.error ?? kept.error)}</Alert> : (
+          <>
+            {functions && (
+              <SecretGroup title="Read by functions" count={own.length}
+                hint={<>Read with <Code>ctx.secrets.get("NAME")</Code> by the functions that declare them.</>}>
+                {own.length === 0 ? (
+                  <EmptyState icon={IconKey} title="No secrets yet" description="Add the API keys and passwords your functions read." />
+                ) : own.map((s) => (
+                  <SecretRow key={s.name} testId="function-secret" icon={s.reference ? IconCloudLock : IconKey} name={s.name} mono
+                    meta={[s.usedBy.length ? `Used by ${s.usedBy.join(", ")}` : "No function declares it", s.isSet ? updated(s.setAt!, s.setBy) : null]}
+                    status={<Kept s={s} isSet={s.isSet} />}
+                    note={tested?.name === s.name ? <Text size="xs" c={tested.ok ? "teal" : "red"}>{tested.ok ? "Read just now: it works." : tested.problem}</Text> : null}
+                    actions={<>
+                      <Button size="xs" variant={s.isSet ? "default" : "filled"} onClick={() => setEditing(s)}>{s.isSet ? "Replace" : "Set"}</Button>
+                      {s.isSet && (
+                        <Menu position="bottom-end" withinPortal>
+                          <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`More for ${s.name}`}><IconDots size={16} /></ActionIcon></Menu.Target>
+                          <Menu.Dropdown>
+                            {s.reference && <Menu.Item onClick={() => test(s.name)}>Test</Menu.Item>}
+                            <Menu.Item color="red" onClick={() => remove(s.name)}>Remove</Menu.Item>
+                          </Menu.Dropdown>
+                        </Menu>
+                      )}
+                    </>} />
+                ))}
+              </SecretGroup>
+            )}
+            <SecretGroup title="Kept by the products" count={products.length} hint="Each is changed where it's used: Open takes you there.">
+              {products.length === 0 ? (
+                <Text size="sm" c="dimmed" p="md">None set: the SMTP password, a sign-in provider's sync secret and a bucket's key appear here once set.</Text>
+              ) : products.map((s) => (
+                <SecretRow key={s.name} testId="kept-secret" icon={PRODUCT_ICON[s.product] ?? IconKey} name={s.title}
+                  meta={[s.product, updated(s.setAt, s.setBy)]} status={<Kept s={s} isSet />}
+                  actions={s.link && <Button size="xs" variant="subtle" component={Link} to={s.link} rightSection={<IconArrowRight size={14} />}>Open</Button>} />
+              ))}
+            </SecretGroup>
+          </>
+        )}
+        {key && (
+          <Text size="sm" c="dimmed" data-testid="aws-key-line">
+            <IconCloudLock size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+            Optional: {key.isSet ? <>the project's own {key.title} reads its AWS references ({when(key.setAt!)}). </> : <>an {key.title} of the project's own, to read secrets from AWS{sources.data?.appCredentials ? " (else the server's own credentials are used)" : ""}. </>}
+            <Anchor component="button" size="sm" onClick={() => setKeyOpen(true)} data-testid="aws-key-button">{key.isSet ? "Change" : "Add one"}</Anchor>
           </Text>
         )}
       </Stack>
@@ -137,12 +113,53 @@ export function SecretsPage() {
   );
 }
 
-/** "Value" (kept here), "AWS Parameter Store" (a reference: hover for it), or "Not set". */
+const PRODUCT_ICON: Record<string, React.ElementType> = { Authentication: IconUsers, Storage: IconFolder, Assets: IconPackage, Webhooks: IconWebhook };
+
+const updated = (at: string, by: string | null) => `Updated ${when(at)}${by ? ` by ${by}` : ""}`;
+
+/** A titled group of secrets: a heading with a count and a line, then its rows in one card. */
+function SecretGroup({ title, count, hint, children }: { title: string; count: number; hint: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <Stack gap={8}>
+      <div>
+        <Group gap={8}><Text fw={600}>{title}</Text>{count > 0 && <Badge size="sm" variant="light" color="gray" circle={count < 10}>{count}</Badge>}</Group>
+        <Text size="sm" c="dimmed">{hint}</Text>
+      </div>
+      <Paper withBorder radius="md" className="winche-secret-rows">{children}</Paper>
+    </Stack>
+  );
+}
+
+/** One secret: an icon, its name and a muted line, then where it's kept and what can be done. */
+function SecretRow({ icon: Icon, name, mono, meta, status, actions, note, testId }: {
+  icon: React.ElementType; name: string; mono?: boolean; meta: (string | null)[]; status: React.ReactNode; actions?: React.ReactNode;
+  note?: React.ReactNode; testId: string;
+}) {
+  return (
+    <Group data-testid={testId} justify="space-between" wrap="nowrap" gap="md" px="md" py={12}
+      style={{ borderTop: "1px solid var(--w-border)" }} className="winche-secret-row">
+      <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
+        <ThemeIcon variant="light" color="gray" size={36} radius="md" style={{ flexShrink: 0 }}><Icon size={18} /></ThemeIcon>
+        <div style={{ minWidth: 0 }}>
+          <Text fw={600} size="sm" ff={mono ? "monospace" : undefined} truncate>{name}</Text>
+          <Text size="xs" c="dimmed" lineClamp={1}>{meta.filter(Boolean).join(" · ")}</Text>
+          {note}
+        </div>
+      </Group>
+      <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+        {status}
+        {actions}
+      </Group>
+    </Group>
+  );
+}
+
+/** Where it's kept: "Encrypted" (a value here), "From AWS Parameter Store" (hover: the reference), or "Not set". */
 function Kept({ s, isSet }: { s: { reference?: string | null }; isSet: boolean }) {
   const sources = useSecretSources();
   if (!isSet) return <Badge color="red" variant="light" tt="none">Not set</Badge>;
   if (s.reference) return <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">From {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>;
-  return <Badge color="gray" variant="light" tt="none">Value</Badge>;
+  return <Badge color="gray" variant="light" tt="none">Encrypted</Badge>;
 }
 
 /** Adding a secret (its name and value), or setting or replacing one (its value): a value, or where it's read from. */
