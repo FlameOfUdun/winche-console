@@ -2,7 +2,7 @@ import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserIt
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { ConsolePageEntry, FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
-import { secretBody, type SecretSources, type SecretTest } from "./secrets";
+import { secretBody, type KeptSecret, type SecretSources, type SecretTest } from "./secrets";
 
 /** A bucket's secret key as typed: { secretKey } or { secretKeyReference }. */
 const keyBody = (typed: string | null) => { const b = secretBody(typed); return { secretKey: b.value ?? null, secretKeyReference: b.reference ?? null }; };
@@ -250,6 +250,7 @@ export const api = {
   setFunctionSecret: (name: string, value: string) => http<void>("PUT", `api/functions/secrets/${encodeURIComponent(name)}`, secretBody(value)),
   testFunctionSecret: (name: string) => http<SecretTest>("POST", `api/functions/secrets/${encodeURIComponent(name)}/test`),
   secretSources: () => http<SecretSources>("GET", "api/secrets/sources"),
+  keptSecrets: () => http<{ available: boolean; secrets: KeptSecret[] }>("GET", "api/secrets"),
   testSecretReference: (reference: string) => http<SecretTest>("POST", "api/secrets/test", { reference }),
   setSourceKey: (name: string, values: Record<string, string>) => http<void>("PUT", `api/secrets/keys/${encodeURIComponent(name)}`, { values }),
   removeSourceKey: (name: string) => http<void>("DELETE", `api/secrets/keys/${encodeURIComponent(name)}`),

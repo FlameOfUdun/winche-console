@@ -14,8 +14,7 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
-      functionSecrets: vi.fn(), setFunctionSecret: vi.fn(), removeFunctionSecret: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(),
-      secretSources: vi.fn(), testSecretReference: vi.fn(), testFunctionSecret: vi.fn(),
+      dataSettings: vi.fn(), saveDataSettings: vi.fn(),
     },
   };
 });
@@ -117,67 +116,6 @@ test("versions: a timeline of what each deploy changed; rolling back asks in a d
   await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "Undo");
   await userEvent.click(within(dialog).getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, "Undo"));
-});
-
-test("secrets: listed without values, added and set in a dialog, and removed", async () => {
-  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
-    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
-    { name: "OLD_TOKEN", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [] },
-  ] });
-  mock(api.setFunctionSecret).mockResolvedValue(undefined);
-  mock(api.removeFunctionSecret).mockResolvedValue(undefined);
-  vi.spyOn(window, "confirm").mockReturnValue(true);
-  renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Secrets" }));
-  const rows = await screen.findAllByTestId("function-secret");
-  expect(rows[0]).toHaveTextContent("Not set");
-  expect(rows[0]).toHaveTextContent("used by sendReport");
-  expect(rows[1]).toHaveTextContent("no function declares it");
-
-  await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
-  let dialog = await screen.findByRole("dialog");
-  await userEvent.type(within(dialog).getByLabelText("New value of MAIL_KEY"), "k-123");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "k-123"));
-
-  await userEvent.click(within(rows[1]).getByRole("button", { name: "Remove" }));
-  await waitFor(() => expect(mock(api.removeFunctionSecret)).toHaveBeenCalledWith("OLD_TOKEN"));
-
-  await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
-  dialog = await screen.findByRole("dialog");
-  await userEvent.type(within(dialog).getByLabelText("Name"), "bad-name");
-  expect(within(dialog).getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
-  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
-});
-
-test("secrets: a reference to AWS instead of a value, tried before saving, and shown as where it's read from", async () => {
-  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [
-    { name: "aws-sm", title: "AWS Secrets Manager", hint: "a secret's ARN or its name", key: "secrets.source.aws" },
-    { name: "aws-ssm", title: "AWS Parameter Store", hint: "a parameter's name", key: "secrets.source.aws" },
-  ] });
-  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
-    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
-    { name: "SES_SECRET", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [], reference: "aws-ssm:/app/ses" },
-  ] });
-  mock(api.testSecretReference).mockResolvedValue({ ok: false, problem: "AWS Parameter Store has nothing at /app/mail.", code: "not-found" });
-  mock(api.testFunctionSecret).mockResolvedValue({ ok: true, problem: null, code: null });
-  mock(api.setFunctionSecret).mockResolvedValue(undefined);
-  renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Secrets" }));
-  const rows = await screen.findAllByTestId("function-secret");
-  expect(rows[1]).toHaveTextContent("From AWS Parameter Store");
-  await userEvent.click(within(rows[1]).getByRole("button", { name: "Test" }));
-  expect(await within(rows[1]).findByText("Read just now: it works.")).toBeInTheDocument();
-
-  await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
-  const dialog = await screen.findByRole("dialog");
-  await userEvent.click(await within(dialog).findByText("Reference"));
-  await userEvent.type(within(dialog).getByLabelText("New value of MAIL_KEY (reference)"), "aws-ssm:/app/mail");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Test" }));
-  expect(await within(dialog).findByText("AWS Parameter Store has nothing at /app/mail.")).toBeInTheDocument();
-  expect(mock(api.testSecretReference)).toHaveBeenCalledWith("aws-ssm:/app/mail");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "\u0000ref:aws-ssm:/app/mail"));
 });
 
 test("a function's own run time is set in its dialog; the Settings tab keeps the default", async () => {

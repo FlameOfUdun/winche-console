@@ -1,6 +1,6 @@
 import type { AuthState, SessionUser } from "../api/types";
 
-export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "assets" | "settings" | "page";
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "assets" | "settings" | "page" | "key";
 
 /** One of a product's pages (Database → Rules), under it in the sidebar. */
 export interface NavPage { to: string; label: string }
@@ -61,6 +61,8 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
   if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Releases") });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
+  // The project's API keys and passwords: its own, the products', and where they can be read from (admins).
+  if (admin) out.push({ to: "/secrets", label: "Secrets", icon: "key", group: "build", pages: [] });
   for (const p of facts.consolePages ?? []) out.push({ to: `/pages/${p.name}`, label: p.title, icon: "page", tablerIcon: p.icon, group: "pages", pages: [] });
   if (c?.logs?.app) {
     out.push({ to: "/logs", label: "Logs", icon: "logs", group: "monitor", pages: [
@@ -70,7 +72,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   out.push({
     to: "/settings", label: "Project settings", icon: "settings", group: "bottom", pages: [
       { to: "/settings/general", label: "General" },
-      ...(admin ? [{ to: "/settings/members", label: "Members" }, { to: "/settings/secrets", label: "Secrets" }, { to: "/settings/ci", label: "CI tokens" }] : []),
+      ...(admin ? [{ to: "/settings/members", label: "Members" }, { to: "/settings/ci", label: "CI tokens" }] : []),
       ...(user?.serverAdmin ? [{ to: "/settings/data", label: "Data" }] : []),
     ],
   });

@@ -25,7 +25,7 @@ import logoUrl from "../assets/winche-logo.png";
 
 const ICONS: Record<NavIcon, React.ElementType> = {
   home: IconHome, database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers,
-  hooks: IconWebhook, functions: IconLambda, assets: IconPackage, settings: IconSettings, page: IconFile,
+  hooks: IconWebhook, functions: IconLambda, assets: IconPackage, settings: IconSettings, page: IconFile, key: IconKey,
 };
 
 const TOPBAR = 52;

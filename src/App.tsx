@@ -1,5 +1,6 @@
 import { ServerSettingsPage } from "./pages/server/ServerSettingsPage";
 import { FunctionsPage } from "./pages/functions/FunctionsPage";
+import { SecretsPage } from "./pages/secrets/SecretsPage";
 import { ConsolePageView } from "./pages/functions/ConsolePageView";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthGate } from "./auth/AuthGate";
@@ -88,6 +89,7 @@ function ProjectConsole() {
           <Route path="logs/*" element={caps?.logs?.app ? <LogsPage /> : <Navigate to={home} replace />} />
           <Route path="hooks" element={<Navigate to="/overview" replace />} />
           <Route path="functions" element={gated("functions", caps?.functions, <FunctionsPage />)} />
+          <Route path="secrets" element={user?.role === "Admin" ? <SecretsPage /> : <Navigate to={home} replace />} />
           <Route path="assets/*" element={gated("assets", caps?.assets, <AssetsPage />)} />
           <Route path="pages/:name" element={caps?.consolePages ? <ConsolePageView /> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />

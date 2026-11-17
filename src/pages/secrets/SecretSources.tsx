@@ -10,22 +10,21 @@ import { EmptyState } from "../../components/EmptyState";
 import { useSecretSources } from "../../components/SecretInput";
 
 /**
- * Settings → Secrets: where the project's secrets can be read from besides being kept here (AWS Secrets Manager,
- * Parameter Store), and the project's own key for those places. Any secret field (function secrets, the SMTP password,
- * a sync's client secret) can then be a reference such as aws-ssm:/app/key.
+ * Where the project's secrets can be read from besides being kept here (AWS Secrets Manager, Parameter Store), and the
+ * project's own key for those places. Any secret field can then hold a reference such as aws-ssm:/app/key.
  */
-export function SecretSourcesTab() {
+export function SecretSources() {
   const sources = useSecretSources();
   if (sources.isLoading) return <Loader size="sm" />;
   if (sources.isError || !sources.data) return <Alert color="red">Couldn't load where secrets come from: {errorMessage(sources.error)}</Alert>;
   const { available, appCredentials, sources: list, keys } = sources.data;
   return (
-    <Stack gap="md">
+    <Stack gap="sm">
       <div>
-        <Title order={4}>Secrets</Title>
+        <Title order={4}>Where secrets can be read from</Title>
         <Text size="sm" c="dimmed">
-          Every secret (function secrets, the SMTP password, a sync's client secret) is either a value kept here, encrypted, or a
-          reference to where it's really kept, read when it's needed and kept for a few minutes so rotations are picked up.
+          Instead of a value kept here, any secret can be a reference to where it's really kept: read when it's needed, and again a
+          few minutes later, so rotations are picked up.
         </Text>
       </div>
       {!available && <Alert color="yellow">Secrets need the server's master key.</Alert>}
@@ -36,7 +35,6 @@ export function SecretSourcesTab() {
         <>
           <Paper withBorder p="md">
             <Stack gap={6}>
-              <Text fw={600} size="sm">References</Text>
               {list.map((s) => (
                 <Text key={s.name} size="sm"><Code>{s.name}:</Code> {s.title}: {s.hint}</Text>
               ))}

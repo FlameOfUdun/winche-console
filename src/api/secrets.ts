@@ -5,6 +5,10 @@ export interface SourceKey {
   name: string; title: string; isSet: boolean; setAt: string | null; setBy: string | null; fields: SourceKeyField[]; sources: string[];
 }
 export interface SecretSources { available: boolean; appCredentials: boolean; sources: SecretSource[]; keys: SourceKey[] }
+/** A secret a product keeps (the SMTP password, a bucket's key), as the Secrets page lists it. */
+export interface KeptSecret {
+  name: string; product: string; title: string; link: string | null; setAt: string; setBy: string | null; reference: string | null;
+}
 export interface SecretTest { ok: boolean; problem: string | null; code: string | null }
 
 /**
