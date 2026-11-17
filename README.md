@@ -1,7 +1,7 @@
 # Winche Console
 
-The web app of the Winche console: the screens for projects, authentication, database, storage, functions, logs,
-project settings and server settings. It's a React + Mantine app (TanStack Query for data), built with Vite. It works on
+The web app of the Winche console: the screens for projects, authentication, database, storage, functions, assets,
+secrets, logs, a project's own pages, project settings and server settings. It's a React + Mantine app (TanStack Query for data), built with Vite. It works on
 phones too: the sidebar becomes a menu, and the data browser shows one column at a time.
 
 Its API is Winche Server's (`/_console/api/…`, in the
