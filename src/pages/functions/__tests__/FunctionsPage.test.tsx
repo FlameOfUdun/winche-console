@@ -48,63 +48,78 @@ beforeEach(() => {
   mock(api.functionVersions).mockResolvedValue({ versions: [{ ...v1, version: 2, note: "Second" }, v1] });
 });
 
-test("the page shows what's live and how to deploy from the CLI; there's no editor", async () => {
+test("the page shows what's live as cards; there's no editor and no deploy guide", async () => {
   mock(api.functions).mockResolvedValue(page({ current: null, files: [] }));
   renderPage();
   expect(await screen.findByText("No functions yet")).toBeInTheDocument();
-  expect(screen.getByText(/winche functions deploy/)).toBeInTheDocument();
+  expect(screen.queryByText(/winche functions deploy/)).not.toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /Code of/ })).not.toBeInTheDocument();
-  expect(screen.queryByRole("tab", { name: "VS Code" })).not.toBeInTheDocument();
 });
 
-test("a callable runs from the page with its result and logs", async () => {
+test("a callable opens in a dialog and runs from there with its result and logs", async () => {
   mock(api.runFunction).mockResolvedValue({ ok: true, result: { greeting: "Hello Ann" }, error: null, durationMs: 12, logs: [{ level: "log", message: "Saying hello", at: "" }] });
   renderPage();
-  const fn = (await screen.findAllByTestId("function"))[0];
-  expect(within(fn).getByText("hello")).toBeInTheDocument();
-  await userEvent.click(within(fn).getByRole("button", { name: "Run" }));
-  const data = within(fn).getByLabelText("Data (JSON)");
+  const cards = await screen.findAllByTestId("function");
+  expect(cards[0]).toHaveTextContent("hello");
+  expect(cards[0]).toHaveTextContent("called by apps");
+  await userEvent.click(cards[0]);
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Run" }));
+  const data = within(dialog).getByLabelText("Data (JSON)");
   await userEvent.clear(data);
   await userEvent.type(data, '{{"name":"Ann"}');
-  await userEvent.type(within(fn).getByLabelText("As user (optional)"), "u1");
-  await userEvent.click(within(fn).getAllByRole("button", { name: "Run" }).at(-1)!);
-  const result = await within(fn).findByTestId("run-result");
+  await userEvent.type(within(dialog).getByLabelText("As user (optional)"), "u1");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Run" }));
+  const result = await within(dialog).findByTestId("run-result");
   expect(result).toHaveTextContent("Returned in 12 ms");
   expect(result).toHaveTextContent("Hello Ann");
   expect(result).toHaveTextContent("Saying hello");
   expect(mock(api.runFunction)).toHaveBeenCalledWith("hello", { name: "Ann" }, "u1");
-  expect(screen.queryAllByTestId("function")[1]).not.toHaveTextContent("Run");   // only callables run from here
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(cards[1]);
+  expect(within(await screen.findByRole("dialog")).queryByRole("tab", { name: "Run" })).not.toBeInTheDocument();   // only callables run
 });
 
-test("a function says what it does, shows its shapes, and starts a run from its example", async () => {
+test("a function's card says what it does; its dialog shows its shapes and starts a run from its example", async () => {
   mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: [{
-    ...v1.functions[0], about: "A language's strings.",
+    ...v1.functions[0], about: "A language's strings.", secrets: ["MAIL_KEY"],
     input: { type: "object", properties: { lang: { enum: ["de", "en"] } } }, output: { type: "object" }, example: { lang: "de" },
   }] } }));
   mock(api.runFunction).mockResolvedValue({ ok: true, result: {}, error: null, durationMs: 3, logs: [] });
   renderPage();
-  const fn = (await screen.findAllByTestId("function"))[0];
-  expect(within(fn).getByTestId("function-about")).toHaveTextContent("A language's strings.");
-  await userEvent.click(within(fn).getByRole("button", { name: "Shapes" }));
-  expect(within(fn).getByTestId("function-shapes")).toHaveTextContent('"enum"');
-  await userEvent.click(within(fn).getByRole("button", { name: "Run" }));
-  expect((within(fn).getByLabelText("Data (JSON)") as HTMLTextAreaElement).value).toBe('{\n  "lang": "de"\n}');
-  await userEvent.click(within(fn).getAllByRole("button", { name: "Run" }).at(-1)!);
+  const card = (await screen.findAllByTestId("function"))[0];
+  expect(within(card).getByTestId("function-about")).toHaveTextContent("A language's strings.");
+  await userEvent.click(card);
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByTestId("function-shapes")).toHaveTextContent('"enum"');
+  expect(dialog).toHaveTextContent("MAIL_KEY");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Run" }));
+  expect((within(dialog).getByLabelText("Data (JSON)") as HTMLTextAreaElement).value).toBe('{\n  "lang": "de"\n}');
+  await userEvent.click(within(dialog).getByRole("button", { name: "Run" }));
   await waitFor(() => expect(mock(api.runFunction)).toHaveBeenCalledWith("hello", { lang: "de" }, null));
 });
 
-test("versions: roll back an older one", async () => {
+test("versions: a timeline of what each deploy changed; rolling back asks in a dialog", async () => {
+  mock(api.functionVersions).mockResolvedValue({ versions: [
+    { ...v1, version: 2, note: "Second", functions: [v1.functions[0], { ...v1.functions[1], name: "onReport" }] }, v1,
+  ] });
   mock(api.rollBackFunctions).mockResolvedValue({ ...v1, version: 3 });
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   renderPage();
   await userEvent.click(await screen.findByRole("button", { name: "Versions" }));
   const rows = await screen.findAllByTestId("function-version");
   expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
+  expect(rows[0]).toHaveTextContent("Added");
+  expect(rows[0]).toHaveTextContent("onReport");
+  expect(rows[0]).toHaveTextContent("Removed");
+  expect(rows[0]).toHaveTextContent("onVisit");
   await userEvent.click(within(rows[1]).getByRole("button", { name: "Roll back" }));
-  await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, null));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "Undo");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Roll back" }));
+  await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, "Undo"));
 });
 
-test("secrets: listed without values, set, replaced and removed", async () => {
+test("secrets: listed without values, added and set in a dialog, and removed", async () => {
   mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
     { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
     { name: "OLD_TOKEN", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [] },
@@ -120,16 +135,19 @@ test("secrets: listed without values, set, replaced and removed", async () => {
   expect(rows[1]).toHaveTextContent("no function declares it");
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
-  await userEvent.type(within(rows[0]).getByLabelText("New value of MAIL_KEY"), "k-123");
-  await userEvent.click(within(rows[0]).getByRole("button", { name: "Save" }));
+  let dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("New value of MAIL_KEY"), "k-123");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "k-123"));
 
   await userEvent.click(within(rows[1]).getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(mock(api.removeFunctionSecret)).toHaveBeenCalledWith("OLD_TOKEN"));
 
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
-  await userEvent.type(screen.getByLabelText("Name"), "bad-name");
-  expect(screen.getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
+  dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("Name"), "bad-name");
+  expect(within(dialog).getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
 });
 
 test("secrets: a reference to AWS instead of a value, tried before saving, and shown as where it's read from", async () => {
@@ -152,16 +170,17 @@ test("secrets: a reference to AWS instead of a value, tried before saving, and s
   expect(await within(rows[1]).findByText("Read just now: it works.")).toBeInTheDocument();
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
-  await userEvent.click(await within(rows[0]).findByText("Reference"));
-  await userEvent.type(within(rows[0]).getByLabelText("New value of MAIL_KEY (reference)"), "aws-ssm:/app/mail");
-  await userEvent.click(within(rows[0]).getByRole("button", { name: "Test" }));
-  expect(await within(rows[0]).findByText("AWS Parameter Store has nothing at /app/mail.")).toBeInTheDocument();
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialog).findByText("Reference"));
+  await userEvent.type(within(dialog).getByLabelText("New value of MAIL_KEY (reference)"), "aws-ssm:/app/mail");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Test" }));
+  expect(await within(dialog).findByText("AWS Parameter Store has nothing at /app/mail.")).toBeInTheDocument();
   expect(mock(api.testSecretReference)).toHaveBeenCalledWith("aws-ssm:/app/mail");
-  await userEvent.click(within(rows[0]).getByRole("button", { name: "Save" }));
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "\u0000ref:aws-ssm:/app/mail"));
 });
 
-test("settings: a function's own run time over its code's, the default, saved with a reason", async () => {
+test("a function's own run time is set in its dialog; the Settings tab keeps the default", async () => {
   mock(api.functions).mockResolvedValue(page({ maxTimeoutSeconds: 1800, current: { ...v1, functions: [
     { ...v1.functions[0], timeoutSeconds: 60, codeTimeoutSeconds: null },
     { ...v1.functions[1], name: "backfill", kind: "schedule", timeoutSeconds: 480, codeTimeoutSeconds: 480 },
@@ -170,13 +189,23 @@ test("settings: a function's own run time over its code's, the default, saved wi
     source: "code", version: null, editable: true, whyReadOnly: null });
   mock(api.saveDataSettings).mockResolvedValue({ number: 1 });
   renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
-  expect(await screen.findByText(/This server allows 30 min at most/)).toBeInTheDocument();
-  const rows = await screen.findAllByTestId("function-time");
-  expect(rows[1]).toHaveTextContent("8 min");   // its code's
-  await userEvent.type(within(rows[1]).getByLabelText("Own time of backfill"), "1500");
-  expect(rows[1]).toHaveTextContent("25 min");
-  await userEvent.type(screen.getByLabelText("Reason for the change"), "Longer backfill");
-  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await userEvent.click((await screen.findAllByTestId("function"))[1]);
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Settings" }));
+  expect(await within(dialog).findByText(/In force:/)).toHaveTextContent("8 min (its code's)");
+  await userEvent.type(within(dialog).getByLabelText("Its own run time"), "1500");
+  expect(within(dialog).getByText(/In force:/)).toHaveTextContent("25 min");
+  await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Longer backfill");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("functions", { defaultTimeoutSeconds: 60, timeouts: { backfill: 1500 } }, "Longer backfill", 0));
+
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+  expect(await screen.findByText(/This server allows 30 min at most/)).toBeInTheDocument();
+  const input = screen.getByLabelText("Default run time");
+  await userEvent.clear(input);
+  await userEvent.type(input, "120");
+  await userEvent.type(screen.getByLabelText("Reason for the change"), "Slower API");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenLastCalledWith("functions", { defaultTimeoutSeconds: 120, timeouts: {} }, "Slower API", 0));
 });
