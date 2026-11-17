@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Code, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { HistoryDrawer } from "../../components/EditCard";
 import { IconPackage, IconRoute } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -175,7 +176,7 @@ function MoveChannelModal({ channel, releases, onClose }: { channel: AssetChanne
 function ChannelHistoryModal({ name, onClose }: { name: string | null; onClose: () => void }) {
   const h = useQuery({ queryKey: ["asset-channel-history", name], queryFn: () => api.assetChannelHistory(name!), enabled: !!name });
   return (
-    <Modal opened={!!name} onClose={onClose} title={`${name ?? ""}: history`} centered size="lg">
+    <HistoryDrawer opened={!!name} onClose={onClose} subtitle={name ? `The channel ${name}: which release it pointed at, and when` : undefined}>
       {h.isLoading ? <Loader size="sm" /> : h.isError ? <Alert color="red">{errorMessage(h.error)}</Alert> : (
         <Table fz="sm" verticalSpacing={6}>
           <Table.Tbody>
@@ -188,7 +189,7 @@ function ChannelHistoryModal({ name, onClose }: { name: string | null; onClose: 
           </Table.Tbody>
         </Table>
       )}
-    </Modal>
+    </HistoryDrawer>
   );
 }
 

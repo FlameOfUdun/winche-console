@@ -14,7 +14,7 @@ vi.mock("../../../api/client", async (orig) => {
     ...actual,
     api: {
       ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
-      dataSettings: vi.fn(), saveDataSettings: vi.fn(),
+      dataSettings: vi.fn(), saveDataSettings: vi.fn(), dataSettingsHistory: vi.fn(),
     },
   };
 });
@@ -98,13 +98,15 @@ test("a function's card says what it does; its dialog shows its shapes and start
   await waitFor(() => expect(mock(api.runFunction)).toHaveBeenCalledWith("hello", { lang: "de" }, null));
 });
 
-test("versions: a timeline of what each deploy changed; rolling back asks in a dialog", async () => {
+test("change history: a panel with each deploy and what it changed; rolling back asks in a dialog", async () => {
   mock(api.functionVersions).mockResolvedValue({ versions: [
     { ...v1, version: 2, note: "Second", functions: [v1.functions[0], { ...v1.functions[1], name: "onReport" }] }, v1,
   ] });
   mock(api.rollBackFunctions).mockResolvedValue({ ...v1, version: 3 });
   renderPage();
-  await userEvent.click(await screen.findByRole("button", { name: "Versions" }));
+  mock(api.dataSettingsHistory).mockResolvedValue({ versions: [] });
+  await userEvent.click(await screen.findByRole("button", { name: "Change history" }));
+  expect(await screen.findByText("Deploys")).toBeInTheDocument();
   const rows = await screen.findAllByTestId("function-version");
   expect(within(rows[0]).getByText("Live")).toBeInTheDocument();
   expect(rows[0]).toHaveTextContent("Added");
@@ -112,7 +114,7 @@ test("versions: a timeline of what each deploy changed; rolling back asks in a d
   expect(rows[0]).toHaveTextContent("Removed");
   expect(rows[0]).toHaveTextContent("onVisit");
   await userEvent.click(within(rows[1]).getByRole("button", { name: "Roll back" }));
-  const dialog = await screen.findByRole("dialog");
+  const dialog = await screen.findByRole("dialog", { name: /Roll back to version 1/ });
   await userEvent.type(within(dialog).getByLabelText("Note (optional)"), "Undo");
   await userEvent.click(within(dialog).getByRole("button", { name: "Roll back" }));
   await waitFor(() => expect(mock(api.rollBackFunctions)).toHaveBeenCalledWith(1, "Undo"));

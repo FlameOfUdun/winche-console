@@ -9,6 +9,8 @@ import type { FunctionInfo, FunctionRun, FunctionVersion } from "../../api/funct
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
+import { HistoryButton } from "../../components/EditCard";
+import { AreaHistory } from "../settings/AreaSettings";
 import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
 import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
@@ -19,16 +21,17 @@ import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } f
  * secrets functions read are on the Secrets page.
  */
 export function FunctionsPage() {
-  const [tab, setTab] = useState<"deployed" | "versions" | "settings">("deployed");
+  const [tab, setTab] = useState<"deployed" | "settings">("deployed");
   return (
     <>
-      <PageBand title="Functions" tabs={[
+      <PageBand title="Functions" actions={
+        <HistoryButton subtitle="Functions: each deploy, and changes to their run times"><FunctionsHistory /></HistoryButton>
+      } tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
-        { label: "Versions", active: tab === "versions", onClick: () => setTab("versions") },
         { label: "Settings", active: tab === "settings", onClick: () => setTab("settings") },
       ]} />
       <div style={{ paddingBottom: 28 }}>
-        {tab === "deployed" ? <DeployedTab /> : tab === "versions" ? <VersionsTab /> : <SettingsTab />}
+        {tab === "deployed" ? <DeployedTab /> : <SettingsTab />}
       </div>
     </>
   );
@@ -285,7 +288,17 @@ function Names({ names, color }: { names: string[]; color: string }) {
  * Every deploy, newest first, as a timeline: who deployed it and why, how many functions it had and which were added or
  * removed since the one before. Rolling back deploys an older version's code again, as a new version.
  */
-function VersionsTab() {
+/** The Functions page's Change history: deploys (with roll back), then changes to the run-time settings. */
+function FunctionsHistory() {
+  return (
+    <Stack gap="xl">
+      <Stack gap="sm"><Text fw={600}>Deploys</Text><VersionsTimeline /></Stack>
+      <Stack gap="sm"><Text fw={600}>Run-time settings</Text><AreaHistory area="functions" editable /></Stack>
+    </Stack>
+  );
+}
+
+function VersionsTimeline() {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["function-versions"], queryFn: api.functionVersions });
   const [rolling, setRolling] = useState<number | null>(null);
@@ -294,7 +307,7 @@ function VersionsTab() {
   const [error, setError] = useState<string | null>(null);
   if (list.isLoading) return <Loader size="sm" />;
   const versions = list.data?.versions ?? [];
-  if (versions.length === 0) return <EmptyState icon={IconHistory} title="No versions yet" description="Each deploy becomes a version here, and you can roll back to any of them." />;
+  if (versions.length === 0) return <Text size="sm" c="dimmed">No deploys yet: each one becomes a version here, and you can roll back to any of them.</Text>;
   const close = () => { setRolling(null); setNote(""); setError(null); };
   const rollBack = async () => {
     if (rolling === null) return;
@@ -307,7 +320,7 @@ function VersionsTab() {
     finally { setBusy(false); }
   };
   return (
-    <Paper withBorder radius="md" p="lg">
+    <>
       <Timeline active={0} color="teal" bulletSize={26} lineWidth={2}>
         {versions.map((v, i) => {
           const live = i === 0;
@@ -350,7 +363,7 @@ function VersionsTab() {
           </Group>
         </Stack>
       </Modal>
-    </Paper>
+    </>
   );
 }
 

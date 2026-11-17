@@ -126,15 +126,24 @@ export function OnOff({ on, onLabel = "On", offLabel = "Off" }: { on: boolean; o
 }
 
 /** Change history, opened from the page's button in a panel on the right. */
-export function HistoryButton({ title = "Change history", subtitle, children }: { title?: string; subtitle?: string; children: ReactNode }) {
+export function HistoryButton({ title = "Change history", subtitle, size, children }: { title?: string; subtitle?: string; size?: number | string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button variant="default" leftSection={<IconHistory size={16} />} onClick={() => setOpen(true)}>Change history</Button>
-      <Drawer opened={open} onClose={() => setOpen(false)} position="right" size={480} padding="lg"
-        title={<div><Text fw={600} fz={18}>{title}</Text>{subtitle && <Text size="sm" c="var(--w-faint)">{subtitle}</Text>}</div>}>
-        {open && children}
-      </Drawer>
+      <HistoryDrawer opened={open} onClose={() => setOpen(false)} title={title} subtitle={subtitle} size={size}>{children}</HistoryDrawer>
     </>
+  );
+}
+
+/** The panel on the right every history opens in: a title, what it's the history of, and the changes. */
+export function HistoryDrawer({ opened, onClose, title = "Change history", subtitle, size = 480, children }: {
+  opened: boolean; onClose: () => void; title?: string; subtitle?: string; size?: number | string; children: ReactNode;
+}) {
+  return (
+    <Drawer opened={opened} onClose={onClose} position="right" size={size} padding="lg"
+      title={<div><Text fw={600} fz={18}>{title}</Text>{subtitle && <Text size="sm" c="var(--w-faint)">{subtitle}</Text>}</div>}>
+      {opened && children}
+    </Drawer>
   );
 }

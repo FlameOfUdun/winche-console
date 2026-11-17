@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { Badge, Box, Button, Group, Loader, Modal, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from "@mantine/core";
+import { Badge, Box, Button, Group, Loader, ScrollArea, SegmentedControl, Stack, Text, UnstyledButton } from "@mantine/core";
+import { HistoryDrawer } from "../../components/EditCard";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import type { RuleSubsystem, RuleVersionSummary } from "../../api/rules";
@@ -75,7 +76,7 @@ export function VersionHistory({ subsystem, opened, onClose, versions, onOpenInE
   const stats = diff ? diffStats(diff) : null;
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Rules history" size="90%" padding="md">
+    <HistoryDrawer opened={opened} onClose={onClose} subtitle="Rules: each saved version, and its changes against the active one" size="85%">
       {!versions && <Loader size="sm" />}
       {versions?.length === 0 && <EmptyState icon={IconHistory} title="No versions yet" description="Each time rules are published, from here or with winche rules deploy, a version is kept." />}
       {versions && versions.length > 0 && selected && (
@@ -133,6 +134,6 @@ export function VersionHistory({ subsystem, opened, onClose, versions, onOpenInE
           </Stack>
         </Group>
       )}
-    </Modal>
+    </HistoryDrawer>
   );
 }
