@@ -4,6 +4,9 @@ import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks"
 import type { ConsolePageEntry, FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
 import { secretBody, type SecretSources, type SecretTest } from "./secrets";
 
+/** A bucket's secret key as typed: { secretKey } or { secretKeyReference }. */
+const keyBody = (typed: string | null) => { const b = secretBody(typed); return { secretKey: b.value ?? null, secretKeyReference: b.reference ?? null }; };
+
 /** The typed secrets that are values (or references), by name; undefined when there are none. */
 const pick = (typed: Record<string, string> | undefined, kind: "value" | "reference") => {
   const found = Object.entries(typed ?? {}).flatMap(([k, v]) => { const b = secretBody(v)[kind]; return b ? [[k, b] as const] : []; });
@@ -267,15 +270,15 @@ export const api = {
   moveAssetChannel: (name: string, release: number) => http<import("./assets").AssetChannel>("POST", `api/assets/channels/${encodeURIComponent(name)}`, { release }),
   removeAssetChannel: (name: string) => http<void>("DELETE", `api/assets/channels/${encodeURIComponent(name)}`),
   assetLocation: () => http<import("./assets").AssetLocationState>("GET", "api/assets/location"),
-  testAssetLocation: (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "api/assets/location/test", { location, secretKey }),
+  testAssetLocation: (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "api/assets/location/test", { location, ...keyBody(secretKey) }),
   startAssetMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
-    http<void>("POST", "api/assets/location/move", { location, secretKey, reason }),
+    http<void>("POST", "api/assets/location/move", { location, ...keyBody(secretKey), reason }),
   cancelAssetMove: () => http<void>("POST", "api/assets/location/move/cancel"),
   storageLocation: () => http<StorageLocationState>("GET", "api/settings/storage/location"),
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
-    http<LocationTest>("POST", "api/settings/storage/location/test", { location, secretKey }),
+    http<LocationTest>("POST", "api/settings/storage/location/test", { location, ...keyBody(secretKey) }),
   startStorageMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
-    http<unknown>("POST", "api/settings/storage/location/move", { location, secretKey, reason }),
+    http<unknown>("POST", "api/settings/storage/location/move", { location, ...keyBody(secretKey), reason }),
   storageMoveStep: (step: "switch" | "finish" | "cancel", reason: string) =>
     http<void>("POST", `api/settings/storage/location/move/${step}`, { reason }),
   parseIndexText: (text: string) => http<import("./indexText").IndexTextParse>("POST", "api/settings/database/indexes/parse", { text }),

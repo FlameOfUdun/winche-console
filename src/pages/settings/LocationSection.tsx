@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Group, Loader, Paper, PasswordInput, Progress, SegmentedControl, Stack, Stepper, Switch, Text, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Group, Loader, Paper, Progress, SegmentedControl, Stack, Stepper, Switch, Text, TextInput } from "@mantine/core";
+import { SecretInput } from "../../components/SecretInput";
+import { secretTyped } from "../../api/secrets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -85,7 +87,7 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
       forcePathStyle: preset === "other" ? b.forcePathStyle : false,
     },
   };
-  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && !!secret);
+  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && secretTyped(secret));
   const set = (patch: Partial<typeof EMPTY>) => { setB({ ...b, ...patch }); setTest(null); };
 
   const runTest = async () => {
@@ -122,8 +124,8 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
           )}
           <Group grow wrap="wrap" align="flex-end">
             <TextInput label="Access key id" value={b.accessKey} onChange={(e) => set({ accessKey: e.currentTarget.value })} />
-            <PasswordInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable}
-              value={secret} onChange={(e) => { setSecret(e.currentTarget.value); setTest(null); }} />
+            <SecretInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable}
+              value={secret} onChange={(v) => { setSecret(v); setTest(null); }} />
           </Group>
           {preset === "other" && <Switch label="Path-style addresses (MinIO and most self-hosted services)" checked={b.forcePathStyle} onChange={(e) => set({ forcePathStyle: e.currentTarget.checked })} />}
           {!s.secretsAvailable && <Alert color="yellow">Secrets can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
