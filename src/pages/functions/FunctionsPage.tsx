@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, SimpleGrid, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, Tooltip, UnstyledButton } from "@mantine/core";
+import { Alert, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, Tooltip, UnstyledButton } from "@mantine/core";
 import type { FunctionsSettings } from "../../api/dataSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -68,22 +68,22 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
       <Group gap={8}><Text fw={600}>Live</Text><Badge variant="light" color="teal" tt="none">version {version}</Badge>
         <Text size="sm" c="dimmed">{functions.length} {functions.length === 1 ? "function" : "functions"}</Text></Group>
       {functions.length === 0 && <Text size="sm" c="dimmed">No functions exported.</Text>}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
+      <Stack gap="xs">
         {functions.map((f) => (
           <UnstyledButton key={f.name} onClick={() => setOpen(f.name)} data-testid="function" aria-label={f.name}>
-            <Paper withBorder radius="md" p="md" h="100%" className="winche-card-link">
-              <Group justify="space-between" wrap="nowrap" gap={8}>
+            <Paper withBorder radius="md" p="md" className="winche-card-link">
+              <Group wrap="nowrap" gap={8}>
                 <Text fw={600} ff="monospace" truncate>{f.name}</Text>
                 <Badge variant="light" tt="none" style={{ flexShrink: 0 }}>{KIND[f.kind] ?? f.kind}</Badge>
               </Group>
-              <Text size="sm" mt={6} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
+              <Text size="sm" mt={4} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
                 {f.about ?? f.description}
               </Text>
               {f.about && <Text size="xs" c="dimmed" mt={4} lineClamp={1}>{f.description}</Text>}
             </Paper>
           </UnstyledButton>
         ))}
-      </SimpleGrid>
+      </Stack>
       <FunctionDialog f={shown} onClose={() => setOpen(null)} />
     </Stack>
   );
