@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Menu, Modal, Paper, Stack, Text, TextInput, ThemeIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Menu, Modal, Paper, SimpleGrid, Stack, Text, TextInput, ThemeIcon, Tooltip } from "@mantine/core";
 import { IconArrowRight, IconCloudLock, IconDots, IconFolder, IconKey, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -88,7 +88,7 @@ export function SecretsPage() {
             )}
             <SecretGroup title="Kept by the products" count={products.length} hint="Each is changed where it's used: Open takes you there.">
               {products.length === 0 ? (
-                <Text size="sm" c="dimmed" p="md">None set: the SMTP password, a sign-in provider's sync secret and a bucket's key appear here once set.</Text>
+                <Text size="sm" c="dimmed">None set: the SMTP password, a sign-in provider's sync secret and a bucket's key appear here once set.</Text>
               ) : products.map((s) => (
                 <SecretRow key={s.name} testId="kept-secret" icon={PRODUCT_ICON[s.product] ?? IconKey} name={s.title}
                   meta={[s.product, updated(s.setAt, s.setBy)]} status={<Kept s={s} isSet />}
@@ -117,40 +117,35 @@ const PRODUCT_ICON: Record<string, React.ElementType> = { Authentication: IconUs
 
 const updated = (at: string, by: string | null) => `Updated ${when(at)}${by ? ` by ${by}` : ""}`;
 
-/** A titled group of secrets: a heading with a count and a line, then its rows in one card. */
+/** A titled group of secrets: a heading with a count and a line, then its cards in a grid. */
 function SecretGroup({ title, count, hint, children }: { title: string; count: number; hint: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Stack gap={8}>
+    <Stack gap="sm">
       <div>
         <Group gap={8}><Text fw={600}>{title}</Text>{count > 0 && <Badge size="sm" variant="light" color="gray" circle={count < 10}>{count}</Badge>}</Group>
         <Text size="sm" c="dimmed">{hint}</Text>
       </div>
-      <Paper withBorder radius="md" className="winche-secret-rows">{children}</Paper>
+      {count === 0 ? children : <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">{children}</SimpleGrid>}
     </Stack>
   );
 }
 
-/** One secret: an icon, its name and a muted line, then where it's kept and what can be done. */
+/** One secret as a card: an icon and where it's kept, its name, who uses it and when it changed, then what can be done. */
 function SecretRow({ icon: Icon, name, mono, meta, status, actions, note, testId }: {
   icon: React.ElementType; name: string; mono?: boolean; meta: (string | null)[]; status: React.ReactNode; actions?: React.ReactNode;
   note?: React.ReactNode; testId: string;
 }) {
   return (
-    <Group data-testid={testId} justify="space-between" wrap="nowrap" gap="md" px="md" py={12}
-      style={{ borderTop: "1px solid var(--w-border)" }} className="winche-secret-row">
-      <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
-        <ThemeIcon variant="light" color="gray" size={36} radius="md" style={{ flexShrink: 0 }}><Icon size={18} /></ThemeIcon>
-        <div style={{ minWidth: 0 }}>
-          <Text fw={600} size="sm" ff={mono ? "monospace" : undefined} truncate>{name}</Text>
-          <Text size="xs" c="dimmed" lineClamp={1}>{meta.filter(Boolean).join(" · ")}</Text>
-          {note}
-        </div>
-      </Group>
-      <Group gap="sm" wrap="nowrap" style={{ flexShrink: 0 }}>
+    <Paper withBorder p="lg" radius="md" data-testid={testId} h="100%" style={{ display: "flex", flexDirection: "column" }}>
+      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+        <ThemeIcon variant="light" color="gray" size={40} radius="md"><Icon size={20} /></ThemeIcon>
         {status}
-        {actions}
       </Group>
-    </Group>
+      <Text fw={600} fz={15} mt="md" ff={mono ? "monospace" : undefined} style={{ wordBreak: "break-word" }}>{name}</Text>
+      {meta.filter(Boolean).map((m) => <Text key={m} size="xs" c="dimmed" mt={4} lineClamp={2}>{m}</Text>)}
+      {note && <div style={{ marginTop: 6 }}>{note}</div>}
+      {actions && <Group justify="flex-end" gap="xs" wrap="nowrap" style={{ marginTop: "auto", paddingTop: 16 }}>{actions}</Group>}
+    </Paper>
   );
 }
 
