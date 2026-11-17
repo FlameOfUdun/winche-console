@@ -241,6 +241,7 @@ export const api = {
   setBrowserOrigins: (origins: string[], reason: string) => http<{ browserOrigins: string[] }>("PUT", "api/apps/browser-origins", { origins, reason }),
   functions: () => http<FunctionsPageData>("GET", "api/functions"),
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "api/functions/versions"),
+  functionInstances: (name: string) => http<import("./functions").FunctionInstancesData>("GET", `api/functions/${encodeURIComponent(name)}/instances`),
   rollBackFunctions: (v: number, note: string | null) => http<FunctionVersion>("POST", `api/functions/versions/${v}/rollback`, { note }),
   runFunction: (name: string, data: unknown, asUid: string | null) => http<FunctionRun>("POST", "api/functions/run", { name, data, asUid }),
   consolePages: () => http<{ pages: ConsolePageEntry[] }>("GET", "api/console-pages"),

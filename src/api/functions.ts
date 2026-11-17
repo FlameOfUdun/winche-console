@@ -18,6 +18,18 @@ export interface FunctionInfo {
   codeLimits?: Partial<Record<keyof FunctionLimits, number | boolean | null>>;
 }
 
+/** A function's instances on the server that answered, its process, and what happened to them lately. */
+export interface FunctionInstancesData {
+  server: string;
+  limits: FunctionLimits | null;
+  process: { own: boolean; running: boolean; pid: number | null; heapMb: number; startedAt: string | null; restarts: number } | null;
+  /** It asks for a process of its own but runs in the shared one (the memory budget or the process count). */
+  refused: boolean;
+  instances: { state: "busy" | "idle" | "loading"; heapMb: number | null; runs: number; ageSeconds: number; busySeconds: number | null }[];
+  events: { at: string; kind: "memory" | "timeout" | "crash" | "out-of-memory" | "stopped"; message: string }[];
+  budget: { totalMb: number; usedMb: number };
+}
+
 /** How a function's instances may run: memory per instance (MB), how many kept loaded, at most at once, reserved; its own process. */
 export interface FunctionLimits { memoryMb: number; minInstances: number; maxInstances: number; reservedInstances: number; isolate: boolean }
 

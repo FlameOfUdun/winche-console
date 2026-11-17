@@ -152,8 +152,16 @@ export function ServerSettingsPage() {
               </Setting>
             </SettingsCard>
           )} />
-        <EditCard title="Functions" description="How long a project's function may run at most. Projects choose their default and each function's own time up to this." {...card("functions")}
-          rows={[{ label: "Longest run", hint: source(s.functionsMaxMinutes, dep.functionsMaxMinutes), value: `${s.functionsMaxMinutes} min` }]}
+        <EditCard title="Functions" description={<>What a project's functions may use at most on this server; projects choose their defaults and each function's own up to this.
+          {d.functionsMemory && <> Functions' processes may hold {d.functionsMemory.totalMb} MB in all ({d.functionsMemory.source === "set" ? "set by WINCHE_FUNCTIONS_MEMORY_MB"
+            : `60% of the ${d.functionsMemory.source}'s memory`}); {d.functionsMemory.usedMb} MB is taken now.</>}</>} {...card("functions")}
+          rows={[
+            { label: "Longest run", hint: source(s.functionsMaxMinutes, dep.functionsMaxMinutes), value: `${s.functionsMaxMinutes} min` },
+            { label: "Most memory a function may ask for", hint: source(s.functionsMaxMemoryMb, dep.functionsMaxMemoryMb), value: `${s.functionsMaxMemoryMb} MB` },
+            { label: "Runs at once per project", hint: source(s.functionsMaxConcurrency, dep.functionsMaxConcurrency), value: `${s.functionsMaxConcurrency}` },
+            { label: "Shared process's limit", hint: source(s.functionsSharedProcessMb, dep.functionsSharedProcessMb), value: `${s.functionsSharedProcessMb} MB per run` },
+            { label: "Processes per project", hint: source(s.functionsMaxProcesses, dep.functionsMaxProcesses), value: `${s.functionsMaxProcesses}` },
+          ]}
           form={draft && (
             <SettingsCard>
               <Setting icon={IconClockHour4} label="Longest run" value={x.functionsMaxMinutes} deployed={dep.functionsMaxMinutes} onReset={() => reset("functionsMaxMinutes")}>
@@ -162,6 +170,23 @@ export function ServerSettingsPage() {
                     onChange={(v) => set({ functionsMaxMinutes: typeof v === "number" ? v : 9 })} />
                 </Group>
               </Setting>
+              {([
+                ["functionsMaxMemoryMb", "Most memory a function may ask for", " MB", 64, d.functionsMemory?.totalMb, 1024],
+                ["functionsMaxConcurrency", "Runs at once per project", "", 1, 256, 16],
+                ["functionsSharedProcessMb", "Shared process's limit", " MB", 128, d.functionsMemory?.totalMb, 1024],
+                ["functionsMaxProcesses", "Processes per project", "", 1, 16, 4],
+              ] as const).map(([key, label, suffix, min, max, fallback]) => (
+                <Setting key={key} icon={IconServer} label={label} value={x[key]} deployed={dep[key]} onReset={() => reset(key)}>
+                  <Group justify="flex-end">
+                    <NumberInput aria-label={label} w={140} min={min} max={max} suffix={suffix} value={x[key]}
+                      onChange={(v) => set({ [key]: typeof v === "number" ? Math.round(v) : fallback })} />
+                  </Group>
+                </Setting>
+              ))}
+              <Text size="xs" c="dimmed" mt="xs">
+                A run past the shared process's limit stops that process and every run in it; a function asking for more memory runs in a
+                process of its own when the functions memory has room. The shared process's limit applies when it next starts.
+              </Text>
               <Text size="xs" c="dimmed" mt="xs">A run that long still ends if the server restarts: long work should save its progress as it goes.</Text>
             </SettingsCard>
           )} />

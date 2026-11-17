@@ -110,11 +110,13 @@ function FunctionDialog({ f, onClose }: { f: FunctionInfo | null; onClose: () =>
             <Tabs.Tab value="details">Details</Tabs.Tab>
             {f.kind === "callable" && <Tabs.Tab value="run">Run</Tabs.Tab>}
             {triggered(f) && canSeeRuns && <Tabs.Tab value="runs">Runs</Tabs.Tab>}
+            {f.kind !== "before" && <Tabs.Tab value="instances">Instances</Tabs.Tab>}
             <Tabs.Tab value="settings">Settings</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="details"><Details f={f} /></Tabs.Panel>
           <Tabs.Panel value="run"><RunPanel name={f.name} example={f.example} /></Tabs.Panel>
           <Tabs.Panel value="runs"><TriggeredRuns name={f.name} /></Tabs.Panel>
+          <Tabs.Panel value="instances"><Instances name={f.name} /></Tabs.Panel>
           <Tabs.Panel value="settings"><OwnTime f={f} /></Tabs.Panel>
         </Tabs>
       )}
@@ -137,6 +139,83 @@ function Details({ f }: { f: FunctionInfo }) {
         : <Text size="sm" c="dimmed">none</Text>)}
       {(f.input != null || f.output != null) && <Shapes f={f} />}
       {triggered(f) && <Text size="xs" c="dimmed">Its runs are queued and retried. Everything functions log is in Logs → Functions.</Text>}
+    </Stack>
+  );
+}
+
+const EVENT: Record<string, { label: string; color: string }> = {
+  memory: { label: "Over its memory", color: "orange" }, timeout: { label: "Out of time", color: "yellow" }, crash: { label: "Crashed", color: "red" },
+  "out-of-memory": { label: "Process out of memory", color: "red" }, stopped: { label: "Process stopped", color: "red" },
+};
+const ago = (seconds: number) => seconds < 60 ? `${seconds} s` : seconds < 3600 ? `${Math.floor(seconds / 60)} min` : `${Math.floor(seconds / 3600)} h ${Math.floor(seconds % 3600 / 60)} min`;
+
+/**
+ * A function's instances now on the server that answered (busy, idle, loading; each one's heap after its last run),
+ * its process, and what happened to them lately: replaced for memory, time or a crash, its process out of memory.
+ */
+function Instances({ name }: { name: string }) {
+  const q = useQuery({ queryKey: ["function-instances", name], queryFn: () => api.functionInstances(name), refetchInterval: 3000 });
+  if (q.isLoading) return <Loader size="sm" />;
+  if (q.isError || !q.data) return <Alert color="red">Couldn't load its instances: {errorMessage(q.error)}</Alert>;
+  const d = q.data;
+  const l = d.limits;
+  const count = (state: string) => d.instances.filter((i) => i.state === state).length;
+  return (
+    <Stack gap="md">
+      <Group gap="xl" data-testid="instances-summary">
+        <div><Text size="xs" c="dimmed">Busy</Text><Text fw={600}>{count("busy")}{l && <Text span c="dimmed" fw={400}> of {l.maxInstances} at most</Text>}</Text></div>
+        <div><Text size="xs" c="dimmed">Idle</Text><Text fw={600}>{count("idle") + count("loading")}{l && l.minInstances > 0 && <Text span c="dimmed" fw={400}> ({l.minInstances} kept loaded)</Text>}</Text></div>
+        {l && <div><Text size="xs" c="dimmed">Memory each</Text><Text fw={600}>{l.memoryMb} MB</Text></div>}
+        {d.process && (
+          <div>
+            <Text size="xs" c="dimmed">Process</Text>
+            <Text fw={600}>{d.process.own ? "Its own" : "Shared"}
+              <Text span c="dimmed" fw={400}> · {d.process.running ? `up ${d.process.startedAt ? ago(Math.max(0, Math.round((Date.now() - Date.parse(d.process.startedAt)) / 1000))) : ""}` : "not running"}
+                {d.process.restarts > 0 && ` · started again ${d.process.restarts}×`}</Text>
+            </Text>
+          </div>
+        )}
+      </Group>
+      {d.refused && (
+        <Alert color="yellow">
+          It asks for a process of its own but runs in the shared one: this server's functions memory ({d.budget.usedMb} of {d.budget.totalMb} MB
+          in use) or its processes per project are taken. Ask a server admin, or give it less memory.
+        </Alert>
+      )}
+      {d.instances.length === 0
+        ? <Text size="sm" c="dimmed">No instances now: the next run loads one.</Text>
+        : (
+          <Table data-testid="instances" verticalSpacing={4}>
+            <Table.Thead><Table.Tr><Table.Th>State</Table.Th><Table.Th>Heap after its last run</Table.Th><Table.Th>Runs</Table.Th><Table.Th>Up</Table.Th></Table.Tr></Table.Thead>
+            <Table.Tbody>
+              {d.instances.map((i, n) => (
+                <Table.Tr key={n}>
+                  <Table.Td><Badge variant="light" color={i.state === "busy" ? "blue" : "gray"}>{i.state === "busy" && i.busySeconds !== null ? `busy ${ago(i.busySeconds)}` : i.state}</Badge></Table.Td>
+                  <Table.Td>{i.heapMb === null ? "—" : <Text size="sm" c={l && i.heapMb > l.memoryMb * 0.8 ? "orange" : undefined}>{i.heapMb} MB</Text>}</Table.Td>
+                  <Table.Td>{i.runs}</Table.Td>
+                  <Table.Td>{ago(i.ageSeconds)}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+      <div>
+        <Text fw={600} size="sm" mb={4}>Lately</Text>
+        {d.events.length === 0
+          ? <Text size="sm" c="dimmed">Nothing replaced or stopped since this server started.</Text>
+          : (
+            <Stack gap={6} data-testid="instance-events">
+              {d.events.map((e, n) => (
+                <Group key={n} gap="sm" wrap="nowrap" align="flex-start">
+                  <Badge variant="light" color={EVENT[e.kind]?.color ?? "gray"} style={{ flexShrink: 0 }}>{EVENT[e.kind]?.label ?? e.kind}</Badge>
+                  <Text size="sm" style={{ flex: 1 }}>{e.message}</Text>
+                  <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{new Date(e.at).toLocaleString()}</Text>
+                </Group>
+              ))}
+            </Stack>
+          )}
+      </div>
+      <Text size="xs" c="dimmed">On server {d.server}; with several servers, each has its own instances. Updated every few seconds.</Text>
     </Stack>
   );
 }

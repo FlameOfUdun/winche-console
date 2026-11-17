@@ -4,6 +4,11 @@ export interface ServerSettings {
   requireTwoFactorForSettings: boolean;
   /** The longest any project's function may run, in minutes (1–60). */
   functionsMaxMinutes: number;
+  /** The most memory a function may ask for (MB), runs at once per project, the shared process's limit (MB), processes per project. */
+  functionsMaxMemoryMb: number;
+  functionsMaxConcurrency: number;
+  functionsSharedProcessMb: number;
+  functionsMaxProcesses: number;
   /** The identity providers people can sign in to the console with, beside email and password (always there). */
   consoleProviders: ConsoleSignIn[];
   /** With a provider on: passwords only for server admins (the way in when it's down). */
@@ -68,6 +73,8 @@ export interface ServerSettingsPage {
   secrets: { name: string; about: string; setAt: string | null; setBy: string | null; reference?: string | null }[];
   /** The addresses to register at an identity provider: where it sends people back, and where it says they signed out. */
   consoleSignIn?: { callbackUrl: string; logoutUrl: string };
+  /** What functions' processes may hold in all on this server (MB), how much is taken, and where the total comes from. */
+  functionsMemory?: { totalMb: number; usedMb: number; source: "container" | "machine" | "set" } | null;
 }
 
 

@@ -13,7 +13,7 @@ vi.mock("../../../api/client", async (orig) => {
   return {
     ...actual,
     api: {
-      ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
+      ...actual.api, functions: vi.fn(), functionVersions: vi.fn(), functionInstances: vi.fn(), rollBackFunctions: vi.fn(), runFunction: vi.fn(),
       dataSettings: vi.fn(), saveDataSettings: vi.fn(), dataSettingsHistory: vi.fn(),
     },
   };
@@ -180,4 +180,31 @@ test("a function's instances: memory, how many, its own process, over its code's
     defaultTimeoutSeconds: 60, timeouts: {},
     limits: { other: { memoryMb: 128 }, report: { memoryMb: 512, reservedInstances: 2, isolate: false } },
   }, "Smaller, shared", 4));
+});
+
+test("a function's instances: busy and idle with their heap, its process, and what happened to them", async () => {
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: [{ ...v1.functions[0], name: "report" }] } }));
+  mock(api.functionInstances).mockResolvedValue({
+    server: "task-1", refused: true, budget: { totalMb: 2400, usedMb: 2300 },
+    limits: { memoryMb: 256, minInstances: 1, maxInstances: 4, reservedInstances: 0, isolate: true },
+    process: { own: false, running: true, pid: 33, heapMb: 1024, startedAt: new Date(Date.now() - 600_000).toISOString(), restarts: 2 },
+    instances: [
+      { state: "busy", heapMb: 240, runs: 12, ageSeconds: 300, busySeconds: 4 },
+      { state: "idle", heapMb: 31, runs: 3, ageSeconds: 90, busySeconds: null },
+    ],
+    events: [{ at: new Date().toISOString(), kind: "memory", message: "Instance replaced: holding 312 MB after a run, over its 256 MB." }],
+  });
+  renderPage();
+  await userEvent.click((await screen.findAllByTestId("function"))[0]);
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Instances" }));
+  const summary = await within(dialog).findByTestId("instances-summary");
+  expect(summary).toHaveTextContent("Busy1 of 4 at most");
+  expect(summary).toHaveTextContent("Idle1 (1 kept loaded)");
+  expect(summary).toHaveTextContent("Shared · up 10 min · started again 2×");
+  expect(within(dialog).getByText(/asks for a process of its own but runs in the shared one/)).toHaveTextContent("2300 of 2400 MB");
+  const rows = within(within(dialog).getByTestId("instances")).getAllByRole("row");
+  expect(rows[1]).toHaveTextContent("busy 4 s240 MB125 min");
+  expect(within(dialog).getByTestId("instance-events")).toHaveTextContent("Over its memoryInstance replaced: holding 312 MB");
+  expect(within(dialog).getByText(/On server task-1/)).toBeInTheDocument();
 });
