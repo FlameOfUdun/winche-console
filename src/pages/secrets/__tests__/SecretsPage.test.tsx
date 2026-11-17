@@ -50,17 +50,17 @@ test("the products' secrets are listed with where each is changed; never values"
   renderPage();
   const rows = await screen.findAllByTestId("kept-secret");
   expect(rows[0]).toHaveTextContent("SMTP password");
-  expect(rows[0]).toHaveTextContent("Set");
+  expect(rows[0]).toHaveTextContent("Value");
   expect(within(rows[0]).getByRole("link", { name: "Open" })).toHaveAttribute("href", "/authentication/settings");
   expect(rows[1]).toHaveTextContent("From aws-ssm");
-  expect(screen.getByText("Your secrets")).toBeInTheDocument();
+  expect(rows[0]).toHaveTextContent("Authentication");
 });
 
 test("without functions there are no secrets of its own to list", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
   renderPage();
-  expect(await screen.findByText("Kept by the products")).toBeInTheDocument();
-  expect(screen.queryByText("Your secrets")).not.toBeInTheDocument();
+  expect(await screen.findByText("No secrets yet")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add a secret" })).not.toBeInTheDocument();
 });
 
 test("secrets: listed without values, added and set in a dialog, and removed", async () => {
@@ -74,7 +74,7 @@ test("secrets: listed without values, added and set in a dialog, and removed", a
   renderPage();
   const rows = await screen.findAllByTestId("function-secret");
   expect(rows[0]).toHaveTextContent("Not set");
-  expect(rows[0]).toHaveTextContent("used by sendReport");
+  expect(rows[0]).toHaveTextContent("sendReport");
   expect(rows[1]).toHaveTextContent("no function declares it");
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
@@ -83,7 +83,8 @@ test("secrets: listed without values, added and set in a dialog, and removed", a
   await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("MAIL_KEY", "k-123"));
 
-  await userEvent.click(within(rows[1]).getByRole("button", { name: "Remove" }));
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "More for OLD_TOKEN" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
   await waitFor(() => expect(mock(api.removeFunctionSecret)).toHaveBeenCalledWith("OLD_TOKEN"));
 
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
@@ -108,7 +109,8 @@ test("secrets: a reference to AWS instead of a value, tried before saving, and s
   renderPage();
   const rows = await screen.findAllByTestId("function-secret");
   expect(rows[1]).toHaveTextContent("From AWS Parameter Store");
-  await userEvent.click(within(rows[1]).getByRole("button", { name: "Test" }));
+  await userEvent.click(within(rows[1]).getByRole("button", { name: "More for SES_SECRET" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Test" }));
   expect(await within(rows[1]).findByText("Read just now: it works.")).toBeInTheDocument();
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
@@ -137,9 +139,9 @@ test("admins keep the project's own AWS key under Secrets, never shown again", a
   ] });
   mock(api.setSourceKey).mockResolvedValue(undefined);
   renderPage();
+  await userEvent.click(await screen.findByTestId("aws-key-button"));
   const card = await screen.findByTestId("source-key");
   expect(card).toHaveTextContent("only a server admin can set references");
-  await userEvent.click(within(card).getByRole("button", { name: "Set" }));
   const save = within(card).getByRole("button", { name: "Save" });
   expect(save).toBeDisabled();
   await userEvent.type(within(card).getByLabelText(/Access key ID/), "AKIDWARDS");
