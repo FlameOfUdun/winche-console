@@ -34,7 +34,8 @@ function bridgeError(e: unknown) {
 }
 
 /**
- * One of the project's own pages: its files in a sandboxed frame (no access to the console or its session), and the
+ * One of the project's own pages: its files in a sandboxed frame (no access to the console or its session; no border
+ * or card of its own: the page's sections are its cards), and the
  * bridge it talks through. The channel is opened once, for the page the console loaded: if the frame navigates
  * elsewhere, the channel closes and the page asks to be reloaded.
  */
@@ -119,7 +120,7 @@ export function ConsolePageView() {
         {opened.data && (
           <iframe ref={frame} key={opened.data.url} src={opened.data.url} title={title} onLoad={onLoad} data-testid="console-page-frame"
             sandbox="allow-scripts allow-forms allow-popups allow-modals allow-downloads" referrerPolicy="no-referrer"
-            style={{ width: "100%", height: "calc(100vh - 200px)", minHeight: 420, border: "1px solid var(--w-border)", borderRadius: 8, background: "var(--w-card)" }} />
+            style={{ width: "100%", height: "calc(100vh - 200px)", minHeight: 420, border: 0, display: "block", background: "transparent" }} />
         )}
       </Stack>
       <Modal opened={!!asking} onClose={() => asking?.answer(false)} title={title} centered>
