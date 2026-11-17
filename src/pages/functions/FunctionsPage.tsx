@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, UnstyledButton } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, SimpleGrid, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, UnstyledButton } from "@mantine/core";
 import type { FunctionsSettings } from "../../api/dataSettings";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -9,8 +9,9 @@ import type { FunctionInfo, FunctionRun, FunctionVersion } from "../../api/funct
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
+import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
-import { IconArrowBackUp, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
+import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
 
 /**
  * Functions: TypeScript run on the server when data changes, on a schedule, or when apps call them. The code lives in
@@ -66,22 +67,28 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
       <Group gap={8}><Text fw={600}>Live</Text><Badge variant="light" color="teal" tt="none">version {version}</Badge>
         <Text size="sm" c="dimmed">{functions.length} {functions.length === 1 ? "function" : "functions"}</Text></Group>
       {functions.length === 0 && <Text size="sm" c="dimmed">No functions exported.</Text>}
-      <Stack gap="xs">
+      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
         {functions.map((f) => (
           <UnstyledButton key={f.name} onClick={() => setOpen(f.name)} data-testid="function" aria-label={f.name}>
-            <Paper withBorder radius="md" p="md" className="winche-card-link">
-              <Group wrap="nowrap" gap={8}>
-                <Text fw={600} ff="monospace" truncate>{f.name}</Text>
+            <Paper withBorder p="lg" className="winche-card-link" h="100%" style={{ display: "flex", flexDirection: "column" }}>
+              <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
+                <Text fw={600} fz={16} ff="monospace" truncate>{f.name}</Text>
                 <Badge variant="light" tt="none" style={{ flexShrink: 0 }}>{KIND[f.kind] ?? f.kind}</Badge>
               </Group>
-              <Text size="sm" mt={4} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
+              <Text size="sm" mt={6} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
                 {f.about ?? f.description}
               </Text>
-              {f.about && <Text size="xs" c="dimmed" mt={4} lineClamp={1}>{f.description}</Text>}
+              <Group justify="space-between" align="flex-end" gap="xs" wrap="nowrap" style={{ marginTop: "auto", paddingTop: 16 }}>
+                <Text size="xs" c="dimmed" lineClamp={1}>{f.about ? f.description : ""}</Text>
+                <Group gap={4} c={surface.accent} wrap="nowrap" style={{ flexShrink: 0 }}>
+                  <Text size="sm" fw={600}>Open</Text>
+                  <IconArrowRight size={15} />
+                </Group>
+              </Group>
             </Paper>
           </UnstyledButton>
         ))}
-      </Stack>
+      </SimpleGrid>
       <FunctionDialog f={shown} onClose={() => setOpen(null)} />
     </Stack>
   );
