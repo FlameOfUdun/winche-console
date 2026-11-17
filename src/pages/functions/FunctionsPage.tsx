@@ -9,7 +9,7 @@ import type { FunctionInfo, FunctionRun, FunctionVersion } from "../../api/funct
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
-import { HistoryButton } from "../../components/EditCard";
+import { CardsPage, HistoryButton } from "../../components/EditCard";
 import { AreaHistory } from "../settings/AreaSettings";
 import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
@@ -24,9 +24,7 @@ export function FunctionsPage() {
   const [tab, setTab] = useState<"deployed" | "settings">("deployed");
   return (
     <>
-      <PageBand title="Functions" actions={
-        <HistoryButton subtitle="Functions: each deploy, and changes to their run times"><FunctionsHistory /></HistoryButton>
-      } tabs={[
+      <PageBand title="Functions" tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
         { label: "Settings", active: tab === "settings", onClick: () => setTab("settings") },
       ]} />
@@ -399,6 +397,9 @@ function SettingsTab() {
     finally { setBusy(false); }
   };
   return (
+    <CardsPage intro="Saved changes apply from each function's next run." history={
+      <HistoryButton subtitle="Functions: each deploy, and changes to their run times"><FunctionsHistory /></HistoryButton>
+    }>
     <Paper withBorder radius="md" p="lg">
       <Stack gap="md">
         <div>
@@ -426,5 +427,6 @@ function SettingsTab() {
         {error && <Alert color="red" style={{ whiteSpace: "pre-wrap" }}>{error}</Alert>}
       </Stack>
     </Paper>
+    </CardsPage>
   );
 }

@@ -98,13 +98,16 @@ test("a function's card says what it does; its dialog shows its shapes and start
   await waitFor(() => expect(mock(api.runFunction)).toHaveBeenCalledWith("hello", { lang: "de" }, null));
 });
 
-test("change history: a panel with each deploy and what it changed; rolling back asks in a dialog", async () => {
+test("Settings → Change history: a panel with each deploy and what it changed; rolling back asks in a dialog", async () => {
   mock(api.functionVersions).mockResolvedValue({ versions: [
     { ...v1, version: 2, note: "Second", functions: [v1.functions[0], { ...v1.functions[1], name: "onReport" }] }, v1,
   ] });
   mock(api.rollBackFunctions).mockResolvedValue({ ...v1, version: 3 });
   renderPage();
   mock(api.dataSettingsHistory).mockResolvedValue({ versions: [] });
+  mock(api.dataSettings).mockResolvedValue({ settings: { defaultTimeoutSeconds: 60, timeouts: {} }, codeDefault: { defaultTimeoutSeconds: 60, timeouts: {} },
+    source: "code", version: null, editable: true, whyReadOnly: null });
+  await userEvent.click(await screen.findByRole("button", { name: "Settings" }));
   await userEvent.click(await screen.findByRole("button", { name: "Change history" }));
   expect(await screen.findByText("Deploys")).toBeInTheDocument();
   const rows = await screen.findAllByTestId("function-version");
