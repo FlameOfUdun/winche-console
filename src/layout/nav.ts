@@ -1,5 +1,4 @@
 import type { AuthState, SessionUser } from "../api/types";
-import { CONSOLE } from "../api/scope";
 
 export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "assets" | "settings" | "page" | "key";
 
@@ -102,7 +101,12 @@ export function homePath(state: AuthState | null, _user: SessionUser | null): st
   return state ? "/overview" : null;
 }
 
-/** An address among the server's pages (its projects and settings), from anywhere: e.g. serverConsoleUrl("projects"). */
+/**
+ * An address in the server's own console (Winche Server's root: its projects and settings), from a project's console
+ * at /p/<id>/… or from the server's console itself: e.g. serverConsoleUrl("projects").
+ */
 export function serverConsoleUrl(path = ""): string {
-  return `${window.location.origin}${CONSOLE}/${path}`;
+  const url = new URL(document.baseURI);
+  url.pathname = url.pathname.replace(/\/p\/[^/]+(?=\/)/, "");
+  return url.toString().replace(/\/?$/, "/") + path;
 }

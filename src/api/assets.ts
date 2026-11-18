@@ -20,7 +20,7 @@ export interface AssetsPageData {
   moving: { to: string; copied: number; total: number; error: string | null; startedAt: string | null } | null;
 }
 
-/** GET assets/location: where contents are kept, and a move under way. */
+/** GET api/assets/location: where contents are kept, and a move under way. */
 export interface AssetLocationState {
   active: import("./dataSettings").ArchiveLocation | null;
   activeLabel: string;

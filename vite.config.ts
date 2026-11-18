@@ -9,7 +9,7 @@ export default defineConfig({
   build: { outDir: "dist", emptyOutDir: true },
   server: {
     // Dev: the console's API is Winche Server's; run one locally on port 5000.
-    proxy: { "/console/v1": "http://localhost:5000" },
+    proxy: { "/_console": "http://localhost:5000" },
   },
   test: { environment: "jsdom", globals: true, setupFiles: "./src/test/setup.ts" },
 });
