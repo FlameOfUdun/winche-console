@@ -73,7 +73,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   out.push({
     to: "/settings", label: "Project settings", icon: "settings", group: "bottom", pages: [
       { to: "/settings/general", label: "General" },
-      ...(admin ? [{ to: "/settings/members", label: "Members" }, { to: "/settings/ci", label: "CI tokens" }] : []),
+      ...(admin ? [{ to: "/settings/members", label: "Members" }, { to: "/settings/service-accounts", label: "Service accounts" }] : []),
       ...(user?.serverAdmin ? [{ to: "/settings/data", label: "Data" }] : []),
     ],
   });

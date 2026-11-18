@@ -173,7 +173,7 @@ test("helpers and nav", () => {
   const full = projectNav({ capabilities: { database: true, hooks: true, history: true, logs: { app: true, database: true, storage: false } } } as never,
     { role: "Admin" } as never, { rules: ["database"] });
   expect(full.find((n) => n.to === "/database")!.pages.map((p) => p.label)).toEqual(["Data", "Rules", "History", "Webhooks", "Logs"]);
-  expect(full.find((n) => n.to === "/settings")!.pages.map((p) => p.label)).toEqual(["General", "Members", "CI tokens"]);
+  expect(full.find((n) => n.to === "/settings")!.pages.map((p) => p.label)).toEqual(["General", "Members", "Service accounts"]);
   expect(full.find((n) => n.to === "/secrets")!.label).toBe("Secrets");   // a section of its own, for admins
   expect(projectNav({ capabilities: {} } as never, { role: "Member" } as never).find((n) => n.to === "/secrets")).toBeUndefined();
 });

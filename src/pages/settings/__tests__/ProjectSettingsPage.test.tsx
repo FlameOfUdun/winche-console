@@ -9,7 +9,7 @@ import { useSession } from "../../../auth/session";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, apps: vi.fn(), listUsers: vi.fn(), listInvites: vi.fn(), consoleTokens: vi.fn() } };
+  return { ...actual, api: { ...actual.api, apps: vi.fn(), listUsers: vi.fn(), listInvites: vi.fn(), serviceAccounts: vi.fn() } };
 });
 vi.mock("../../../auth/session", async (orig) => {
   const actual = await orig<typeof import("../../../auth/session")>();
@@ -38,10 +38,10 @@ beforeEach(() => {
   });
   mock(api.listUsers).mockResolvedValue([]);
   mock(api.listInvites).mockResolvedValue([]);
-  mock(api.consoleTokens).mockResolvedValue({ available: true, scopes: ["functions", "rules"], tokens: [] });
+  mock(api.serviceAccounts).mockResolvedValue({ available: true, roles: ["Viewer", "Member", "Admin"], scopes: ["functions", "rules"], maxKeys: 2, maxKeyDays: 730, keysAllowed: true, accounts: [] });
 });
 
-test("admins get General, Users and permissions, and CI tokens, each at its own address", async () => {
+test("admins get General, Users and permissions, and service accounts, each at its own address", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: { manageUsers: true } }, user: { role: "Admin" } });
   renderAt("/settings/general");
   expect(await screen.findByText("Your apps")).toBeInTheDocument();
@@ -51,8 +51,9 @@ test("admins get General, Users and permissions, and CI tokens, each at its own 
   expect(await screen.findByTestId("where")).toHaveTextContent("/settings/members");
   expect(await screen.findByRole("button", { name: "New user" })).toBeInTheDocument();
   cleanup();
-  renderAt("/settings/ci");
-  expect(await screen.findByText("CI tokens")).toBeInTheDocument();
+  renderAt("/settings/ci");   // where CI tokens were
+  expect(await screen.findByTestId("where")).toHaveTextContent("/settings/service-accounts");
+  expect(await screen.findByText("No service accounts")).toBeInTheDocument();
 });
 
 test("others see only General", async () => {

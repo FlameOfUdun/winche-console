@@ -304,10 +304,20 @@ export const api = {
     http<void>("POST", `settings/location/files/move/${step}`, { reason }),
   parseIndexText: (text: string) => http<import("./indexText").IndexTextParse>("POST", "settings/database/indexes/parse", { text }),
   indexSuggestions: () => http<{ suggestions: IndexSuggestion[] }>("GET", "settings/database/suggestions"),
-  consoleTokens: () => http<import("./tokens").TokensResponse>("GET", "tokens"),
-  createCiToken: (name: string, scopes: string[], days: number) =>
-    http<{ token: import("./tokens").ConsoleToken; secret: string }>("POST", "tokens", { name, scopes, days }),
-  revokeConsoleToken: (id: string) => http<void>("DELETE", `tokens/${encodeURIComponent(id)}`),
+  serviceAccounts: () => http<import("./serviceAccounts").ServiceAccountsResponse>("GET", "service-accounts"),
+  createServiceAccount: (name: string, role: string | null, scopes: string[]) =>
+    http<{ id: string; name: string }>("POST", "service-accounts", { name, role, scopes }),
+  updateServiceAccount: (id: string, role: string | null, scopes: string[], disabled: boolean) =>
+    http<void>("PUT", `service-accounts/${encodeURIComponent(id)}`, { role, scopes, disabled }),
+  deleteServiceAccount: (id: string) => http<void>("DELETE", `service-accounts/${encodeURIComponent(id)}`),
+  addServiceAccountKey: (id: string, days: number) =>
+    http<{ key: { id: string; createdAt: string; expiresAt: string }; secret: string }>("POST", `service-accounts/${encodeURIComponent(id)}/keys`, { days }),
+  revokeServiceAccountKey: (id: string, keyId: string) =>
+    http<void>("DELETE", `service-accounts/${encodeURIComponent(id)}/keys/${encodeURIComponent(keyId)}`),
+  trustIdentity: (id: string, issuer: string, subject: string, audience: string) =>
+    http<{ id: string }>("POST", `service-accounts/${encodeURIComponent(id)}/identities`, { issuer, subject, audience }),
+  removeIdentity: (id: string, identityId: string) =>
+    http<void>("DELETE", `service-accounts/${encodeURIComponent(id)}/identities/${encodeURIComponent(identityId)}`),
   approveCliLogin: (body: { challenge: string; port: number; state: string; name: string }) =>
     http<{ redirect: string }>("POST", "cli/approve", body),
   cliDevice: (userCode: string) => http<{ name: string; userCode: string }>("GET", `cli/device/${encodeURIComponent(userCode)}`),
