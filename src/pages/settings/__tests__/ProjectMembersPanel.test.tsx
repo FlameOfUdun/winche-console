@@ -34,7 +34,7 @@ beforeEach(() => {
 
 test("no members: an empty state; adding someone new shows the link to set their password", async () => {
   mock(api.members).mockResolvedValue({ members: [], serverAdmins: [admin] });
-  mock(api.addMember).mockResolvedValue({ userId: "b1", newAccount: true, emailed: false, link: "http://x/p/wards/_console/reset-password?token=t" });
+  mock(api.addMember).mockResolvedValue({ userId: "b1", newAccount: true, emailed: false, link: "http://x/console/reset-password?code=t" });
   renderIt(<ProjectMembersPanel />);
   expect(await screen.findByText("No members yet")).toBeInTheDocument();
   expect(screen.getByText("Root Admin (you)")).toBeInTheDocument();
@@ -43,7 +43,7 @@ test("no members: an empty state; adding someone new shows the link to set their
   await userEvent.type(within(dialog).getByLabelText("Email"), "bob@example.com");
   await userEvent.click(within(dialog).getByRole("button", { name: "Add member" }));
   await waitFor(() => expect(api.addMember).toHaveBeenCalledWith("bob@example.com", "Member"));
-  expect(await within(dialog).findByTestId("member-link")).toHaveTextContent("reset-password?token=t");
+  expect(await within(dialog).findByTestId("member-link")).toHaveTextContent("reset-password?code=t");
 });
 
 test("members are listed with their roles, changed and removed in place", async () => {
@@ -66,7 +66,7 @@ test("members are listed with their roles, changed and removed in place", async 
 
 test("not a member of this project: says so and offers the projects they are in", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { id: "b1", role: null, email: "bob@example.com", member: false } });
-  mock(api.projects).mockResolvedValue({ available: true, canCreate: false, current: "clinic", projects: [{ id: "wards", name: "Wards", consoleUrl: "/p/wards/_console", imageVersion: null }] });
+  mock(api.projects).mockResolvedValue({ available: true, canCreate: false, current: "clinic", projects: [{ id: "wards", name: "Wards", consoleUrl: "/console/projects/wards", imageVersion: null }] });
   renderIt(<RequireProject><div>CONSOLE</div></RequireProject>);
   expect(await screen.findByText("You're not in this project")).toBeInTheDocument();
   expect(await screen.findByText("Wards")).toBeInTheDocument();

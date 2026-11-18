@@ -62,7 +62,7 @@ test("a flat sidebar of products (their pages are tabs); Server in the top bar f
   expect(database).toHaveAttribute("aria-current", "page");
   expect(database).toHaveAttribute("href", "/database");
   expect(screen.queryByRole("link", { name: "Rules" })).toBeNull();   // a tab on the page, not in the sidebar
-  // The server's settings are its own console's: a link there (the root, not this project's /p/<id>).
+  // The server's settings are its own console's: a link there (the server's, not this project's /console/projects/<id>).
   expect(screen.getByRole("link", { name: "Server" })).toHaveAttribute("href", expect.stringMatching(/^http:\/\/[^/]+\/console\/server$/));
   expect(screen.getByRole("link", { name: /Project settings/ })).toHaveAttribute("href", "/settings/general");
   expect(await screen.findByText("Clinic")).toBeInTheDocument();

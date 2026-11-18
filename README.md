@@ -4,7 +4,7 @@ The web app of the Winche console: the screens for projects, authentication, dat
 secrets, logs, a project's own pages, project settings and server settings. It's a React + Mantine app (TanStack Query for data), built with Vite. It works on
 phones too: the sidebar becomes a menu, and the data browser shows one column at a time.
 
-Its API is Winche Server's (`/_console/api/…`, in the
+Its API is Winche Server's (`/console/v1/…`, in the
 [winche-server](https://github.com/FlameOfUdun/winche-server) repository, `src/Winche.Console`). Winche Server serves a
 build of this app: after changing it, run `scripts/update-console-web.sh` there, which builds this repository and
 copies the files in, noting the commit they came from.
@@ -18,7 +18,7 @@ npm test           # vitest
 npm run build      # dist/
 ```
 
-The dev server sends `/_console` to `http://localhost:5000` (`vite.config.ts`). Run a Winche Server there, from the
+The dev server sends `/console/v1` to `http://localhost:5000` (`vite.config.ts`). Run a Winche Server there, from the
 winche-server repository:
 
 ```sh

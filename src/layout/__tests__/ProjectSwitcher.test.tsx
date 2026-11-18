@@ -13,8 +13,8 @@ vi.mock("../../api/client", async (orig) => {
   return { ...actual, api: { ...actual.api, projects: vi.fn(), createServerProject: vi.fn(), checkProjectDatabase: vi.fn(), projectImage: vi.fn(), restoreProject: vi.fn(), deleteProject: vi.fn() } };
 });
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
-const clinic = { id: "clinic", name: "Clinic records", consoleUrl: "/_console", imageVersion: null };
-const wards = { id: "wards", name: "Ward boards", consoleUrl: "/p/wards/_console", imageVersion: null };
+const clinic = { id: "clinic", name: "Clinic records", consoleUrl: "/console/projects/clinic", imageVersion: null };
+const wards = { id: "wards", name: "Ward boards", consoleUrl: "/console/projects/wards", imageVersion: null };
 
 const renderIt = (page = <ProjectPicker name="Clinic records" id="clinic" />) => render(
   <MantineProvider>
@@ -38,7 +38,7 @@ beforeEach(() => {
 
 test("only one project: an empty state; an admin adds one in a dialog, and its console opens", async () => {
   mock(api.projects).mockResolvedValue({ available: true, canCreate: true, current: "clinic", projects: [clinic] });
-  mock(api.createServerProject).mockResolvedValue({ id: "ward-boards", name: "Ward boards", consoleUrl: "/p/ward-boards/_console" });
+  mock(api.createServerProject).mockResolvedValue({ id: "ward-boards", name: "Ward boards", consoleUrl: "/console/projects/ward-boards" });
   renderIt();
   await openPicker();
   expect(await screen.findByTestId("projects-empty")).toHaveTextContent("Only this project");
@@ -48,14 +48,14 @@ test("only one project: an empty state; an admin adds one in a dialog, and its c
   expect(within(dialog).getByLabelText("Project id")).toHaveValue("ward-boards");
   await userEvent.click(within(dialog).getByRole("button", { name: "Create project" }));
   await waitFor(() => expect(api.createServerProject).toHaveBeenCalledWith("Ward boards", "ward-boards", null));
-  await waitFor(() => expect(assigned).toEqual(["/p/ward-boards/_console/overview"]));
+  await waitFor(() => expect(assigned).toEqual(["/console/projects/ward-boards/overview"]));
 });
 
 test("a new project's database on another PostgreSQL server: checked, then made there", async () => {
   mock(api.projects).mockResolvedValue({ available: true, canCreate: true, current: "clinic", projects: [clinic] });
   mock(api.checkProjectDatabase).mockResolvedValueOnce({ ok: false, problem: "Couldn't connect: password authentication failed", version: null, exists: false, rowsToCopy: 0 })
     .mockResolvedValue({ ok: true, problem: null, version: "17.2", exists: false, rowsToCopy: 0 });
-  mock(api.createServerProject).mockResolvedValue({ id: "ward-boards", name: "Ward boards", consoleUrl: "/p/ward-boards/_console" });
+  mock(api.createServerProject).mockResolvedValue({ id: "ward-boards", name: "Ward boards", consoleUrl: "/console/projects/ward-boards" });
   renderIt();
   await openPicker();
   await userEvent.click(await screen.findByText("Add a project"));
@@ -81,7 +81,7 @@ test("other projects open their own console; non-admins can't add", async () => 
   renderIt();
   await openPicker();
   await userEvent.click(await screen.findByText("Ward boards"));
-  expect(assigned).toEqual(["/p/wards/_console/overview"]);
+  expect(assigned).toEqual(["/console/projects/wards/overview"]);
   expect(screen.queryByText("Add a project")).toBeNull();
 });
 
@@ -103,7 +103,7 @@ test("the projects page lists every project, each opening its console", async ()
   expect(within(cards[0]).getByText("Storage off")).toBeInTheDocument();
   expect(within(cards[1]).queryByTestId("project-products")).toBeNull();   // a host that doesn't say
   await userEvent.click(cards[1]);
-  expect(assigned).toEqual(["/p/wards/_console/overview"]);
+  expect(assigned).toEqual(["/console/projects/wards/overview"]);
   expect(screen.getByRole("button", { name: "Add project" })).toBeInTheDocument();
 });
 

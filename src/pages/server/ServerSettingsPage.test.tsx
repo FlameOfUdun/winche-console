@@ -43,7 +43,7 @@ beforeEach(() => {
     settings: { ...deployment, requireTwoFactorForSettings: false }, deployment, source: "console",
     version: { number: 2, at: "2026-11-14T10:00:00Z", by: "admin@example.com", reason: "Web app" },
     secrets: [],
-    consoleSignIn: { callbackUrl: "https://api.example.com/_console/session/oidc/callback", logoutUrl: "https://api.example.com/_console/session/oidc/backchannel-logout" },
+    consoleSignIn: { callbackUrl: "https://api.example.com/console/v1/session/oidc/callback", logoutUrl: "https://api.example.com/console/v1/session/oidc/backchannel-logout" },
   });
   mock(api.saveServerSettings).mockResolvedValue({});
   mock(api.serverSettingsHistory).mockResolvedValue({ versions: [] });
@@ -135,7 +135,7 @@ test("no changes yet: Change history says so", async () => {
 });
 
 test("console sign-in: email and password always there; a provider added in the list and tried with a test sign-in", async () => {
-  mock(api.testConsoleSignIn).mockResolvedValue({ url: "session/oidc/start?test=t", callbackUrl: "https://api.example.com/_console/session/oidc/callback" });
+  mock(api.testConsoleSignIn).mockResolvedValue({ url: "session/oidc/start?test=t", callbackUrl: "https://api.example.com/console/v1/session/oidc/callback" });
   mock(api.setServerSecret).mockResolvedValue(undefined);
   const opened = { location: { href: "" }, close: vi.fn() };
   const open = vi.spyOn(window, "open").mockReturnValue(opened as unknown as Window);
@@ -144,8 +144,8 @@ test("console sign-in: email and password always there; a provider added in the 
   await userEvent.click(screen.getByRole("button", { name: "Add new provider" }));
   const row = await screen.findByRole("dialog");
   expect(screen.queryByTestId("console-provider")).toBeNull();   // nothing in the list until it's added
-  expect(within(row).getByText("https://api.example.com/_console/session/oidc/callback")).toBeInTheDocument();
-  expect(within(row).getByText("https://api.example.com/_console/session/oidc/backchannel-logout")).toBeInTheDocument();
+  expect(within(row).getByText("https://api.example.com/console/v1/session/oidc/callback")).toBeInTheDocument();
+  expect(within(row).getByText("https://api.example.com/console/v1/session/oidc/backchannel-logout")).toBeInTheDocument();
   await userEvent.type(within(row).getByLabelText(/^Issuer/), "https://login.example.com");
   await userEvent.type(within(row).getByLabelText(/^Client ID/), "winche-console");
   await userEvent.click(within(row).getByRole("textbox", { name: "Kind" }));
