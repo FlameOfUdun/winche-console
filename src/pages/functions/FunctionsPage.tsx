@@ -53,7 +53,7 @@ const triggered = (f: FunctionInfo) => f.kind !== "callable";
 
 const KIND: Record<FunctionInfo["kind"], string> = {
   callable: "callable", documents: "documents", files: "files", users: "users", schedule: "schedule", before: "before write",
-  http: "HTTP", consolePage: "console page", consoleAction: "console action",
+  http: "HTTP", consolePage: "console page",
 };
 
 function Deployed({ functions, version }: { functions: FunctionInfo[]; version: number | null }) {

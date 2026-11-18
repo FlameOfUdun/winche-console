@@ -253,7 +253,17 @@ export const api = {
   runFunction: (name: string, data: unknown, asUid: string | null) => http<FunctionRun>("POST", "functions/run", { name, data, asUid }),
   consolePages: () => http<{ pages: ConsolePageEntry[] }>("GET", "pages"),
   openConsolePage: (name: string) => http<{ url: string; user: { email: string | null; role: "viewer" | "member" | "admin" } }>("POST", `pages/${encodeURIComponent(name)}/open`),
-  runConsoleAction: (name: string, data: unknown) => http<{ data: unknown }>("POST", `pages/actions/${encodeURIComponent(name)}`, { data: data ?? null }),
+  /** A @winche/admin call from a console page, as the signed-in person (the page's name goes with it: pages can't call functions). */
+  runAdmin: async (page: string, op: string, args: unknown) => {
+    const res = await fetch(apiUrl("admin"), {
+      method: "POST",
+      headers: { "X-Winche-Console": "1", "Content-Type": "application/json", "X-Winche-Page": page },
+      body: JSON.stringify({ op, args }),
+      credentials: "same-origin",
+    });
+    if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
+    return (await res.json()) as { result: unknown };
+  },
   functionSecrets: () => http<{ available: boolean; secrets: FunctionSecret[] }>("GET", "functions/secrets"),
   setFunctionSecret: (name: string, value: string) => http<void>("PUT", `functions/secrets/${encodeURIComponent(name)}`, secretBody(value)),
   testFunctionSecret: (name: string) => http<SecretTest>("POST", `functions/secrets/${encodeURIComponent(name)}/test`),

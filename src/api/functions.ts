@@ -1,5 +1,5 @@
 export interface FunctionInfo {
-  name: string; kind: "documents" | "files" | "users" | "schedule" | "callable" | "before" | "http" | "consolePage" | "consoleAction"; events: string[] | null; path: string | null;
+  name: string; kind: "documents" | "files" | "users" | "schedule" | "callable" | "before" | "http" | "consolePage"; events: string[] | null; path: string | null;
   cron: string | null; timeZone: string | null; description: string; timeoutSeconds: number;
   /** The secrets it declared (options.secrets). */
   secrets?: string[];

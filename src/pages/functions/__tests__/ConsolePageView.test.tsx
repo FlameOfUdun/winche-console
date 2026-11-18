@@ -8,7 +8,7 @@ import { api } from "../../../api/client";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, openConsolePage: vi.fn(), consolePages: vi.fn(), runConsoleAction: vi.fn() } };
+  return { ...actual, api: { ...actual.api, openConsolePage: vi.fn(), consolePages: vi.fn(), runAdmin: vi.fn() } };
 });
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 
@@ -45,8 +45,8 @@ async function connect(frame: HTMLIFrameElement): Promise<MessagePort> {
 
 const next = (port: MessagePort) => new Promise<any>((resolve) => { port.onmessage = (m) => resolve(m.data); });
 
-test("the page is sandboxed, gets who's signed in, and runs actions through the console", async () => {
-  mock(api.runConsoleAction).mockResolvedValue({ data: { count: 3 } });
+test("the page is sandboxed and its @winche/admin calls go to the admin API as the person", async () => {
+  mock(api.runAdmin).mockResolvedValue({ result: { document: { path: "notes/a" } } });
   renderView();
   const frame = await screen.findByTestId("console-page-frame") as HTMLIFrameElement;
   expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-popups allow-modals allow-downloads");
@@ -54,20 +54,17 @@ test("the page is sandboxed, gets who's signed in, and runs actions through the 
   expect(await screen.findByText("Weekly reports")).toBeInTheDocument();
 
   const port = await connect(frame);
-  const init = await next(port);
-  expect(init.op).toBe("init");
-  expect(init.user).toEqual({ email: "ann@example.com", role: "viewer" });
-  expect(["light", "dark"]).toContain(init.theme.scheme);
+  expect(await next(port)).toEqual({ op: "init" });
 
   const answer = next(port);
-  port.postMessage({ op: "call", id: 1, name: "summary", data: { week: 46 } });
-  expect(await answer).toEqual({ id: 1, result: { count: 3 } });
-  expect(mock(api.runConsoleAction)).toHaveBeenCalledWith("summary", { week: 46 });
+  port.postMessage({ op: "admin", id: 1, call: "db.get", args: { path: "notes/a" } });
+  expect(await answer).toEqual({ id: 1, result: { document: { path: "notes/a" } } });
+  expect(mock(api.runAdmin)).toHaveBeenCalledWith("reports", "db.get", { path: "notes/a" });
 
-  mock(api.runConsoleAction).mockRejectedValue(new Error(JSON.stringify({ error: { code: "permission-denied", message: "wipe needs the admin role." } })));
+  mock(api.runAdmin).mockRejectedValue(new Error(JSON.stringify({ error: { code: "permission-denied", message: "db.add needs the member role in this project (yours: viewer)." } })));
   const refused = next(port);
-  port.postMessage({ op: "call", id: 2, name: "wipe", data: null });
-  expect(await refused).toEqual({ id: 2, error: { code: "permission-denied", message: "wipe needs the admin role.", details: undefined } });
+  port.postMessage({ op: "admin", id: 2, call: "db.add", args: {} });
+  expect(await refused).toEqual({ id: 2, error: { code: "permission-denied", message: "db.add needs the member role in this project (yours: viewer)." } });
   port.close();
 });
 
