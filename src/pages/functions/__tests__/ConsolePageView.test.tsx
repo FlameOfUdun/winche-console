@@ -45,7 +45,7 @@ async function connect(frame: HTMLIFrameElement): Promise<MessagePort> {
 
 const next = (port: MessagePort) => new Promise<any>((resolve) => { port.onmessage = (m) => resolve(m.data); });
 
-test("the page is sandboxed and its @winche/admin calls go to the admin API as the person", async () => {
+test("the page is sandboxed and its @winche-technologies/winche-admin calls go to the admin API as the person", async () => {
   mock(api.runAdmin).mockResolvedValue({ result: { document: { path: "notes/a" } } });
   renderView();
   const frame = await screen.findByTestId("console-page-frame") as HTMLIFrameElement;

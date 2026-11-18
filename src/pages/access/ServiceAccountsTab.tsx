@@ -47,7 +47,7 @@ export function ServiceAccountsTab() {
           <div style={{ maxWidth: 680 }}>
             <Title order={2} fz={16}>Service accounts</Title>
             <Text size="sm" c="dimmed" mt={2}>
-              What CI and your other servers act as: a role (with <Code>@winche/admin</Code>'s <Code>initializeAdmin</Code>), or deploy
+              What CI and your other servers act as: a role (with <Code>@winche-technologies/winche-admin</Code>'s <Code>initializeAdmin</Code>), or deploy
               scopes (<Code>winche functions deploy</Code> with <Code>WINCHE_TOKEN</Code>). They sign in with a key or, better, a
               trusted identity (the CI's own token: no key to keep or rotate), exchanged for an hour's access token. They belong
               to the project, and every change they make is named for them.

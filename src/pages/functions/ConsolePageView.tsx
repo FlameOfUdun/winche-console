@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import { PageBand } from "../../components/NavPageHeader";
 
-/** What the page's bridge sends: one @winche/admin call (the operation and its arguments). */
+/** What the page's bridge sends: one @winche-technologies/winche-admin call (the operation and its arguments). */
 type Ask = { op: "admin"; id: number; call: string; args: unknown; protocol?: number };
 
 /** An error from the console's API as the page sees it: { code, message }. */
@@ -20,7 +20,7 @@ function bridgeError(e: unknown) {
 
 /**
  * One of the project's own pages: its files in a sandboxed frame (no access to the console or its session; no border
- * or card of its own), and the channel its @winche/admin calls come through, which the console sends to the admin API
+ * or card of its own), and the channel its @winche-technologies/winche-admin calls come through, which the console sends to the admin API
  * as the signed-in person (their role limits them). The channel is opened once, for the page the console loaded: if
  * the frame navigates elsewhere, the channel closes and the page asks to be reloaded.
  */

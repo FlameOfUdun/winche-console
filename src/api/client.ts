@@ -253,7 +253,7 @@ export const api = {
   runFunction: (name: string, data: unknown, asUid: string | null) => http<FunctionRun>("POST", "functions/run", { name, data, asUid }),
   consolePages: () => http<{ pages: ConsolePageEntry[] }>("GET", "pages"),
   openConsolePage: (name: string) => http<{ url: string; user: { email: string | null; role: "viewer" | "member" | "admin" } }>("POST", `pages/${encodeURIComponent(name)}/open`),
-  /** A @winche/admin call from a console page, as the signed-in person (the page's name goes with it: pages can't call functions). */
+  /** A @winche-technologies/winche-admin call from a console page, as the signed-in person (the page's name goes with it: pages can't call functions). */
   runAdmin: async (page: string, op: string, args: unknown, protocol?: number) => {
     const headers: Record<string, string> = { "X-Winche-Console": "1", "Content-Type": "application/json", "X-Winche-Page": page };
     if (typeof protocol === "number") headers["X-Winche-Protocol"] = String(protocol);   // the page's SDK's (the server checks it)
