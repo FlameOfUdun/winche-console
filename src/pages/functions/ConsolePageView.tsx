@@ -7,7 +7,7 @@ import { errorMessage } from "../../api/appAuth";
 import { PageBand } from "../../components/NavPageHeader";
 
 /** What the page's bridge sends: one @winche/admin call (the operation and its arguments). */
-type Ask = { op: "admin"; id: number; call: string; args: unknown };
+type Ask = { op: "admin"; id: number; call: string; args: unknown; protocol?: number };
 
 /** An error from the console's API as the page sees it: { code, message }. */
 function bridgeError(e: unknown) {
@@ -49,7 +49,7 @@ export function ConsolePageView() {
         const d = m.data;
         if (d?.op !== "admin" || typeof d.call !== "string") return;
         const reply = (body: object) => port.current === channel.port1 && channel.port1.postMessage(body);
-        try { reply({ id: d.id, result: (await api.runAdmin(name, d.call, d.args ?? {})).result ?? null }); }
+        try { reply({ id: d.id, result: (await api.runAdmin(name, d.call, d.args ?? {}, d.protocol)).result ?? null }); }
         catch (err) { reply({ id: d.id, error: bridgeError(err) }); }
       };
       (e.source as Window).postMessage({ winche: 1, op: "connect" }, "*", [channel.port2]);

@@ -57,9 +57,9 @@ test("the page is sandboxed and its @winche/admin calls go to the admin API as t
   expect(await next(port)).toEqual({ op: "init" });
 
   const answer = next(port);
-  port.postMessage({ op: "admin", id: 1, call: "db.get", args: { path: "notes/a" } });
+  port.postMessage({ op: "admin", id: 1, call: "db.get", args: { path: "notes/a" }, protocol: 1 });
   expect(await answer).toEqual({ id: 1, result: { document: { path: "notes/a" } } });
-  expect(mock(api.runAdmin)).toHaveBeenCalledWith("reports", "db.get", { path: "notes/a" });
+  expect(mock(api.runAdmin)).toHaveBeenCalledWith("reports", "db.get", { path: "notes/a" }, 1);
 
   mock(api.runAdmin).mockRejectedValue(new Error(JSON.stringify({ error: { code: "permission-denied", message: "db.add needs the member role in this project (yours: viewer)." } })));
   const refused = next(port);
