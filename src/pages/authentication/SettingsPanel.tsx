@@ -115,10 +115,10 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
   return (
     <Stack gap={20}>
       <EditCard title="Winche Auth" description="Tokens Winche Auth issues to your apps' own users."
-        rows={[{ label: "Accept its tokens", value: (
-          <Switch aria-label="Accept tokens issued by Winche Auth" checked={draft.trustWincheAuth} disabled={!editable}
-            onChange={(e) => setDraft({ ...draft, trustWincheAuth: e.currentTarget.checked })} />
-        ) }]} />
+        actions={
+          <Switch label="Accept its tokens" labelPosition="left" aria-label="Accept tokens issued by Winche Auth" checked={draft.trustWincheAuth}
+            disabled={!editable} onChange={(e) => setDraft({ ...draft, trustWincheAuth: e.currentTarget.checked })} />
+        } />
 
       <Group justify="space-between" align="center" wrap="wrap">
         <Text size="sm" c="var(--w-muted)">Other systems your apps sign in to: their tokens are accepted as they are.</Text>
