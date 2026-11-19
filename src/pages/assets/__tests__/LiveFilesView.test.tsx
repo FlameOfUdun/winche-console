@@ -40,22 +40,36 @@ test("no channel yet: how to publish", async () => {
   expect(await screen.findByText("No assets yet")).toBeInTheDocument();
 });
 
-test("the live files by folder, with when each arrived, searched, and one opened with its preview", async () => {
+test("the live files as a folder tree: folders open on a click, searching opens the matches, a file opens with its preview", async () => {
   mock(api.assets).mockResolvedValue(page([{ name: "beta", release: 4 }, { name: "production", release: 3 }]));
   mock(api.assetChannelFiles).mockResolvedValue(live);
   mock(api.assetContent).mockResolvedValue(new Blob(['{"hello":"Hello"}'], { type: "application/json" }));
   renderView();
 
-  const folders = await screen.findAllByTestId("asset-folder");
-  expect(folders.map((f) => within(f).getByRole("heading").textContent)).toEqual(["audio", "translations", "videos"]);
+  // The top folders, closed, each with its count.
+  const top = await screen.findAllByTestId("asset-folder");
+  expect(top.map((f) => f.textContent)).toEqual(["audio1 file · 2 KB", "translations1 file · 1 KB", "videos1 file · 1 KB"]);
   expect(mock(api.assetChannelFiles)).toHaveBeenCalledWith("production");   // production first, whatever the order
-  expect(within(folders[1]).getByText("since #2")).toBeInTheDocument();
-  expect(within(folders[0]).getByText("new in this release")).toBeInTheDocument();
-  expect(within(folders[2]).getByText("CDN")).toBeInTheDocument();
+  expect(screen.queryAllByTestId("asset-live-file")).toHaveLength(0);
 
+  // Folders inside folders: audio › de › its file.
+  await userEvent.click(screen.getByRole("button", { name: "Open audio" }));
+  await userEvent.click(screen.getByRole("button", { name: "Open audio/de" }));
+  expect(screen.getByRole("button", { name: "audio/de/objective_completed.wav" })).toBeInTheDocument();
+  expect(screen.getByText("new in this release")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Close audio" }));
+  expect(screen.queryByRole("button", { name: "audio/de/objective_completed.wav" })).not.toBeInTheDocument();
+
+  // Searching shows only the folders with a match, opened.
   await userEvent.type(screen.getByLabelText("Search paths"), "json");
   expect(screen.getAllByTestId("asset-folder")).toHaveLength(1);
+  expect(within(screen.getByTestId("asset-tree")).getByText("since #2")).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText("Search paths"));
+  await userEvent.type(screen.getByLabelText("Search paths"), "bvm");
+  expect(within(screen.getByTestId("asset-tree")).getByText("CDN")).toBeInTheDocument();
+  await userEvent.clear(screen.getByLabelText("Search paths"));
 
+  await userEvent.click(screen.getByRole("button", { name: "Open translations" }));
   await userEvent.click(screen.getByRole("button", { name: "translations/application_en.json" }));
   expect(await screen.findByTestId("asset-file-details")).toHaveTextContent("unchanged since release #2");
   expect(await screen.findByTestId("asset-preview-text")).toHaveTextContent('"hello": "Hello"');

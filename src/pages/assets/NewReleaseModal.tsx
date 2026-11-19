@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, Badge, Button, Checkbox, Group, Modal, Paper, Progress, ScrollArea, Stack, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Badge, Button, Checkbox, Group, Modal, Paper, Progress, Stack, Table, Text, TextInput } from "@mantine/core";
 import { IconUpload } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -129,8 +129,13 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
   };
 
   return (
-    <Modal opened={opened} onClose={close} radius="lg" size="xl" title={<Text fw={700}>New release</Text>}>
-      <Stack gap="sm" data-testid="new-release">
+    <Modal opened={opened} onClose={close} radius="lg" size="xl" title={<Text fw={700}>New release</Text>}
+      styles={{
+        // The dialog fits the window: its controls and Publish stay put, only the file list scrolls.
+        content: { display: "flex", flexDirection: "column", maxHeight: "calc(100dvh - 2 * var(--modal-y-offset, 5dvh))" },
+        body: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" },
+      }}>
+      <Stack gap="sm" data-testid="new-release" style={{ flex: "1 1 auto", minHeight: 0 }}>
         <Text size="sm" c="dimmed">Starts from {live.channel}'s release #{live.release}. Add or replace files, take some out, then publish.</Text>
 
         <Paper withBorder radius="md" p="sm"
@@ -157,7 +162,7 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
           <Text size="sm" fw={500}>{kept.length.toLocaleString()} files{changes.length ? ` · ${changes.length} change${changes.length === 1 ? "" : "s"}` : ""}</Text>
           <TextInput size="xs" placeholder="Search paths" aria-label="Search the draft" value={search} onChange={(e) => setSearch(e.currentTarget.value)} w={200} />
         </Group>
-        <ScrollArea.Autosize mah={300}>
+        <div style={{ flex: "1 1 auto", minHeight: 120, overflow: "auto", border: `1px solid ${surface.subtle}`, borderRadius: 8 }}>
           <Table fz="xs" verticalSpacing={3} data-testid="new-release-files-list">
             <Table.Tbody>
               {shown.map((e) => (
@@ -179,7 +184,7 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
               ))}
             </Table.Tbody>
           </Table>
-        </ScrollArea.Autosize>
+        </div>
 
         <TextInput label="What changed" placeholder="German audio" value={note} onChange={(e) => setNote(e.currentTarget.value)} disabled={!!busy} />
         <Checkbox label={`Point ${live.channel} at it (apps get it on their next sync)`} checked={move} onChange={(e) => setMove(e.currentTarget.checked)} disabled={!!busy} />

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
-import { IconFolder, IconPackage, IconSearch } from "@tabler/icons-react";
+import { Alert, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { IconChevronDown, IconChevronRight, IconFile, IconFolder, IconFolderOpen, IconPackage, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
@@ -18,8 +18,28 @@ const PUBLISH = `winche assets deploy assets --channel production -m "What chang
 /** Up to this size a file is previewed in the console (fetched whole). */
 const PREVIEW_MAX = 50 * 1024 * 1024;
 
-/** "translations" for "translations/en.json"; files at the top are in "". */
-const folderOf = (path: string) => (path.includes("/") ? path.slice(0, path.indexOf("/")) : "");
+/** A folder of the release: its subfolders and files, with how many files and bytes are under it. */
+interface Folder { name: string; path: string; folders: Folder[]; files: LiveFile[]; count: number; size: number }
+
+/** The files as a tree of folders (sorted: folders first, then files). */
+function treeOf(files: LiveFile[]): Folder {
+  const root: Folder = { name: "", path: "", folders: [], files: [], count: 0, size: 0 };
+  for (const f of files) {
+    let at = root;
+    const parts = f.path.split("/");
+    at.count++; at.size += f.size;
+    for (const part of parts.slice(0, -1)) {
+      let next = at.folders.find((x) => x.name === part);
+      if (!next) { next = { name: part, path: at.path ? `${at.path}/${part}` : part, folders: [], files: [], count: 0, size: 0 }; at.folders.push(next); }
+      at = next;
+      at.count++; at.size += f.size;
+    }
+    at.files.push(f);
+  }
+  const sort = (d: Folder) => { d.folders.sort((a, b) => a.name.localeCompare(b.name)); d.files.sort((a, b) => a.path.localeCompare(b.path)); d.folders.forEach(sort); };
+  sort(root);
+  return root;
+}
 
 /** What a type is, in a word: json, audio, video, image, html… */
 const kindOf = (mime: string) =>
@@ -27,8 +47,8 @@ const kindOf = (mime: string) =>
   : mime === "text/html" ? "html" : mime.includes("json") ? "json" : mime.startsWith("text/") ? "text" : mime.split("/").pop() ?? mime;
 
 /**
- * Assets → Files: what apps get on a channel now (the release it points at), by folder, with when each file's content
- * arrived; a file opens with its details and a preview.
+ * Assets → Files: what apps get on a channel now (the release it points at) as a folder tree, with when each file's
+ * content arrived; a file opens with its details and a preview.
  */
 export function LiveFilesView() {
   const page = useQuery({ queryKey: ["assets"], queryFn: api.assets });
@@ -41,13 +61,12 @@ export function LiveFilesView() {
   const [drafting, setDrafting] = useState(false);
   const admin = useSession().user?.role === "Admin";
 
-  const groups = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const files = (live.data?.files ?? []).filter((f) => !q || f.path.toLowerCase().includes(q));
-    const map = new Map<string, LiveFile[]>();
-    for (const f of files) map.set(folderOf(f.path), [...(map.get(folderOf(f.path)) ?? []), f]);
-    return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [live.data, search]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const query = search.trim().toLowerCase();
+  const tree = useMemo(() => treeOf((live.data?.files ?? []).filter((f) => !query || f.path.toLowerCase().includes(query))), [live.data, query]);
+  // Searching opens every folder with a match; otherwise folders open as they're clicked.
+  const isOpen = (path: string) => !!query || expanded.has(path);
+  const flip = (path: string) => setExpanded((e) => { const n = new Set(e); if (n.has(path)) n.delete(path); else n.add(path); return n; });
 
   if (page.isLoading) return <Loader size="sm" />;
   if (page.isError || !page.data) return <Alert color="red">Couldn't load assets: {errorMessage(page.error)}</Alert>;
@@ -59,7 +78,7 @@ export function LiveFilesView() {
     );
   const d = live.data;
   return (
-    <Stack gap="md" data-testid="asset-live">
+    <Stack gap="md" data-testid="asset-live" style={{ minHeight: 0, display: "flex", flexDirection: "column" }}>
       <Group justify="space-between" align="center" wrap="wrap" gap="sm">
         <Group gap={8}>
           <Text fw={600}>Live</Text>
@@ -78,46 +97,68 @@ export function LiveFilesView() {
         </Group>
       </Group>
 
-      {live.isLoading && <Loader size="sm" />}
-      {live.isError && <Alert color="red">Couldn't load {channel}'s files: {errorMessage(live.error)}</Alert>}
-      {d && groups.length === 0 && <Text size="sm" c="dimmed">No files match “{search}”.</Text>}
-
-      {groups.map(([folder, files]) => (
-        <Paper key={folder} withBorder radius="md" data-testid="asset-folder">
-          <Group justify="space-between" px="md" py="sm" style={{ borderBottom: `1px solid ${surface.subtle}` }}>
-            <Group gap={8}>
-              <IconFolder size={16} color={surface.muted} />
-              <Title order={5} ff="monospace">{folder || "/"}</Title>
-            </Group>
-            <Text size="xs" c={surface.faint}>{files.length.toLocaleString()} files · {bytes(files.reduce((a, f) => a + f.size, 0))}</Text>
-          </Group>
-          <ScrollArea>
-            <Table fz="sm" verticalSpacing={6} highlightOnHover miw={560}>
-              <Table.Tbody>
-                {files.map((f) => (
-                  <Table.Tr key={f.path} style={{ cursor: "pointer" }} onClick={() => setOpen(f)} data-testid="asset-live-file">
-                    <Table.Td>
-                      <UnstyledButton aria-label={f.path} onClick={(e) => { e.stopPropagation(); setOpen(f); }}>
-                        <Group gap={6} wrap="nowrap">
-                          <Text size="sm" ff="monospace">{folder ? f.path.slice(folder.length + 1) : f.path}</Text>
-                          {f.url && <Badge size="xs" variant="light">CDN</Badge>}
-                        </Group>
-                      </UnstyledButton>
-                    </Table.Td>
-                    <Table.Td><Badge size="sm" variant="default" tt="none">{kindOf(f.mimeType)}</Badge></Table.Td>
-                    <Table.Td><Text size="xs" c={surface.muted}>{f.since === d!.release ? "new in this release" : `since #${f.since}`}</Text></Table.Td>
-                    <Table.Td ta="right"><Text size="xs" c={surface.muted}>{bytes(f.size)}</Text></Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </ScrollArea>
-        </Paper>
-      ))}
+      {/* One scrolling list (the page around it doesn't scroll): the release's folders, opened as they're clicked. */}
+      <Paper withBorder radius="md" style={{ flex: "1 1 auto", minHeight: 0, overflow: "auto" }} data-testid="asset-live-scroll">
+        {live.isLoading && <Loader size="sm" m="md" />}
+        {live.isError && <Alert color="red" m="md">Couldn't load {channel}'s files: {errorMessage(live.error)}</Alert>}
+        {d && tree.count === 0 && <Text size="sm" c="dimmed" p="md">No files match “{search}”.</Text>}
+        {d && tree.count > 0 && (
+          <Table fz="sm" verticalSpacing={5} highlightOnHover miw={560} data-testid="asset-tree">
+            <Table.Tbody>
+              <FolderRows folder={tree} depth={0} isOpen={isOpen} flip={flip} release={d.release} onOpen={setOpen} />
+            </Table.Tbody>
+          </Table>
+        )}
+      </Paper>
 
       <FileDialog file={open} release={d?.release ?? 0} onClose={() => setOpen(null)} />
       {d && <NewReleaseModal key={`${d.channel}-${d.release}`} opened={drafting} live={d} onClose={() => setDrafting(false)} />}
     </Stack>
+  );
+}
+
+/** A folder's rows: its subfolders (each a row that opens it) and its files, indented by depth. */
+function FolderRows({ folder, depth, isOpen, flip, release, onOpen }: {
+  folder: Folder; depth: number; isOpen: (path: string) => boolean; flip: (path: string) => void; release: number; onOpen: (f: LiveFile) => void;
+}) {
+  const indent = { paddingLeft: 12 + depth * 20 };
+  return (
+    <>
+      {folder.folders.map((sub) => {
+        const open = isOpen(sub.path);
+        return [
+          <Table.Tr key={`d:${sub.path}`} style={{ cursor: "pointer" }} onClick={() => flip(sub.path)} data-testid="asset-folder" aria-expanded={open}>
+            <Table.Td style={indent} colSpan={3}>
+              <UnstyledButton aria-label={`${open ? "Close" : "Open"} ${sub.path}`} onClick={(e) => { e.stopPropagation(); flip(sub.path); }}>
+                <Group gap={6} wrap="nowrap">
+                  {open ? <IconChevronDown size={14} color={surface.muted} /> : <IconChevronRight size={14} color={surface.muted} />}
+                  {open ? <IconFolderOpen size={16} color={surface.muted} /> : <IconFolder size={16} color={surface.muted} />}
+                  <Text size="sm" fw={500} ff="monospace">{sub.name}</Text>
+                </Group>
+              </UnstyledButton>
+            </Table.Td>
+            <Table.Td ta="right"><Text size="xs" c={surface.faint}>{sub.count.toLocaleString()} {sub.count === 1 ? "file" : "files"} · {bytes(sub.size)}</Text></Table.Td>
+          </Table.Tr>,
+          open && <FolderRows key={`c:${sub.path}`} folder={sub} depth={depth + 1} isOpen={isOpen} flip={flip} release={release} onOpen={onOpen} />,
+        ];
+      })}
+      {folder.files.map((f) => (
+        <Table.Tr key={f.path} style={{ cursor: "pointer" }} onClick={() => onOpen(f)} data-testid="asset-live-file">
+          <Table.Td style={{ paddingLeft: 12 + depth * 20 + 20 }}>
+            <UnstyledButton aria-label={f.path} onClick={(e) => { e.stopPropagation(); onOpen(f); }}>
+              <Group gap={6} wrap="nowrap">
+                <IconFile size={15} color={surface.faint} />
+                <Text size="sm" ff="monospace">{f.path.split("/").pop()}</Text>
+                {f.url && <Badge size="xs" variant="light">CDN</Badge>}
+              </Group>
+            </UnstyledButton>
+          </Table.Td>
+          <Table.Td><Badge size="sm" variant="default" tt="none">{kindOf(f.mimeType)}</Badge></Table.Td>
+          <Table.Td><Text size="xs" c={surface.muted}>{f.since === release ? "new in this release" : `since #${f.since}`}</Text></Table.Td>
+          <Table.Td ta="right"><Text size="xs" c={surface.muted}>{bytes(f.size)}</Text></Table.Td>
+        </Table.Tr>
+      ))}
+    </>
   );
 }
 
