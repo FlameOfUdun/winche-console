@@ -60,5 +60,20 @@ test("a CDN shows where its key comes from, tests a file, and a new one is saved
   await userEvent.type(screen.getByLabelText("Private key"), "-----BEGIN PRIVATE KEY-----");
   await userEvent.click(save);
   await waitFor(() => expect(mock(api.saveAssetCdn)).toHaveBeenCalledWith("videos",
-    { baseUrl: "https://videos.example.com/", keyPairId: "K3KEY", linkMinutes: 10 }, "-----BEGIN PRIVATE KEY-----", "Videos"));
+    { kind: "cloudfront", baseUrl: "https://videos.example.com/", keyPairId: "K3KEY", linkMinutes: 10 }, "-----BEGIN PRIVATE KEY-----", "Videos"));
+});
+
+test("a public CDN needs no key pair or key", async () => {
+  mock(api.assetCdns).mockResolvedValue({ cdns: [], editable: true, secretsAvailable: true });
+  mock(api.saveAssetCdn).mockResolvedValue(undefined);
+  renderCard();
+  await userEvent.click(await screen.findByRole("button", { name: "Add a CDN" }));
+  await userEvent.click(await screen.findByText("Public"));
+  expect(screen.queryByLabelText("Key pair id")).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Name"), "trucdn");
+  await userEvent.type(screen.getByLabelText("Base address"), "https://cdn.example.com/app/");
+  await userEvent.type(screen.getByLabelText("Why"), "Videos");
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.saveAssetCdn)).toHaveBeenCalledWith("trucdn",
+    { kind: "public", baseUrl: "https://cdn.example.com/app/", keyPairId: "", linkMinutes: 10 }, null, "Videos"));
 });

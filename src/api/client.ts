@@ -307,7 +307,7 @@ export const api = {
     http<void>("POST", "assets/location/move", { location, ...keyBody(secretKey), reason }),
   cancelAssetMove: () => http<void>("POST", "assets/location/move/cancel"),
   assetCdns: () => http<import("./assets").AssetCdnsState>("GET", "assets/cdns"),
-  saveAssetCdn: (id: string, cdn: { baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
+  saveAssetCdn: (id: string, cdn: { kind: string; baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
     const b = secretBody(privateKey);
     return http<void>("PUT", `assets/cdns/${encodeURIComponent(id)}`, { ...cdn, privateKey: b.value ?? null, privateKeyReference: b.reference ?? null, reason });
   },
