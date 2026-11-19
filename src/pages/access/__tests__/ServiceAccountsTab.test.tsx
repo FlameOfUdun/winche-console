@@ -59,7 +59,7 @@ test("a new account: a role for a server, or deploy scopes for CI; a trusted ide
   mock(api.trustIdentity).mockResolvedValue({ id: "i1" });
   const card = await screen.findByTestId("service-account");
   await userEvent.click(within(card).getByRole("button", { name: "Trust an identity" }));
-  const trust = screen.getByRole("button", { name: "Trust it" });
+  const trust = await screen.findByRole("button", { name: "Trust it" });   // once the dialog has opened
   expect(trust).toBeDisabled();
   await userEvent.type(screen.getByLabelText("Issuer"), "https://gitlab.example.com");
   await userEvent.type(screen.getByLabelText("Subject"), "project_path:team/app:ref_type:branch:ref:main");

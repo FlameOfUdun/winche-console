@@ -186,10 +186,6 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
         </Text>
       )}
       {warnings.map((w) => <Text key={w} size="sm" c="orange">{w}</Text>)}
-      <Text size="xs" c="dimmed">
-        Operations: read (get, list), write (create, update, delete). Functions: keys(), hasOnly(), diff(...).affectedKeys(),
-        x is string, matches(), size(), get(key, default), exists(), get(path). Comments (//) aren't saved.
-      </Text>
     </Stack>
   );
 });
