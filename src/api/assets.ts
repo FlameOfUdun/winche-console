@@ -13,7 +13,7 @@ export interface AssetCdnsState { cdns: AssetCdn[]; editable: boolean; secretsAv
 
 export interface AssetCdnTest { ok: boolean; status: number; message: string }
 
-export interface AssetReleaseSummary { number: number; note: string | null; by: string | null; at: string; files: number; size: number }
+export interface AssetReleaseSummary { number: number; note: string | null; by: string | null; at: string; files: number; size: number; source?: string | null }
 
 export interface AssetRelease { number: number; note: string | null; by: string | null; at: string; size: number; files: AssetFileEntry[] }
 
@@ -21,7 +21,7 @@ export interface AssetChannel { name: string; release: number; updatedAt: string
 
 /** GET assets/channels/{name}/files: what apps get on a channel now; `since` is the release each file's content arrived in. */
 export interface AssetLiveFiles {
-  channel: string; release: number; publishedAt: string; note: string | null; by: string | null; size: number;
+  channel: string; release: number; publishedAt: string; note: string | null; by: string | null; size: number; source?: string | null;
   files: (AssetFileEntry & { since: number })[];
 }
 

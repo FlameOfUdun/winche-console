@@ -287,6 +287,13 @@ export const api = {
   assetReleases: (limit = 100) => http<{ releases: import("./assets").AssetReleaseSummary[] }>("GET", `assets/releases?limit=${limit}`),
   assetRelease: (n: number) => http<import("./assets").AssetRelease>("GET", `assets/releases/${n}`),
   assetDiff: (from: number, to: number) => http<import("./assets").AssetDiff>("GET", `assets/releases/${from}/diff/${to}`),
+  assetsMissing: (hashes: string[]) => http<{ missing: string[] }>("POST", "assets/contents/missing", { hashes }),
+  putAssetContent: async (hash: string, content: Blob) => { await raw("PUT", `assets/contents/${hash}`, content); },
+  inspectAssetCdnFiles: (urls: string[]) =>
+    http<{ files: { url: string; hash: string | null; size: number; mimeType: string | null; error: string | null }[] }>("POST", "assets/cdn/files", { urls }),
+  /** Publishes a release made in the console (marked so: a deploy from a folder then says what it would remove). */
+  publishAssetRelease: (files: Record<string, { hash: string; size: number; mimeType: string; url?: string | null }>, note: string, channel: string | null) =>
+    http<{ number: number }>("POST", "assets/releases", { files, note, channel, source: "console" }),
   assetChannelFiles: (name: string) => http<import("./assets").AssetLiveFiles>("GET", `assets/channels/${encodeURIComponent(name)}/files`),
   /** A file's bytes with the server's rights, for the console's preview. */
   assetContent: async (release: number, path: string) =>

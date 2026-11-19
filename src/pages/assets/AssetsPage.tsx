@@ -69,7 +69,12 @@ export function ReleasesView() {
               {d.releases.map((r) => (
                 <Table.Tr key={r.number} style={{ cursor: "pointer" }} onClick={() => setOpen(r.number)} data-testid="asset-release">
                   <Table.Td><Text fw={600}>#{r.number}</Text></Table.Td>
-                  <Table.Td><Text size="sm" lineClamp={1}>{r.note ?? ""}</Text></Table.Td>
+                  <Table.Td>
+                    <Group gap={6} wrap="nowrap">
+                      <Text size="sm" lineClamp={1}>{r.note ?? ""}</Text>
+                      {r.source === "console" && <Badge size="xs" variant="light" color="grape" tt="none">console</Badge>}
+                    </Group>
+                  </Table.Td>
                   <Table.Td><Text size="sm" c={surface.muted}>{r.files.toLocaleString()} · {bytes(r.size)}</Text></Table.Td>
                   <Table.Td><Text size="sm" c={surface.muted}>{when(r.at)}{r.by ? ` by ${r.by}` : ""}</Text></Table.Td>
                   <Table.Td><Group gap={4}>{channelsOf(r.number).map((c) => <Badge key={c.name} variant="light" tt="none">{c.name}</Badge>)}</Group></Table.Td>

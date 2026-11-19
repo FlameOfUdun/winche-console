@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Badge, Code, CopyButton, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
+import { Alert, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, TextInput, Title, UnstyledButton } from "@mantine/core";
 import { IconFolder, IconPackage, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -8,6 +8,8 @@ import { bytes, type AssetLiveFiles } from "../../api/assets";
 import { EmptyState } from "../../components/EmptyState";
 import { when } from "../authentication/UsersView";
 import { surface } from "../../theme";
+import { useSession } from "../../auth/session";
+import { NewReleaseModal } from "./NewReleaseModal";
 
 type LiveFile = AssetLiveFiles["files"][number];
 
@@ -36,6 +38,8 @@ export function LiveFilesView() {
   const live = useQuery({ queryKey: ["asset-live", channel], queryFn: () => api.assetChannelFiles(channel!), enabled: !!channel });
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<LiveFile | null>(null);
+  const [drafting, setDrafting] = useState(false);
+  const admin = useSession().user?.role === "Admin";
 
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -60,11 +64,13 @@ export function LiveFilesView() {
         <Group gap={8}>
           <Text fw={600}>Live</Text>
           {d && <Badge variant="light" color="teal" tt="none">release #{d.release}</Badge>}
+          {d?.source === "console" && <Badge variant="light" color="grape" tt="none">made in the console</Badge>}
           {d && <Text size="sm" c="dimmed">{d.files.length.toLocaleString()} files · {bytes(d.size)} · published {when(d.publishedAt)}{d.by ? ` by ${d.by}` : ""}</Text>}
         </Group>
         <Group gap="xs" wrap="nowrap">
           <TextInput size="xs" placeholder="Search paths" aria-label="Search paths" leftSection={<IconSearch size={14} />} value={search}
             onChange={(e) => setSearch(e.currentTarget.value)} w={220} />
+          {admin && d && <Button size="xs" onClick={() => setDrafting(true)}>New release</Button>}
           {channels.length > 1 && (
             <Select size="xs" aria-label="Channel" w={160} allowDeselect={false} value={channel}
               data={channels.map((c) => ({ value: c.name, label: `${c.name} (#${c.release})` }))} onChange={(v) => setChosen(v)} />
@@ -110,6 +116,7 @@ export function LiveFilesView() {
       ))}
 
       <FileDialog file={open} release={d?.release ?? 0} onClose={() => setOpen(null)} />
+      {d && <NewReleaseModal key={`${d.channel}-${d.release}`} opened={drafting} live={d} onClose={() => setDrafting(false)} />}
     </Stack>
   );
 }
