@@ -131,8 +131,8 @@ function startValues(settings: PluginSettingInfo[], set: Values = {}): Values {
   return Object.fromEntries(settings.map((s) => [s.name, set[s.name] ?? s.default ?? (s.type === "boolean" ? false : null)]));
 }
 
-/** Values to send: empty ones left out (the default, or "needed"). */
-const toSend = (v: Values) => Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null && x !== "" && x !== undefined));
+/** Values to send: unset ones left out (their default). An emptied text field is sent empty: that feature off. */
+const toSend = (v: Values) => Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null && x !== undefined));
 
 /** A plugin's settings as fields, by their types. */
 function SettingsFields({ settings, values, onChange, only }: {
