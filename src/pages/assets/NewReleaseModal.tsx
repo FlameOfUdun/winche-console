@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Alert, Badge, Button, Checkbox, Group, Modal, Paper, Progress, Stack, Table, Text, TextInput } from "@mantine/core";
-import { IconUpload } from "@tabler/icons-react";
+import { ActionIcon, Alert, Badge, Button, Checkbox, Group, Modal, Paper, Progress, Stack, Table, Text, TextInput, Tooltip } from "@mantine/core";
+import { IconArrowBackUp, IconCloud, IconFolderPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorWithList } from "../../api/appAuth";
@@ -48,6 +48,7 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
   const [note, setNote] = useState("");
   const [move, setMove] = useState(true);
   const [search, setSearch] = useState("");
+  const [cdnOpen, setCdnOpen] = useState(false);
   const [busy, setBusy] = useState<{ step: string; done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const files = useRef<HTMLInputElement>(null);
@@ -136,49 +137,64 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
         body: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" },
       }}>
       <Stack gap="sm" data-testid="new-release" style={{ flex: "1 1 auto", minHeight: 0 }}>
-        <Text size="sm" c="dimmed">Starts from {live.channel}'s release #{live.release}. Add or replace files, take some out, then publish.</Text>
+        <Text size="sm" c="dimmed">
+          Starts from {live.channel}'s release #{live.release}. A later deploy from your repository asks before taking out what you add here.
+        </Text>
 
-        <Paper withBorder radius="md" p="sm"
+        <Paper withBorder radius="md" px="sm" py="xs" style={{ borderStyle: "dashed", flexShrink: 0 }}
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files, false); }}
-          style={{ borderStyle: "dashed" }} data-testid="new-release-drop">
-          <Group gap="sm" align="flex-end" wrap="wrap">
-            <TextInput size="xs" label="Into folder" placeholder="audio/de" value={folder} onChange={(e) => setFolder(e.currentTarget.value)} w={200} />
-            <Button size="xs" variant="default" leftSection={<IconUpload size={14} />} onClick={() => files.current?.click()}>Add files</Button>
-            <Button size="xs" variant="default" onClick={() => dir.current?.click()}>Add a folder</Button>
-            <Text size="xs" c="dimmed">or drop files here. A file at a path the release has replaces it.</Text>
+          data-testid="new-release-drop">
+          <Group gap="xs" wrap="wrap">
+            <TextInput size="xs" aria-label="Into folder" label={undefined} placeholder="Into folder, e.g. audio/de" value={folder}
+              onChange={(e) => setFolder(e.currentTarget.value)} w={210} />
+            <Button size="xs" variant="light" leftSection={<IconUpload size={14} />} onClick={() => files.current?.click()}>Add files</Button>
+            <Button size="xs" variant="default" leftSection={<IconFolderPlus size={14} />} onClick={() => dir.current?.click()}>Add a folder</Button>
+            <Button size="xs" variant="subtle" leftSection={<IconCloud size={14} />} onClick={() => setCdnOpen((o) => !o)}>A file on a CDN</Button>
+            <Text size="xs" c="dimmed" ml="auto">or drop files here</Text>
           </Group>
           <input ref={files} type="file" multiple hidden data-testid="new-release-files"
             onChange={(e) => { if (e.currentTarget.files) addFiles(e.currentTarget.files, false); e.currentTarget.value = ""; }} />
           <input ref={dir} type="file" multiple hidden {...{ webkitdirectory: "", directory: "" }}
             onChange={(e) => { if (e.currentTarget.files) addFiles(e.currentTarget.files, true); e.currentTarget.value = ""; }} />
-          <Group gap="sm" align="flex-end" wrap="wrap" mt="sm">
-            <TextInput size="xs" label="On a CDN: path" placeholder="videos/bvm.mp4" value={cdnPath} onChange={(e) => setCdnPath(e.currentTarget.value)} w={200} />
-            <TextInput size="xs" label="Address" placeholder="https://cdn.example.com/app/bvm.mp4" value={cdnUrl} onChange={(e) => setCdnUrl(e.currentTarget.value)} style={{ flex: 1, minWidth: 220 }} />
-            <Button size="xs" variant="default" disabled={!clean(cdnPath) || !cdnUrl.trim()} onClick={addCdn}>Add</Button>
-          </Group>
+          {cdnOpen && (
+            <Group gap="xs" wrap="nowrap" mt="xs">
+              <TextInput size="xs" aria-label="CDN file's path" placeholder="Path, e.g. videos/bvm.mp4" value={cdnPath} onChange={(e) => setCdnPath(e.currentTarget.value)} w={210} />
+              <TextInput size="xs" aria-label="Its address" placeholder="https://cdn.example.com/app/bvm.mp4" value={cdnUrl} onChange={(e) => setCdnUrl(e.currentTarget.value)} style={{ flex: 1 }} />
+              <Button size="xs" variant="default" disabled={!clean(cdnPath) || !cdnUrl.trim()} onClick={addCdn}>Add</Button>
+            </Group>
+          )}
         </Paper>
 
         <Group justify="space-between" gap="xs">
-          <Text size="sm" fw={500}>{kept.length.toLocaleString()} files{changes.length ? ` · ${changes.length} change${changes.length === 1 ? "" : "s"}` : ""}</Text>
+          <Group gap={8}>
+            <Text size="sm" fw={600}>{kept.length.toLocaleString()} files</Text>
+            {changes.length > 0 && <Badge size="sm" variant="light">{changes.length} change{changes.length === 1 ? "" : "s"}</Badge>}
+          </Group>
           <TextInput size="xs" placeholder="Search paths" aria-label="Search the draft" value={search} onChange={(e) => setSearch(e.currentTarget.value)} w={200} />
         </Group>
-        <div style={{ flex: "1 1 auto", minHeight: 120, overflow: "auto", border: `1px solid ${surface.subtle}`, borderRadius: 8 }}>
-          <Table fz="xs" verticalSpacing={3} data-testid="new-release-files-list">
+        <div style={{ flex: "1 1 auto", minHeight: 220, overflow: "auto", border: `1px solid ${surface.subtle}`, borderRadius: 8 }}>
+          <Table fz="xs" verticalSpacing={3} highlightOnHover data-testid="new-release-files-list" style={{ tableLayout: "auto" }}>
             <Table.Tbody>
               {shown.map((e) => (
                 <Table.Tr key={e.path} data-testid="draft-file">
-                  <Table.Td><Text size="xs" ff="monospace" td={e.status === "removed" ? "line-through" : undefined}>{e.path}</Text></Table.Td>
-                  <Table.Td>
+                  <Table.Td style={{ maxWidth: 0, width: "100%" }}>
+                    <Text size="xs" truncate="end" title={e.path} c={e.status === "removed" ? "dimmed" : undefined}
+                      td={e.status === "removed" ? "line-through" : undefined}>{e.path}</Text>
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: "nowrap" }}>
                     <Group gap={4} wrap="nowrap">
-                      <Badge size="xs" variant="light" color={STATUS[e.status].color}>{STATUS[e.status].label}</Badge>
+                      {e.status !== "kept" && <Badge size="xs" variant="light" color={STATUS[e.status].color}>{STATUS[e.status].label}</Badge>}
                       {("cdn" in e || (e.status === "kept" && e.live.url)) && <Badge size="xs" variant="light">CDN</Badge>}
                     </Group>
                   </Table.Td>
-                  <Table.Td ta="right"><Text size="xs" c={surface.muted}>{bytes("upload" in e ? e.upload.size : "cdn" in e ? e.cdn.size : e.live.size)}</Text></Table.Td>
-                  <Table.Td ta="right" w={90}>
-                    <Button size="compact-xs" variant="subtle" color={e.status === "kept" ? "red" : "gray"} onClick={() => toggle(e)} disabled={!!busy}>
-                      {e.status === "kept" ? "Remove" : e.status === "removed" ? "Keep" : "Undo"}
-                    </Button>
+                  <Table.Td ta="right" style={{ whiteSpace: "nowrap" }}><Text size="xs" c={surface.muted}>{bytes("upload" in e ? e.upload.size : "cdn" in e ? e.cdn.size : e.live.size)}</Text></Table.Td>
+                  <Table.Td ta="right" style={{ whiteSpace: "nowrap" }}>
+                    <Tooltip label={e.status === "kept" ? "Take it out" : e.status === "removed" ? "Keep it" : "Undo"} withArrow>
+                      <ActionIcon size="sm" variant="subtle" color="gray" onClick={() => toggle(e)} disabled={!!busy}
+                        aria-label={e.status === "kept" ? `Take out ${e.path}` : `Undo ${e.path}`}>
+                        {e.status === "kept" ? <IconTrash size={14} /> : <IconArrowBackUp size={14} />}
+                      </ActionIcon>
+                    </Tooltip>
                   </Table.Td>
                 </Table.Tr>
               ))}
@@ -186,9 +202,7 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
           </Table>
         </div>
 
-        <TextInput label="What changed" placeholder="German audio" value={note} onChange={(e) => setNote(e.currentTarget.value)} disabled={!!busy} />
-        <Checkbox label={`Point ${live.channel} at it (apps get it on their next sync)`} checked={move} onChange={(e) => setMove(e.currentTarget.checked)} disabled={!!busy} />
-        <Text size="xs" c="dimmed">A deploy from your repository's folder later publishes the folder as it is: it lists what it would take out of this release and asks first.</Text>
+        <TextInput aria-label="What changed" placeholder="What changed, e.g. German audio" value={note} onChange={(e) => setNote(e.currentTarget.value)} disabled={!!busy} />
         {busy && (
           <Stack gap={4}>
             <Text size="xs">{busy.step}…</Text>
@@ -196,9 +210,12 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
           </Stack>
         )}
         {error && <Alert color="red" p="xs">{error}</Alert>}
-        <Group justify="flex-end" gap="xs">
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Checkbox size="sm" label={`Point ${live.channel} at it`} checked={move} onChange={(e) => setMove(e.currentTarget.checked)} disabled={!!busy} />
+          <Group gap="xs" wrap="nowrap">
           <Button variant="default" onClick={close} disabled={!!busy}>Cancel</Button>
           <Button onClick={publish} loading={!!busy} disabled={!note.trim() || changes.length === 0 || kept.length === 0}>Publish</Button>
+          </Group>
         </Group>
       </Stack>
     </Modal>

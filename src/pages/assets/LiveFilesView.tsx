@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, TextInput, UnstyledButton } from "@mantine/core";
-import { IconChevronDown, IconChevronRight, IconFile, IconFolder, IconFolderOpen, IconPackage, IconSearch } from "@tabler/icons-react";
+import { IconBraces, IconChevronDown, IconChevronRight, IconFile, IconFolder, IconFolderOpen, IconMovie, IconMusic, IconPackage, IconPhoto, IconSearch, IconWorld } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
@@ -103,7 +103,7 @@ export function LiveFilesView() {
         {live.isError && <Alert color="red" m="md">Couldn't load {channel}'s files: {errorMessage(live.error)}</Alert>}
         {d && tree.count === 0 && <Text size="sm" c="dimmed" p="md">No files match “{search}”.</Text>}
         {d && tree.count > 0 && (
-          <Table fz="sm" verticalSpacing={5} highlightOnHover miw={560} data-testid="asset-tree">
+          <Table fz="sm" verticalSpacing={4} highlightOnHover data-testid="asset-tree" style={{ tableLayout: "auto" }}>
             <Table.Tbody>
               <FolderRows folder={tree} depth={0} isOpen={isOpen} flip={flip} release={d.release} onOpen={setOpen} />
             </Table.Tbody>
@@ -117,47 +117,69 @@ export function LiveFilesView() {
   );
 }
 
+/** An icon for a kind of file. */
+function KindIcon({ kind }: { kind: string }) {
+  const props = { size: 15, stroke: 1.6, color: surface.muted };
+  switch (kind) {
+    case "audio": return <IconMusic {...props} />;
+    case "video": return <IconMovie {...props} />;
+    case "image": return <IconPhoto {...props} />;
+    case "json": return <IconBraces {...props} />;
+    case "html": return <IconWorld {...props} />;
+    default: return <IconFile {...props} />;
+  }
+}
+
+const nowrap = { whiteSpace: "nowrap" as const };
+
 /** A folder's rows: its subfolders (each a row that opens it) and its files, indented by depth. */
 function FolderRows({ folder, depth, isOpen, flip, release, onOpen }: {
   folder: Folder; depth: number; isOpen: (path: string) => boolean; flip: (path: string) => void; release: number; onOpen: (f: LiveFile) => void;
 }) {
-  const indent = { paddingLeft: 12 + depth * 20 };
   return (
     <>
       {folder.folders.map((sub) => {
         const open = isOpen(sub.path);
         return [
-          <Table.Tr key={`d:${sub.path}`} style={{ cursor: "pointer" }} onClick={() => flip(sub.path)} data-testid="asset-folder" aria-expanded={open}>
-            <Table.Td style={indent} colSpan={3}>
+          <Table.Tr key={`d:${sub.path}`} style={{ cursor: "pointer", background: "var(--w-hover)" }}
+            onClick={() => flip(sub.path)} data-testid="asset-folder" aria-expanded={open}>
+            <Table.Td colSpan={3} style={{ paddingLeft: 12 + depth * 22 }}>
               <UnstyledButton aria-label={`${open ? "Close" : "Open"} ${sub.path}`} onClick={(e) => { e.stopPropagation(); flip(sub.path); }}>
-                <Group gap={6} wrap="nowrap">
+                <Group gap={8} wrap="nowrap">
                   {open ? <IconChevronDown size={14} color={surface.muted} /> : <IconChevronRight size={14} color={surface.muted} />}
-                  {open ? <IconFolderOpen size={16} color={surface.muted} /> : <IconFolder size={16} color={surface.muted} />}
-                  <Text size="sm" fw={500} ff="monospace">{sub.name}</Text>
+                  {open ? <IconFolderOpen size={17} color={surface.accent} stroke={1.6} /> : <IconFolder size={17} color={surface.accent} stroke={1.6} />}
+                  <Text size="sm" fw={600}>{sub.name}</Text>
                 </Group>
               </UnstyledButton>
             </Table.Td>
-            <Table.Td ta="right"><Text size="xs" c={surface.faint}>{sub.count.toLocaleString()} {sub.count === 1 ? "file" : "files"} · {bytes(sub.size)}</Text></Table.Td>
+            <Table.Td ta="right" style={nowrap}><Text size="xs" c={surface.faint}>{sub.count.toLocaleString()} {sub.count === 1 ? "file" : "files"} · {bytes(sub.size)}</Text></Table.Td>
           </Table.Tr>,
           open && <FolderRows key={`c:${sub.path}`} folder={sub} depth={depth + 1} isOpen={isOpen} flip={flip} release={release} onOpen={onOpen} />,
         ];
       })}
-      {folder.files.map((f) => (
-        <Table.Tr key={f.path} style={{ cursor: "pointer" }} onClick={() => onOpen(f)} data-testid="asset-live-file">
-          <Table.Td style={{ paddingLeft: 12 + depth * 20 + 20 }}>
-            <UnstyledButton aria-label={f.path} onClick={(e) => { e.stopPropagation(); onOpen(f); }}>
-              <Group gap={6} wrap="nowrap">
-                <IconFile size={15} color={surface.faint} />
-                <Text size="sm" ff="monospace">{f.path.split("/").pop()}</Text>
-                {f.url && <Badge size="xs" variant="light">CDN</Badge>}
-              </Group>
-            </UnstyledButton>
-          </Table.Td>
-          <Table.Td><Badge size="sm" variant="default" tt="none">{kindOf(f.mimeType)}</Badge></Table.Td>
-          <Table.Td><Text size="xs" c={surface.muted}>{f.since === release ? "new in this release" : `since #${f.since}`}</Text></Table.Td>
-          <Table.Td ta="right"><Text size="xs" c={surface.muted}>{bytes(f.size)}</Text></Table.Td>
-        </Table.Tr>
-      ))}
+      {folder.files.map((f) => {
+        const kind = kindOf(f.mimeType);
+        return (
+          <Table.Tr key={f.path} style={{ cursor: "pointer" }} onClick={() => onOpen(f)} data-testid="asset-live-file">
+            <Table.Td style={{ paddingLeft: 12 + depth * 22 + 22, maxWidth: 0, width: "100%" }}>
+              <UnstyledButton aria-label={f.path} onClick={(e) => { e.stopPropagation(); onOpen(f); }} style={{ maxWidth: "100%" }}>
+                <Group gap={8} wrap="nowrap">
+                  <KindIcon kind={kind} />
+                  <Text size="sm" truncate="end" title={f.path}>{f.path.split("/").pop()}</Text>
+                  {f.url && <Badge size="xs" variant="light" style={{ flexShrink: 0 }}>CDN</Badge>}
+                </Group>
+              </UnstyledButton>
+            </Table.Td>
+            <Table.Td style={nowrap}><Text size="xs" c={surface.muted}>{kind}</Text></Table.Td>
+            <Table.Td style={nowrap}>
+              {f.since === release
+                ? <Badge size="xs" variant="light" color="teal" title="New in this release">new</Badge>
+                : <Text size="xs" c={surface.faint} title={`Unchanged since release #${f.since}`}>since #{f.since}</Text>}
+            </Table.Td>
+            <Table.Td ta="right" style={nowrap}><Text size="xs" c={surface.muted}>{bytes(f.size)}</Text></Table.Td>
+          </Table.Tr>
+        );
+      })}
     </>
   );
 }

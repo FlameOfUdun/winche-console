@@ -56,7 +56,7 @@ test("the live files as a folder tree: folders open on a click, searching opens 
   await userEvent.click(screen.getByRole("button", { name: "Open audio" }));
   await userEvent.click(screen.getByRole("button", { name: "Open audio/de" }));
   expect(screen.getByRole("button", { name: "audio/de/objective_completed.wav" })).toBeInTheDocument();
-  expect(screen.getByText("new in this release")).toBeInTheDocument();
+  expect(screen.getByTitle("New in this release")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "Close audio" }));
   expect(screen.queryByRole("button", { name: "audio/de/objective_completed.wav" })).not.toBeInTheDocument();
 
