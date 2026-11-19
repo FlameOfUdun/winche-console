@@ -192,7 +192,7 @@ export function ServerSettingsPage() {
           )} />
         <EditCard title="Plugins" description="The plugin packages (npm) the console offers projects: the ones you trust. A project's admins can still install others, warned first that nobody here vouched for them." {...card("plugins")}
           rows={[{ label: "Catalog", hint: (s.pluginCatalog ?? []).length === 0 ? "none: projects see only the search for a package" : undefined,
-            value: (s.pluginCatalog ?? []).length === 0 ? "—" : <Text size="sm" ff="monospace" style={{ whiteSpace: "pre-line", textAlign: "right" }}>{(s.pluginCatalog ?? []).join("\n")}</Text> }]}
+            value: (s.pluginCatalog ?? []).length === 0 ? "—" : <Text size="sm" ff="monospace" style={{ whiteSpace: "pre-line" }}>{(s.pluginCatalog ?? []).join("\n")}</Text> }]}
           form={draft && (
             <SettingsCard>
               <div style={{ padding: 16 }}>
