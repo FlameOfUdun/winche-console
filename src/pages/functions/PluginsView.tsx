@@ -71,15 +71,15 @@ function PluginCard({ p, onOpen }: { p: InstalledPlugin; onOpen: () => void }) {
   return (
     <UnstyledButton onClick={onOpen} data-testid="plugin" aria-label={`${p.manifest.title} (${p.id})`}>
       <Paper withBorder p="lg" className="winche-card-link" h="100%" style={{ display: "flex", flexDirection: "column" }}>
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-          <Group gap={10} wrap="nowrap" style={{ minWidth: 0 }}>
-            <PluginIcon />
-            <div style={{ minWidth: 0 }}>
-              <Text fw={600} fz={16} truncate>{p.manifest.title}</Text>
+        <Group gap={10} wrap="nowrap" align="flex-start">
+          <PluginIcon />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <Text fw={600} fz={16} truncate>{p.manifest.title}</Text>
+            <Group gap={6} wrap="nowrap" mt={2}>
+              <Badge variant="light" tt="none" ff="monospace" size="sm" style={{ flexShrink: 0, maxWidth: "60%" }}>{p.id}</Badge>
               <Text size="xs" c="dimmed" ff="monospace" truncate>{p.package} {p.version}</Text>
-            </div>
-          </Group>
-          <Badge variant="light" tt="none" ff="monospace" style={{ flexShrink: 0 }}>{p.id}</Badge>
+            </Group>
+          </div>
         </Group>
         {p.manifest.description && <Text size="sm" mt={10} lineClamp={2}>{p.manifest.description}</Text>}
         <Group gap={6} mt={10}>
@@ -220,7 +220,7 @@ function ChoosePlugin({ onChosen }: { onChosen: (info: PluginPackageInfo, curate
         <Text fw={600} size="sm" mb={2}>Another package</Text>
         <Text size="xs" c="dimmed" mb={8}>Any npm package with a winche-plugin.json. You'll see what it says it does before installing it.</Text>
         <Group align="flex-end" gap="xs" wrap="nowrap">
-          <TextInput aria-label="Package" placeholder="@acme/text-messages" ff="monospace" value={name} onChange={(e) => setName(e.currentTarget.value)} style={{ flex: 1 }} />
+          <TextInput aria-label="Package" placeholder="@acme/text-messages" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={name} onChange={(e) => setName(e.currentTarget.value)} style={{ flex: 1 }} />
           <TextInput aria-label="Version" placeholder="newest" w={110} value={version} onChange={(e) => setVersion(e.currentTarget.value)} />
           <Button variant="default" leftSection={<IconSearch size={15} />} disabled={!name.trim()} loading={busy === name.trim()}
             onClick={() => look(name.trim(), version.trim() || null)}>Look up</Button>
@@ -271,7 +271,7 @@ function InstallForm({ info, curated, taken, onBack, onDone }: {
       </Group>
       {m.description && <Text size="sm">{m.description}</Text>}
       <Access manifest={m} curated={curated} />
-      <TextInput label="Install as" withAsterisk value={id} onChange={(e) => setId(e.currentTarget.value.trim())} ff="monospace" error={id && idProblem}
+      <TextInput label="Install as" withAsterisk value={id} onChange={(e) => setId(e.currentTarget.value.trim())} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} error={id && idProblem}
         description={<>Its functions are called <Code>{id || "id"}.name</Code>; install it again under another id for a second copy.</>} />
       {m.settings.length > 0 && (
         <div>
