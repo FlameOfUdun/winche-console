@@ -1,5 +1,17 @@
 /** A file of a release: its content's hash, size and type. */
-export interface AssetFileEntry { path: string; hash: string; size: number; mimeType: string }
+/** A file of a release; `url` is set for one kept on a CDN (apps never see it: they get short-lived signed links). */
+export interface AssetFileEntry { path: string; hash: string; size: number; mimeType: string; url?: string | null }
+
+/** A CDN releases may name files on (CloudFront signed links); its private key is a project secret. */
+export interface AssetCdn {
+  id: string; kind: string; baseUrl: string; keyPairId: string; linkMinutes: number;
+  key: { setAt: string; setBy: string | null; reference: string | null } | null;
+}
+
+/** GET assets/cdns. */
+export interface AssetCdnsState { cdns: AssetCdn[]; editable: boolean; secretsAvailable: boolean }
+
+export interface AssetCdnTest { ok: boolean; status: number; message: string }
 
 export interface AssetReleaseSummary { number: number; note: string | null; by: string | null; at: string; files: number; size: number }
 

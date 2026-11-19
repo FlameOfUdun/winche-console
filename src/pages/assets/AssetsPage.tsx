@@ -213,7 +213,12 @@ function ReleaseModal({ number, previous, onClose }: { number: number | null; pr
               <Table.Tbody>
                 {r.files.map((f) => (
                   <Table.Tr key={f.path}>
-                    <Table.Td><Text size="xs" ff="monospace">{f.path}</Text></Table.Td>
+                    <Table.Td>
+                      <Group gap={6} wrap="nowrap">
+                        <Text size="xs" ff="monospace">{f.path}</Text>
+                        {f.url && <Badge size="xs" variant="light" title={f.url} data-testid="asset-file-cdn">CDN</Badge>}
+                      </Group>
+                    </Table.Td>
                     <Table.Td><Text size="xs" c={surface.muted}>{f.mimeType}</Text></Table.Td>
                     <Table.Td ta="right"><Text size="xs" c={surface.muted}>{bytes(f.size)}</Text></Table.Td>
                   </Table.Tr>

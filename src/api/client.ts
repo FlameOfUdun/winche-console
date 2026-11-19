@@ -295,6 +295,13 @@ export const api = {
   startAssetMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
     http<void>("POST", "assets/location/move", { location, ...keyBody(secretKey), reason }),
   cancelAssetMove: () => http<void>("POST", "assets/location/move/cancel"),
+  assetCdns: () => http<import("./assets").AssetCdnsState>("GET", "assets/cdns"),
+  saveAssetCdn: (id: string, cdn: { baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
+    const b = secretBody(privateKey);
+    return http<void>("PUT", `assets/cdns/${encodeURIComponent(id)}`, { ...cdn, privateKey: b.value ?? null, privateKeyReference: b.reference ?? null, reason });
+  },
+  removeAssetCdn: (id: string, reason: string) => http<void>("DELETE", `assets/cdns/${encodeURIComponent(id)}?reason=${encodeURIComponent(reason)}`),
+  testAssetCdn: (id: string, url: string) => http<import("./assets").AssetCdnTest>("POST", `assets/cdns/${encodeURIComponent(id)}/test`, { url }),
   storageLocation: () => http<StorageLocationState>("GET", "settings/location/files"),
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "settings/location/files/test", { location, ...keyBody(secretKey) }),

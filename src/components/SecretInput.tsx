@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Group, PasswordInput, SegmentedControl, Stack, Text, TextInput } from "@mantine/core";
+import { Button, Group, PasswordInput, SegmentedControl, Stack, Text, TextInput, Textarea } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { errorMessage } from "../api/appAuth";
@@ -21,10 +21,12 @@ export function sourceTitle(reference: string, sources: { name: string; title: s
  * Manager, Parameter Store), a reference to it, with a Test that reads it now and says whether it works (never the
  * value). Holds either in one string (see secrets): forms keep it like a password.
  */
-export function SecretInput({ label, description, value, onChange, disabled, placeholder, savedReference, autoComplete = "new-password", style }: {
+export function SecretInput({ label, description, value, onChange, disabled, placeholder, savedReference, autoComplete = "new-password", style, multiline }: {
   label: string; description?: React.ReactNode; value: string; onChange: (v: string) => void; disabled?: boolean; placeholder?: string;
   /** The saved secret's reference, when it is one: shown, and the form starts on Reference. */
   savedReference?: string | null; autoComplete?: string; style?: React.CSSProperties;
+  /** A value of several lines (a PEM key): typed in a text box, kept out of the page's autofill. */
+  multiline?: boolean;
 }) {
   const sources = useSecretSources();
   const list = sources.data?.sources ?? [];
@@ -32,8 +34,13 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
   const [test, setTest] = useState<SecretTest | null>(null);
   const [testing, setTesting] = useState(false);
   const mode = isReference(value) ? "reference" : chosen ?? (savedReference && !value ? "reference" : "value");
+  const valueBox = (labelled: boolean) => multiline
+    ? <Textarea label={labelled ? label : undefined} aria-label={labelled ? undefined : label} description={description} value={value}
+        onChange={(e) => onChange(e.currentTarget.value)} disabled={disabled} placeholder={placeholder} autosize minRows={4} maxRows={10}
+        ff="monospace" autoComplete="off" spellCheck={false} style={labelled ? style : undefined} />
+    : null;
   if (list.length === 0 && !isReference(value))
-    return <PasswordInput label={label} description={description} value={value} onChange={(e) => onChange(e.currentTarget.value)}
+    return valueBox(true) ?? <PasswordInput label={label} description={description} value={value} onChange={(e) => onChange(e.currentTarget.value)}
       disabled={disabled} placeholder={placeholder} autoComplete={autoComplete} style={style} />;
 
   const typed = isReference(value) ? referenceOf(value) : "";
@@ -52,7 +59,7 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
           onChange={(m) => { setChosen(m as "value" | "reference"); setTest(null); onChange(m === "reference" ? REFERENCE : ""); }} />
       </Group>
       {mode === "value" ? (
-        <PasswordInput aria-label={label} description={description} value={value} onChange={(e) => onChange(e.currentTarget.value)}
+        valueBox(false) ?? <PasswordInput aria-label={label} description={description} value={value} onChange={(e) => onChange(e.currentTarget.value)}
           disabled={disabled} placeholder={placeholder} autoComplete={autoComplete} />
       ) : (
         <>
