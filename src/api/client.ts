@@ -266,7 +266,10 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
     return (await res.json()) as { result: unknown };
   },
-  plugins: () => http<{ plugins: import("./functions").InstalledPlugin[] }>("GET", "functions/plugins"),
+  plugins: () => http<{ plugins: import("./functions").InstalledPlugin[]; functionsUrl?: string }>("GET", "functions/plugins"),
+  pluginVersions: (name: string) => http<{ versions: { version: string; at: string | null }[] }>("GET", `functions/plugins/versions?name=${encodeURIComponent(name)}`),
+  pluginSearch: (q: string) => http<{ results: import("./functions").PluginSearchResult[] }>("GET", `functions/plugins/search?q=${encodeURIComponent(q)}`),
+  pluginHistory: (id: string) => http<{ history: import("./functions").PluginHistoryEntry[] }>("GET", `functions/plugins/${encodeURIComponent(id)}/history`),
   pluginCatalog: () => http<{ plugins: import("./functions").CatalogPlugin[] }>("GET", "functions/plugins/catalog"),
   pluginPackage: (name: string, version?: string | null) =>
     http<import("./functions").PluginPackageInfo>("GET", `functions/plugins/package?name=${encodeURIComponent(name)}${version ? `&version=${encodeURIComponent(version)}` : ""}`),

@@ -110,3 +110,19 @@
 .winche-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--w-border); flex-shrink: 0; }
 .winche-dot[data-on] { background: #17B26A; }
 
+
+/* Markdown from a plugin package (its README, its setup steps). */
+.winche-markdown { font-size: var(--mantine-font-size-sm); line-height: 1.6; overflow-wrap: anywhere; }
+.winche-markdown[data-size="xs"] { font-size: var(--mantine-font-size-xs); }
+.winche-markdown > :first-child { margin-top: 0; }
+.winche-markdown > :last-child { margin-bottom: 0; }
+.winche-markdown h1 { font-size: 1.5em; margin: 0.2em 0 0.6em; }
+.winche-markdown h2 { font-size: 1.25em; margin: 1.4em 0 0.5em; padding-bottom: 0.2em; border-bottom: 1px solid var(--w-border); }
+.winche-markdown h3 { font-size: 1.05em; margin: 1.2em 0 0.4em; }
+.winche-markdown p, .winche-markdown ul, .winche-markdown ol { margin: 0.5em 0; }
+.winche-markdown code { font-family: var(--mantine-font-family-monospace); font-size: 0.88em; background: var(--w-accent-soft); padding: 0.1em 0.35em; border-radius: 4px; }
+.winche-markdown pre { background: var(--w-code-bg, rgba(127,127,127,0.1)); padding: 12px 14px; border-radius: 8px; overflow-x: auto; }
+.winche-markdown pre code { background: none; padding: 0; }
+.winche-markdown table { border-collapse: collapse; margin: 0.6em 0; display: block; overflow-x: auto; }
+.winche-markdown th, .winche-markdown td { border: 1px solid var(--w-border); padding: 4px 10px; text-align: left; vertical-align: top; }
+.winche-markdown a { color: var(--w-accent); }

@@ -68,18 +68,34 @@ export interface FunctionRun {
 /** A page of the project's own (consolePage in its functions), for the sidebar. */
 export interface ConsolePageEntry { name: string; title: string; icon: string | null; order: number }
 
+/** When a setting, secret or setup step applies: another setting is a value (or any of a list), or is set. */
+export interface PluginCondition { setting: string; is?: unknown; set?: boolean | null }
+
 /** What a plugin package says it is (its winche-plugin.json). */
 export interface PluginManifest {
   title: string; description: string | null; icon: string | null;
   /** What it reads, writes and calls, a sentence each (said by the plugin, not enforced). */
   access: string[];
+  /** What it may cost beside the server (another service's charges). */
+  billing?: string | null;
   settings: PluginSettingInfo[];
-  secrets: { name: string; label: string; description: string | null; required: boolean }[];
+  secrets: PluginSecretInfo[];
+  /** Steps after installing, with {{function:x}}, {{setting:X}}, {{secret:X}} and {{id}} to fill in. */
+  setup?: { text: string; showIf?: PluginCondition | null }[];
 }
 export interface PluginSettingInfo {
   name: string; label: string; description: string | null; type: "string" | "number" | "integer" | "boolean" | "select";
   required: boolean; default: unknown; options: string[] | null;
+  /** The group it's shown in. */
+  section?: string | null;
+  /** Shown (and needed) only when this holds. */
+  showIf?: PluginCondition | null;
 }
+export interface PluginSecretInfo { name: string; label: string; description: string | null; required: boolean; showIf?: PluginCondition | null }
+/** What a package's package.json and README say. */
+export interface PluginAbout { description: string | null; author: string | null; homepage: string | null; repository: string | null; license: string | null; readme: string | null }
+export interface PluginSearchResult { package: string; version: string; description: string | null; publisher: string | null; at: string | null; provided: boolean; curated: boolean }
+export interface PluginHistoryEntry { version: number; what: string; note: string | null; by: string | null; at: string; rolledBackFrom: number | null }
 /** An installed copy of a plugin. */
 export interface InstalledPlugin {
   id: string; package: string; version: string; latest: string | null; update: boolean;
@@ -93,5 +109,5 @@ export interface InstalledPlugin {
   secretsNeeded: string[];
   functions: string[];
 }
-export interface PluginPackageInfo { package: string; version: string; manifest: PluginManifest }
-export interface CatalogPlugin { package: string; version: string | null; title: string; description: string | null; icon: string | null; problem: string | null }
+export interface PluginPackageInfo { package: string; version: string; manifest: PluginManifest; about?: PluginAbout; curated?: boolean }
+export interface CatalogPlugin { package: string; version: string | null; title: string; description: string | null; icon: string | null; author?: string | null; problem: string | null }

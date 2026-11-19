@@ -13,7 +13,6 @@ import { CardsPage, HistoryButton } from "../../components/EditCard";
 import { AreaHistory } from "../settings/AreaSettings";
 import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
-import { PluginsTab } from "./PluginsView";
 import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
 
 /**
@@ -22,16 +21,15 @@ import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } f
  * secrets functions read are on the Secrets page.
  */
 export function FunctionsPage() {
-  const [tab, setTab] = useState<"deployed" | "plugins" | "settings">("deployed");
+  const [tab, setTab] = useState<"deployed" | "settings">("deployed");
   return (
     <>
       <PageBand title="Functions" tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
-        { label: "Plugins", active: tab === "plugins", onClick: () => setTab("plugins") },
         { label: "Settings", active: tab === "settings", onClick: () => setTab("settings") },
       ]} />
       <div style={{ paddingBottom: 28 }}>
-        {tab === "deployed" ? <DeployedTab /> : tab === "plugins" ? <PluginsTab /> : <SettingsTab />}
+        {tab === "deployed" ? <DeployedTab /> : <SettingsTab />}
       </div>
     </>
   );
@@ -77,7 +75,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
               <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
                 <Text fw={600} fz={16} ff="monospace" truncate>{f.name}</Text>
                 <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
-                  {f.plugin && <Badge variant="light" color="grape" tt="none">plugin</Badge>}
+                  {f.plugin && <Badge variant="light" color="grape" tt="none" title={`From the plugin installed as ${f.plugin}`}>plugin</Badge>}
                   <Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge>
                 </Group>
               </Group>
