@@ -283,7 +283,7 @@ function History({ p }: { p: InstalledPlugin }) {
             title={<Group gap={8}><Text size="sm" fw={600}>{h.what}</Text><Badge size="xs" variant="light" color="gray" tt="none">version {h.version}</Badge>
               {h.rolledBackFrom && <Badge size="xs" variant="light" color="blue" tt="none">back to {h.rolledBackFrom}</Badge>}</Group>}>
             <Text size="xs" c="dimmed">{when(h.at)}{h.by ? ` · ${h.by}` : ""}</Text>
-            {h.note && <Text size="sm" mt={2} style={{ fontStyle: "italic" }}>“{h.note}”</Text>}
+            {h.note && !autoNote(h.note, p.id) && <Text size="sm" mt={2} style={{ fontStyle: "italic" }}>“{h.note}”</Text>}
           </Timeline.Item>
         ))}
       </Timeline>
@@ -291,6 +291,10 @@ function History({ p }: { p: InstalledPlugin }) {
     </Paper>
   );
 }
+
+/** The notes the console and CLI write themselves for a plugin's changes (the entry says it already). */
+const autoNote = (note: string, id: string) =>
+  note.startsWith(`Installed ${id} (`) || note === `Changed ${id}'s settings` || note.startsWith(`Removed ${id} (`) || note.startsWith(`${id}: `);
 
 function Version({ p }: { p: InstalledPlugin }) {
   const qc = useQueryClient();

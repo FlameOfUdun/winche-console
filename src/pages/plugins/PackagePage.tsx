@@ -61,10 +61,19 @@ export function PackagePage() {
               <Paper withBorder radius="md" p="md">
                 <Text size="sm" fw={600} mb={6}>It asks for</Text>
                 {m.settings.length + m.secrets.length === 0 ? <Text size="sm" c="dimmed">Nothing.</Text> : (
-                  <List size="sm" spacing={4}>
-                    {m.settings.map((s) => <List.Item key={s.name}>{s.label}{s.required ? "" : <Text span size="xs" c="dimmed"> (optional)</Text>}</List.Item>)}
-                    {m.secrets.map((s) => <List.Item key={s.name} icon={<IconKey size={14} style={{ marginTop: 3 }} />}>{s.label}{s.required ? "" : <Text span size="xs" c="dimmed"> (optional)</Text>}</List.Item>)}
-                  </List>
+                  <>
+                    <List size="sm" spacing={4}>
+                      {m.settings.filter((s) => s.required).map((s) => <List.Item key={s.name}>{s.label}</List.Item>)}
+                      {m.secrets.filter((s) => s.required).map((s) => <List.Item key={s.name} icon={<IconKey size={14} style={{ marginTop: 3 }} />}>{s.label}</List.Item>)}
+                    </List>
+                    {m.settings.some((s) => !s.required) && (
+                      <Text size="xs" c="dimmed" mt={6}>
+                        and {m.settings.filter((s) => !s.required).length} optional settings
+                        {[...new Set(m.settings.filter((s) => !s.required && s.section).map((s) => s.section))].length > 0
+                          && ` (${[...new Set(m.settings.filter((s) => !s.required && s.section).map((s) => s.section))].join(", ")})`}
+                      </Text>
+                    )}
+                  </>
                 )}
               </Paper>
               <Paper withBorder radius="md" p="md">

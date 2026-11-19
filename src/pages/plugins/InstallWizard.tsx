@@ -116,7 +116,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
                     <Table.Tr><Table.Td c="dimmed" w={160}>Package</Table.Td><Table.Td ff="monospace">{info.package} {info.version}</Table.Td></Table.Tr>
                     <Table.Tr><Table.Td c="dimmed">Installed as</Table.Td><Table.Td><Badge variant="light" tt="none" ff="monospace">{id}</Badge></Table.Td></Table.Tr>
                     {m.settings.filter((s) => values[s.name] !== null && values[s.name] !== undefined && values[s.name] !== "" && holds(s.showIf, values)).map((s) => (
-                      <Table.Tr key={s.name}><Table.Td c="dimmed">{s.label}</Table.Td><Table.Td>{String(values[s.name])}</Table.Td></Table.Tr>
+                      <Table.Tr key={s.name}><Table.Td c="dimmed">{s.label}</Table.Td><Table.Td>{typeof values[s.name] === "boolean" ? (values[s.name] ? "Yes" : "No") : String(values[s.name])}</Table.Td></Table.Tr>
                     ))}
                     {asked.length > 0 && <Table.Tr><Table.Td c="dimmed">Secrets</Table.Td><Table.Td>{asked.filter((s) => secretTyped(secrets[s.name])).length} of {asked.length} given</Table.Td></Table.Tr>}
                   </Table.Tbody>
