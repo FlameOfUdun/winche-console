@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title } from "@mantine/core";
+import { Alert, Badge, Button, Code, Collapse, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core";
 import { HistoryDrawer } from "../../components/EditCard";
-import { IconPackage, IconRoute } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconPackage, IconRoute } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
@@ -208,12 +208,7 @@ function ReleaseModal({ number, previous, onClose }: { number: number | null; pr
       {release.isLoading ? <Loader size="sm" /> : release.isError || !r ? <Alert color="red">{errorMessage(release.error)}</Alert> : (
         <Stack gap="md">
           <Text size="sm" c={surface.muted}>{r.note ?? "No note"} · {when(r.at)}{r.by ? ` by ${r.by}` : ""} · {r.files.length.toLocaleString()} files, {bytes(r.size)}</Text>
-          {previous != null && diff.data && (
-            <Stack gap={4}>
-              <Text fw={600} size="sm">Changes from #{previous}</Text>
-              <DiffList diff={diff.data} />
-            </Stack>
-          )}
+          {previous != null && diff.data && <ChangesSection previous={previous} diff={diff.data} />}
           <ScrollArea.Autosize mah={360}>
             <Table fz="xs" verticalSpacing={4} data-testid="asset-files">
               <Table.Tbody>
@@ -235,6 +230,27 @@ function ReleaseModal({ number, previous, onClose }: { number: number | null; pr
         </Stack>
       )}
     </Modal>
+  );
+}
+
+/** "Changes from #n", closed until clicked; its counts show while it's closed. */
+function ChangesSection({ previous, diff }: { previous: number; diff: { added: string[]; changed: string[]; removed: string[] } }) {
+  const [open, setOpen] = useState(false);
+  const counts = [[diff.added.length, "added"], [diff.changed.length, "changed"], [diff.removed.length, "removed"]]
+    .filter(([n]) => n).map(([n, w]) => `${n} ${w}`).join(" · ") || "the same files";
+  return (
+    <Paper withBorder radius="md" px="sm" py={6}>
+      <UnstyledButton onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label={`Changes from #${previous}`} style={{ width: "100%" }}>
+        <Group justify="space-between" wrap="nowrap" gap="xs">
+          <Group gap={6} wrap="nowrap">
+            {open ? <IconChevronDown size={14} color={surface.muted} /> : <IconChevronRight size={14} color={surface.muted} />}
+            <Text fw={600} size="sm">Changes from #{previous}</Text>
+          </Group>
+          <Text size="xs" c={surface.muted}>{counts}</Text>
+        </Group>
+      </UnstyledButton>
+      <Collapse in={open}><div style={{ paddingTop: 8 }}><DiffList diff={diff} /></div></Collapse>
+    </Paper>
   );
 }
 

@@ -65,6 +65,10 @@ test("channels and releases; a release opens with its files and changes", async 
   expect(await screen.findByText("Release #2")).toBeInTheDocument();
   expect(await screen.findByTestId("asset-files")).toHaveTextContent("translations/en.json");
   await waitFor(() => expect(api.assetDiff).toHaveBeenCalledWith(1, 2));
+  const changes = await screen.findByRole("button", { name: "Changes from #1" });
+  expect(changes).toHaveAttribute("aria-expanded", "false");   // closed, its counts showing
+  fireEvent.click(changes);
+  expect(changes).toHaveAttribute("aria-expanded", "true");
   expect(await screen.findByTestId("asset-diff")).toHaveTextContent("added");
 });
 
