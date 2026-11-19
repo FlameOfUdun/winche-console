@@ -94,7 +94,12 @@ export interface PluginSettingInfo {
 export interface PluginSecretInfo { name: string; label: string; description: string | null; required: boolean; showIf?: PluginCondition | null }
 /** What a package's package.json and README say. */
 export interface PluginAbout { description: string | null; author: string | null; homepage: string | null; repository: string | null; license: string | null; readme: string | null }
-export interface PluginSearchResult { package: string; version: string; description: string | null; publisher: string | null; at: string | null; provided: boolean; curated: boolean }
+export interface PluginSearchResult {
+  package: string; version: string; description: string | null; publisher: string | null; at: string | null; provided: boolean; curated: boolean;
+  /** npm's downloads in the last month, when it says. */
+  downloads?: number | null;
+  popularity?: number | null;
+}
 export interface PluginHistoryEntry { version: number; what: string; note: string | null; by: string | null; at: string; rolledBackFrom: number | null }
 /** An installed copy of a plugin. */
 export interface InstalledPlugin {

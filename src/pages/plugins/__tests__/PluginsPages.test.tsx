@@ -75,14 +75,30 @@ beforeEach(() => {
   mock(api.functions).mockResolvedValue({ current: null, files: [], runtimeProblem: null });
 });
 
-test("browse: the server's catalog, then the rest of what search finds", async () => {
+test("browse: search on top; the server's catalog, then npm's most popular; typing searches both", async () => {
+  mock(api.pluginSearch).mockImplementation(async (q: string) => ({ results: q ? [
+    { package: "texts-plugin", version: "1.0.0", description: "Texts.", publisher: "x", at: null, provided: false, curated: false, downloads: 12 },
+  ] : [
+    { package: PKG, version: "1.0.0", description: "dup", publisher: "acme", at: null, provided: false, curated: true, downloads: 5400 },
+    { package: "other-plugin", version: "0.2.0", description: "Something else.", publisher: "someone", at: null, provided: false, curated: false, downloads: 1234567 },
+  ] }));
   renderAt("/plugins/browse");
+  const search = await screen.findByRole("textbox", { name: "Search plugins" });
   const cards = await screen.findAllByTestId("package");
+  expect(search.compareDocumentPosition(cards[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();   // the search box comes first
+  expect(screen.getByText("Popular on npm")).toBeInTheDocument();
   expect(cards).toHaveLength(2);
   expect(cards[0]).toHaveTextContent("In the catalog");
-  expect(cards[0]).toHaveTextContent("by Acme");
+  expect(cards[0]).toHaveTextContent("5.4k/mo");
   expect(cards[1]).toHaveTextContent("other-plugin");
+  expect(cards[1]).toHaveTextContent("1.2M/mo");
   expect(cards[1]).toHaveTextContent("Not in the catalog");
+
+  await userEvent.type(search, "call");
+  expect(await screen.findByText("Results for “call”")).toBeInTheDocument();
+  const hits = await screen.findAllByTestId("package");
+  expect(hits.map((h) => h.getAttribute("aria-label"))).toEqual(["Calls", "texts-plugin"]);   // the catalog's match first
+  expect(mock(api.pluginSearch)).toHaveBeenLastCalledWith("call");
 });
 
 test("a package's page: its README as markdown (no raw HTML), what it does and costs, what it asks for", async () => {

@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes } from "react-router-dom";
 import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { IconArrowRight, IconArrowUp, IconKey, IconPlus, IconPuzzle, IconSearch } from "@tabler/icons-react";
+import { IconArrowRight, IconArrowUp, IconDownload, IconKey, IconPlus, IconPuzzle, IconSearch } from "@tabler/icons-react";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { InstalledPlugin } from "../../api/functions";
@@ -103,9 +103,13 @@ function InstalledCard({ p }: { p: InstalledPlugin }) {
   );
 }
 
-/** One package in a list: its title (or name), what it is, its version and publisher, and whether the server offers it. */
-function PackageCard({ pkg, title, description, version, publisher, curated, installed, problem }: {
-  pkg: string; title: string; description: string | null; version: string | null; publisher?: string | null; curated: boolean; installed: number; problem?: string | null;
+/** 5400 → "5.4k". */
+export const compact = (n: number) => n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M` : n >= 1000 ? `${(n / 1000).toFixed(n >= 10_000 ? 0 : 1)}k` : String(n);
+
+/** One package in a list: its title (or name), what it is, its version, publisher and use, and whether the server offers it. */
+function PackageCard({ pkg, title, description, version, publisher, curated, installed, problem, downloads }: {
+  pkg: string; title: string; description: string | null; version: string | null; publisher?: string | null; curated: boolean; installed: number;
+  problem?: string | null; downloads?: number | null;
 }) {
   return (
     <UnstyledButton component={Link} to={packagePath(pkg)} data-testid="package" aria-label={title}>
@@ -124,7 +128,10 @@ function PackageCard({ pkg, title, description, version, publisher, curated, ins
             <CatalogBadge curated={curated} />
             {installed > 0 && <Badge color="gray" variant="light" tt="none">Installed{installed > 1 ? ` ×${installed}` : ""}</Badge>}
           </Group>
-          {publisher && <Text size="xs" c="dimmed">by {publisher}</Text>}
+          <Group gap={8} wrap="nowrap">
+            {downloads != null && <Group gap={3} wrap="nowrap" c="dimmed"><IconDownload size={13} /><Text size="xs" title={`${downloads} downloads in the last month`}>{compact(downloads)}/mo</Text></Group>}
+            {publisher && <Text size="xs" c="dimmed" truncate maw={110}>by {publisher}</Text>}
+          </Group>
         </Group>
       </Paper>
     </UnstyledButton>
@@ -136,43 +143,56 @@ function Browse({ installed }: { installed: InstalledPlugin[] }) {
   const [text, setText] = useState("");
   const [q] = useDebouncedValue(text.trim(), 300);
   const search = useQuery({ queryKey: ["plugin-search", q], queryFn: () => api.pluginSearch(q), staleTime: 60_000 });
-  const { pathname } = useLocation();
   const copies = (pkg: string) => installed.filter((p) => p.package === pkg).length;
   const offered = catalog.data?.plugins ?? [];
-  const others = (search.data?.results ?? []).filter((r) => !offered.some((c) => c.package === r.package));
+  const isOffered = (pkg: string) => offered.some((c) => c.package === pkg);
+  const results = search.data?.results ?? [];
+  const looksLikeName = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(q);
+  const grid = (children: React.ReactNode) => <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">{children}</SimpleGrid>;
+  const npmCard = (r: (typeof results)[number]) => (
+    <PackageCard key={r.package} pkg={r.package} title={offered.find((c) => c.package === r.package)?.title ?? r.package} description={r.description}
+      version={r.version} publisher={r.publisher} curated={r.curated || isOffered(r.package)} installed={copies(r.package)} downloads={r.downloads} />
+  );
+  const catalogCard = (c: (typeof offered)[number]) => (
+    <PackageCard key={c.package} pkg={c.package} title={c.title} description={c.description} version={c.version}
+      publisher={c.author} curated installed={copies(c.package)} problem={c.problem} downloads={results.find((r) => r.package === c.package)?.downloads} />
+  );
+  // Searching: the catalog's matches first, then npm's (its best matches first).
+  const lower = q.toLowerCase();
+  const catalogMatches = offered.filter((c) => [c.package, c.title, c.description ?? ""].some((x) => x.toLowerCase().includes(lower)));
+  const searchHits = [...catalogMatches.map(catalogCard), ...results.filter((r) => !catalogMatches.some((c) => c.package === r.package)).map(npmCard)];
   return (
-    <Stack gap="xl" key={pathname}>
-      <Stack gap="sm">
-        <div>
-          <Text fw={600}>Offered by this server</Text>
-          <Text size="sm" c="dimmed">The plugins this server's admins trust (Server settings → Plugins).</Text>
-        </div>
-        {catalog.isLoading ? <Loader size="sm" /> : offered.length === 0
-          ? <Text size="sm" c="dimmed">None yet.</Text>
-          : (
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-              {offered.map((c) => <PackageCard key={c.package} pkg={c.package} title={c.title} description={c.description} version={c.version}
-                publisher={c.author} curated installed={copies(c.package)} problem={c.problem} />)}
-            </SimpleGrid>
-          )}
-      </Stack>
-      <Stack gap="sm">
-        <Group justify="space-between" align="flex-end" wrap="wrap">
-          <div>
-            <Text fw={600}>More plugins</Text>
-            <Text size="sm" c="dimmed">On npm (packages with the keyword winche-plugin), and in this server's plugin folder. Nobody here has vouched for them.</Text>
-          </div>
-          <TextInput placeholder="Search, or a package name" leftSection={<IconSearch size={15} />} value={text} onChange={(e) => setText(e.currentTarget.value)} w={300} aria-label="Search plugins" />
-        </Group>
-        {search.isLoading ? <Loader size="sm" /> : others.length === 0
-          ? <Text size="sm" c="dimmed">{q ? "Nothing found." : "Nothing else found."}{q && /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/.test(q) && <> Open <Link to={packagePath(q)}>{q}</Link> by its name.</>}</Text>
-          : (
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-              {others.map((r) => <PackageCard key={r.package} pkg={r.package} title={r.package} description={r.description} version={r.version}
-                publisher={r.publisher} curated={r.curated} installed={copies(r.package)} />)}
-            </SimpleGrid>
-          )}
-      </Stack>
+    <Stack gap="xl">
+      <TextInput size="md" radius="md" placeholder="Search plugins on npm and this server, or type a package name"
+        leftSection={<IconSearch size={18} />} value={text} onChange={(e) => setText(e.currentTarget.value)} aria-label="Search plugins"
+        rightSection={search.isFetching ? <Loader size={16} /> : null} />
+      {q ? (
+        <Stack gap="sm">
+          <Text fw={600}>Results for “{q}”</Text>
+          {search.isLoading ? <Loader size="sm" /> : searchHits.length === 0
+            ? <Text size="sm" c="dimmed">Nothing found.{looksLikeName && <> Open <Link to={packagePath(q)}>{q}</Link> by its name.</>}</Text>
+            : grid(searchHits)}
+        </Stack>
+      ) : (
+        <>
+          <Stack gap="sm">
+            <div>
+              <Text fw={600}>Offered by this server</Text>
+              <Text size="sm" c="dimmed">The plugins this server's admins trust (Server settings → Plugins).</Text>
+            </div>
+            {catalog.isLoading ? <Loader size="sm" /> : offered.length === 0 ? <Text size="sm" c="dimmed">None yet.</Text> : grid(offered.map(catalogCard))}
+          </Stack>
+          <Stack gap="sm">
+            <div>
+              <Text fw={600}>Popular on npm</Text>
+              <Text size="sm" c="dimmed">The most downloaded packages with the keyword winche-plugin, and this server's plugin folder. Nobody here has vouched for them.</Text>
+            </div>
+            {search.isLoading ? <Loader size="sm" /> : results.filter((r) => !isOffered(r.package)).length === 0
+              ? <Text size="sm" c="dimmed">Nothing else found.</Text>
+              : grid(results.filter((r) => !isOffered(r.package)).map(npmCard))}
+          </Stack>
+        </>
+      )}
     </Stack>
   );
 }
