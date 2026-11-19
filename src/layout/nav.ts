@@ -38,6 +38,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   const out: NavItem[] = [{ to: "/overview", label: "Overview", icon: "home", group: "top", pages: [] }];
   const productPages = (base: string, product: "database" | "storage" | "assets", primary: string): NavPage[] => [
     { to: base, label: primary },
+    ...(product === "assets" ? [{ to: `${base}/releases`, label: "Releases" }] : []),
     ...(facts.rules?.includes(product) ? [{ to: `${base}/rules`, label: "Rules" }] : []),
     ...(product === "database" && c?.settings?.database ? [{ to: `${base}/indexes`, label: "Indexes" }] : []),
     ...(product === "database" && c?.history ? [{ to: `${base}/history`, label: "History" }] : []),
@@ -60,7 +61,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   }
   if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build", pages: productPages("/database", "database", "Data") });
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
-  if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Releases") });
+  if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Files") });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
   // The project's API keys and passwords: its own, the products', and where they can be read from (admins).
   if (admin) out.push({ to: "/secrets", label: "Secrets", icon: "key", group: "build", pages: [] });

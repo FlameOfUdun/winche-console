@@ -19,6 +19,12 @@ export interface AssetRelease { number: number; note: string | null; by: string 
 
 export interface AssetChannel { name: string; release: number; updatedAt: string; by: string | null }
 
+/** GET assets/channels/{name}/files: what apps get on a channel now; `since` is the release each file's content arrived in. */
+export interface AssetLiveFiles {
+  channel: string; release: number; publishedAt: string; note: string | null; by: string | null; size: number;
+  files: (AssetFileEntry & { since: number })[];
+}
+
 export interface AssetChannelMove { channel: string; from: number | null; to: number; at: string; by: string | null }
 
 export interface AssetDiff { added: string[]; changed: string[]; removed: string[] }

@@ -287,6 +287,10 @@ export const api = {
   assetReleases: (limit = 100) => http<{ releases: import("./assets").AssetReleaseSummary[] }>("GET", `assets/releases?limit=${limit}`),
   assetRelease: (n: number) => http<import("./assets").AssetRelease>("GET", `assets/releases/${n}`),
   assetDiff: (from: number, to: number) => http<import("./assets").AssetDiff>("GET", `assets/releases/${from}/diff/${to}`),
+  assetChannelFiles: (name: string) => http<import("./assets").AssetLiveFiles>("GET", `assets/channels/${encodeURIComponent(name)}/files`),
+  /** A file's bytes with the server's rights, for the console's preview. */
+  assetContent: async (release: number, path: string) =>
+    (await raw("GET", `assets/releases/${release}/content/${path.split("/").map(encodeURIComponent).join("/")}`)).blob(),
   assetChannelHistory: (name: string) => http<{ moves: import("./assets").AssetChannelMove[] }>("GET", `assets/channels/${encodeURIComponent(name)}/history`),
   moveAssetChannel: (name: string, release: number) => http<import("./assets").AssetChannel>("POST", `assets/channels/${encodeURIComponent(name)}`, { release }),
   removeAssetChannel: (name: string) => http<void>("DELETE", `assets/channels/${encodeURIComponent(name)}`),

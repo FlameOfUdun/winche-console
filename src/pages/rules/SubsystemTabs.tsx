@@ -7,6 +7,7 @@ import { HistoryView } from "../history/HistoryView";
 import { DatabaseIndexesView, DatabaseSettingsView } from "../settings/DatabaseSettingsView";
 import { StorageSettingsView } from "../settings/StorageSettingsView";
 import { AssetsSettingsView } from "../assets/AssetsSettingsView";
+import { ReleasesView } from "../assets/AssetsPage";
 import { NavPageHeader } from "../../components/NavPageHeader";
 import { ProductHooks } from "../hooks/ProductHooks";
 import { useProjectNav } from "../../layout/useProjectNav";
@@ -36,6 +37,7 @@ export function SubsystemTabs({ subsystem, basePath, children }: {
       {page === "primary" && <div className="winche-fill">{children}</div>}
       {page !== "primary" && (
         <div style={{ paddingBottom: 28 }}>
+          {page === "releases" && subsystem === "assets" && <ReleasesView />}
           {page === "rules" && <RulesEditor subsystem={subsystem} />}
           {page === "indexes" && <DatabaseIndexesView />}
           {page === "history" && <HistoryView />}

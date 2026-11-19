@@ -11,6 +11,7 @@ import { ConfirmModal } from "../../components/ConfirmModal";
 import { EmptyState } from "../../components/EmptyState";
 import { when } from "../authentication/UsersView";
 import { SubsystemTabs } from "../rules/SubsystemTabs";
+import { LiveFilesView } from "./LiveFilesView";
 import { surface } from "../../theme";
 
 /**
@@ -20,8 +21,8 @@ import { surface } from "../../theme";
  */
 export function AssetsPage() {
   return (
-    <SubsystemTabs subsystem="assets" primaryLabel="Releases" basePath="/assets">
-      <ReleasesView />
+    <SubsystemTabs subsystem="assets" primaryLabel="Files" basePath="/assets">
+      <LiveFilesView />
     </SubsystemTabs>
   );
 }
