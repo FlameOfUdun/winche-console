@@ -13,6 +13,7 @@ import { CardsPage, HistoryButton } from "../../components/EditCard";
 import { AreaHistory } from "../settings/AreaSettings";
 import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
+import { PluginsTab } from "./PluginsView";
 import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
 
 /**
@@ -21,15 +22,16 @@ import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } f
  * secrets functions read are on the Secrets page.
  */
 export function FunctionsPage() {
-  const [tab, setTab] = useState<"deployed" | "settings">("deployed");
+  const [tab, setTab] = useState<"deployed" | "plugins" | "settings">("deployed");
   return (
     <>
       <PageBand title="Functions" tabs={[
         { label: "Dashboard", active: tab === "deployed", onClick: () => setTab("deployed") },
+        { label: "Plugins", active: tab === "plugins", onClick: () => setTab("plugins") },
         { label: "Settings", active: tab === "settings", onClick: () => setTab("settings") },
       ]} />
       <div style={{ paddingBottom: 28 }}>
-        {tab === "deployed" ? <DeployedTab /> : <SettingsTab />}
+        {tab === "deployed" ? <DeployedTab /> : tab === "plugins" ? <PluginsTab /> : <SettingsTab />}
       </div>
     </>
   );
@@ -74,7 +76,10 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
             <Paper withBorder p="lg" className="winche-card-link" h="100%" style={{ display: "flex", flexDirection: "column" }}>
               <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
                 <Text fw={600} fz={16} ff="monospace" truncate>{f.name}</Text>
-                <Badge variant="light" tt="none" style={{ flexShrink: 0 }}>{KIND[f.kind] ?? f.kind}</Badge>
+                <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
+                  {f.plugin && <Badge variant="light" color="grape" tt="none">plugin</Badge>}
+                  <Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge>
+                </Group>
               </Group>
               <Text size="sm" mt={6} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
                 {f.about ?? f.description}

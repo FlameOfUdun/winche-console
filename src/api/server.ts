@@ -9,6 +9,8 @@ export interface ServerSettings {
   functionsMaxConcurrency: number;
   functionsSharedProcessMb: number;
   functionsMaxProcesses: number;
+  /** The plugin packages (npm names) the console offers projects: the ones the server's admins trust. */
+  pluginCatalog?: string[];
   /** The identity providers people can sign in to the console with, beside email and password (always there). */
   consoleProviders: ConsoleSignIn[];
   /** With a provider on: passwords only for server admins (the way in when it's down). */

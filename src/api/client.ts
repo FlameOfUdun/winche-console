@@ -266,6 +266,17 @@ export const api = {
     if (!res.ok) throw new ApiError(res.status, await res.text().catch(() => res.statusText));
     return (await res.json()) as { result: unknown };
   },
+  plugins: () => http<{ plugins: import("./functions").InstalledPlugin[] }>("GET", "functions/plugins"),
+  pluginCatalog: () => http<{ plugins: import("./functions").CatalogPlugin[] }>("GET", "functions/plugins/catalog"),
+  pluginPackage: (name: string, version?: string | null) =>
+    http<import("./functions").PluginPackageInfo>("GET", `functions/plugins/package?name=${encodeURIComponent(name)}${version ? `&version=${encodeURIComponent(version)}` : ""}`),
+  installPlugin: (body: { id: string; package: string; version: string | null; settings: Record<string, unknown> }) =>
+    http<{ version: number; note: string }>("POST", "functions/plugins", body),
+  configurePlugin: (id: string, settings: Record<string, unknown>) => http<{ version: number; note: string }>("PUT", `functions/plugins/${encodeURIComponent(id)}`, { settings }),
+  upgradePlugin: (id: string, version: string | null, settings: Record<string, unknown>) =>
+    http<{ version: number; note: string }>("POST", `functions/plugins/${encodeURIComponent(id)}/upgrade`, { version, settings }),
+  uninstallPlugin: (id: string, removeSecrets: boolean) =>
+    http<{ version: number; note: string }>("DELETE", `functions/plugins/${encodeURIComponent(id)}${removeSecrets ? "?secrets=remove" : ""}`),
   functionSecrets: () => http<{ available: boolean; secrets: FunctionSecret[] }>("GET", "functions/secrets"),
   setFunctionSecret: (name: string, value: string) => http<void>("PUT", `functions/secrets/${encodeURIComponent(name)}`, secretBody(value)),
   testFunctionSecret: (name: string) => http<SecretTest>("POST", `functions/secrets/${encodeURIComponent(name)}/test`),

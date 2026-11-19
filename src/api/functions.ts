@@ -1,6 +1,8 @@
 export interface FunctionInfo {
   name: string; kind: "documents" | "files" | "users" | "schedule" | "callable" | "before" | "http" | "consolePage"; events: string[] | null; path: string | null;
   cron: string | null; timeZone: string | null; description: string; timeoutSeconds: number;
+  /** The plugin copy it belongs to (its id), or null for the project's own code. */
+  plugin?: string | null;
   /** The secrets it declared (options.secrets). */
   secrets?: string[];
   /** The run time its code sets, if it does (timeoutSeconds is the one in force). */
@@ -65,3 +67,31 @@ export interface FunctionRun {
 
 /** A page of the project's own (consolePage in its functions), for the sidebar. */
 export interface ConsolePageEntry { name: string; title: string; icon: string | null; order: number }
+
+/** What a plugin package says it is (its winche-plugin.json). */
+export interface PluginManifest {
+  title: string; description: string | null; icon: string | null;
+  /** What it reads, writes and calls, a sentence each (said by the plugin, not enforced). */
+  access: string[];
+  settings: PluginSettingInfo[];
+  secrets: { name: string; label: string; description: string | null; required: boolean }[];
+}
+export interface PluginSettingInfo {
+  name: string; label: string; description: string | null; type: "string" | "number" | "integer" | "boolean" | "select";
+  required: boolean; default: unknown; options: string[] | null;
+}
+/** An installed copy of a plugin. */
+export interface InstalledPlugin {
+  id: string; package: string; version: string; latest: string | null; update: boolean;
+  /** Whether the server offers it (Server settings → Plugins). */
+  curated: boolean;
+  settings: Record<string, unknown>; source: "console" | "deploy" | "emulator"; by: string | null; at: string;
+  manifest: PluginManifest;
+  /** Its secrets: the plugin's name → the project's (SMS__AUTH_TOKEN). */
+  secrets: { name: string; secret: string }[];
+  /** Required ones not set yet (the project's names). */
+  secretsNeeded: string[];
+  functions: string[];
+}
+export interface PluginPackageInfo { package: string; version: string; manifest: PluginManifest }
+export interface CatalogPlugin { package: string; version: string | null; title: string; description: string | null; icon: string | null; problem: string | null }

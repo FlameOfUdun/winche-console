@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { NumberInput } from "@mantine/core";
+import { NumberInput, Textarea } from "@mantine/core";
 import {
   Alert, Badge, Group, Loader, Paper, Switch, Text, Timeline, Tooltip,
   UnstyledButton,
@@ -120,7 +120,7 @@ export function ServerSettingsPage() {
     onEdit: () => { setDraft(structuredClone(s)); setEditing(id); },
     onCancel: cancel,
     onSave: async (reason: string) => {
-      await api.saveServerSettings({ ...draft!, publicUrl: dep.publicUrl }, reason, d.version?.number ?? 0);   // the deployment's, always
+      await api.saveServerSettings({ ...draft!, publicUrl: dep.publicUrl, pluginCatalog: (draft!.pluginCatalog ?? []).filter((p) => p.length > 0) }, reason, d.version?.number ?? 0);   // the deployment's, always
       await qc.invalidateQueries({ queryKey: ["server-settings"] });
       await qc.invalidateQueries({ queryKey: ["server-settings-history"] });
       cancel();
@@ -188,6 +188,18 @@ export function ServerSettingsPage() {
                 process of its own when the functions memory has room. The shared process's limit applies when it next starts.
               </Text>
               <Text size="xs" c="dimmed" mt="xs">A run that long still ends if the server restarts: long work should save its progress as it goes.</Text>
+            </SettingsCard>
+          )} />
+        <EditCard title="Plugins" description="The plugin packages (npm) the console offers projects: the ones you trust. A project's admins can still install others, warned first that nobody here vouched for them." {...card("plugins")}
+          rows={[{ label: "Catalog", hint: (s.pluginCatalog ?? []).length === 0 ? "none: projects see only the search for a package" : undefined,
+            value: (s.pluginCatalog ?? []).length === 0 ? "—" : <Text size="sm" ff="monospace" style={{ whiteSpace: "pre-line", textAlign: "right" }}>{(s.pluginCatalog ?? []).join("\n")}</Text> }]}
+          form={draft && (
+            <SettingsCard>
+              <div style={{ padding: 16 }}>
+                <Textarea label="Packages" description="One npm package name per line, e.g. @acme/text-messages." autosize minRows={3} maxRows={12} ff="monospace"
+                  value={(x.pluginCatalog ?? []).join("\n")}
+                  onChange={(e) => set({ pluginCatalog: e.currentTarget.value.split("\n").map((l) => l.trim()).filter((l, i, all) => l.length > 0 || i === all.length - 1) })} />
+              </div>
             </SettingsCard>
           )} />
         {s.consoleProviders.some((p) => p.keycloakSync) && <ConsoleAccountsScope><KeycloakSyncView /></ConsoleAccountsScope>}
