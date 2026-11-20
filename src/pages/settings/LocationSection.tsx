@@ -87,18 +87,21 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
       forcePathStyle: preset === "other" ? b.forcePathStyle : false,
     },
   };
-  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && secretTyped(secret));
+  // AWS with no access key: the server's own AWS permissions (its role, its environment), which only server admins may
+  // choose (the server says so to others). Any other bucket, or one with a key id, needs its secret key.
+  const serverRole = target !== "code" && preset === "aws" && !b.accessKey.trim();
+  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && (serverRole || secretTyped(secret)));
   const set = (patch: Partial<typeof EMPTY>) => { setB({ ...b, ...patch }); setTest(null); };
 
   const runTest = async () => {
     setTest("testing");
-    try { setTest(await testFn(location, secret || null)); }
+    try { setTest(await testFn(location, serverRole ? null : secret || null)); }
     catch (e) { setTest({ ok: false, steps: [{ name: "Test", ok: false, error: errorMessage(e) }] }); }
   };
   const start = async () => {
     setBusy(true);
     setError(null);
-    try { await startFn(location, secret || null, reason.trim()); onDone(); }
+    try { await startFn(location, serverRole ? null : secret || null, reason.trim()); onDone(); }
     catch (e) { setError(errorWithList(e)); }
     finally { setBusy(false); }
   };
@@ -124,9 +127,14 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
           )}
           <Group grow wrap="wrap" align="flex-end">
             <TextInput label="Access key id" value={b.accessKey} onChange={(e) => set({ accessKey: e.currentTarget.value })} />
-            <SecretInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable}
-              value={secret} onChange={(v) => { setSecret(v); setTest(null); }} />
+            <SecretInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable || serverRole}
+              value={serverRole ? "" : secret} onChange={(v) => { setSecret(v); setTest(null); }} />
           </Group>
+          {serverRole && (
+            <Text size="xs" c="dimmed" data-testid="server-role-note">
+              No access key: the server's own AWS permissions are used (its task role or environment). Only server admins can choose this.
+            </Text>
+          )}
           {preset === "other" && <Switch label="Path-style addresses (MinIO and most self-hosted services)" checked={b.forcePathStyle} onChange={(e) => set({ forcePathStyle: e.currentTarget.checked })} />}
           {!s.secretsAvailable && <Alert color="yellow">Secrets can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
           <Text size="xs" c="dimmed">The bucket needs CORS allowing PUT and GET from your apps, as uploads and downloads go to it directly.</Text>

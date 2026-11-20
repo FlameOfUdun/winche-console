@@ -167,6 +167,21 @@ test("moving files: choose an R2 bucket, test it, then start copying with a reas
   await waitFor(() => expect(mock(api.startStorageMove)).toHaveBeenCalledWith(bucket, "SK", "Off the server's disk"));
 });
 
+test("moving files: an AWS bucket with no access key uses the server's own permissions, no secret needed", async () => {
+  mock(api.testStorageLocation).mockResolvedValue({ ok: true, steps: [{ name: "Write a file", ok: true, error: null }] });
+  renderIt(<StorageSettingsView />);
+  await userEvent.click(await screen.findByRole("button", { name: "Move files…" }));
+  await userEvent.type(screen.getByLabelText("Bucket"), "clinic-files");
+  await userEvent.type(screen.getByLabelText("Region"), "eu-west-2");
+  expect(screen.getByTestId("server-role-note")).toHaveTextContent("the server's own AWS permissions");
+  await userEvent.click(screen.getByRole("button", { name: "Test" }));
+  expect(mock(api.testStorageLocation)).toHaveBeenCalledWith({ kind: "s3", s3: { bucket: "clinic-files", region: "eu-west-2", serviceUrl: null, accessKey: null, forcePathStyle: false } }, null);
+  // A key id given: its secret is needed again.
+  await userEvent.type(screen.getByLabelText("Access key id"), "AK");
+  expect(screen.queryByTestId("server-role-note")).toBeNull();
+  expect(screen.getByRole("button", { name: "Test" })).toBeDisabled();
+});
+
 const move = (phase: string) => ({ id: "m1", phase, startedAt: "2026-11-12T20:00:00Z", fromLabel: "On this server's disk", toLabel: "bucket clinic-files" });
 
 test("moving files: once everything is copied, switch; finish waits for a clean catch-up", async () => {
