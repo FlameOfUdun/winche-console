@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, Navigate, Route, Routes } from "react-router-dom";
-import { Alert, Badge, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
+import { Alert, Badge, Button, CloseButton, Group, Loader, Paper, SimpleGrid, Stack, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { useQuery } from "@tanstack/react-query";
 import { IconArrowRight, IconArrowUp, IconDownload, IconKey, IconPlus, IconPuzzle, IconSearch } from "@tabler/icons-react";
@@ -165,7 +165,14 @@ function Browse({ installed }: { installed: InstalledPlugin[] }) {
     <Stack gap="xl">
       <TextInput size="md" radius="md" placeholder="Search plugins on npm and this server, or type a package name"
         leftSection={<IconSearch size={18} />} value={text} onChange={(e) => setText(e.currentTarget.value)} aria-label="Search plugins"
-        rightSection={search.isFetching ? <Loader size={16} /> : null} />
+        onKeyDown={(e) => { if (e.key === "Escape" && text) { e.preventDefault(); setText(""); } }}
+        rightSectionWidth={text && search.isFetching ? 64 : 40}
+        rightSection={(
+          <Group gap={4} wrap="nowrap">
+            {search.isFetching && <Loader size={16} />}
+            {text && <CloseButton aria-label="Clear search" onClick={() => setText("")} />}
+          </Group>
+        )} />
       {q ? (
         <Stack gap="sm">
           <Text fw={600}>Results for “{q}”</Text>

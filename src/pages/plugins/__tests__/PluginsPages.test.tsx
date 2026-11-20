@@ -99,6 +99,14 @@ test("browse: search on top; the server's catalog, then npm's most popular; typi
   const hits = await screen.findAllByTestId("package");
   expect(hits.map((h) => h.getAttribute("aria-label"))).toEqual(["Calls", "texts-plugin"]);   // the catalog's match first
   expect(mock(api.pluginSearch)).toHaveBeenLastCalledWith("call");
+
+  // Clear: back to the catalog and npm's most popular.
+  await userEvent.click(screen.getByRole("button", { name: "Clear search" }));
+  expect(search).toHaveValue("");
+  expect(await screen.findByText("Popular on npm")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+  await userEvent.type(search, "x{Escape}");
+  expect(search).toHaveValue("");
 });
 
 test("a package's page: its README as markdown (no raw HTML), what it does and costs, what it asks for", async () => {
