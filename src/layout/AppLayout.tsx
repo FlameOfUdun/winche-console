@@ -6,7 +6,7 @@ import {
 } from "@mantine/core";
 import { IconPuzzle,
   IconDatabase, IconDeviceDesktop, IconFolder, IconHome, IconLambda, IconPackage, IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand, IconListDetails, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconSun,
+  IconLayoutSidebarLeftExpand, IconListDetails, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconShieldCheck, IconSun,
   IconUsers, IconWebhook, IconKey, IconUserCircle, IconFile,
 } from "@tabler/icons-react";
 import { TablerIcon } from "../components/TablerIcon";
@@ -25,7 +25,7 @@ import logoUrl from "../assets/winche-logo.png";
 
 const ICONS: Record<NavIcon, React.ElementType> = {
   home: IconHome, database: IconDatabase, folder: IconFolder, shield: IconShield, logs: IconListDetails, users: IconUsers,
-  hooks: IconWebhook, functions: IconLambda, plugins: IconPuzzle, assets: IconPackage, settings: IconSettings, page: IconFile, key: IconKey,
+  hooks: IconWebhook, functions: IconLambda, plugins: IconPuzzle, assets: IconPackage, settings: IconSettings, page: IconFile, key: IconKey, integrity: IconShieldCheck,
 };
 
 const TOPBAR = 52;

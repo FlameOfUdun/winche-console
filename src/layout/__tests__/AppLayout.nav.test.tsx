@@ -88,3 +88,11 @@ test("the project's own pages are listed under Project pages", async () => {
   expect(await screen.findByText("Project pages")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: /Weekly reports/ })).toHaveAttribute("href", "/pages/reports");
 });
+
+test("Integrity is in the sidebar for anyone with a role where it's set up", async () => {
+  const { projectNav } = await import("../nav");
+  const labels = (integrity: boolean, role: string) =>
+    projectNav({ capabilities: { integrity } } as never, { role } as never).map((n) => n.label);
+  expect(labels(true, "Viewer")).toContain("Integrity");
+  expect(labels(false, "Admin")).not.toContain("Integrity");
+});

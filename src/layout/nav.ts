@@ -1,7 +1,7 @@
 import type { AuthState, SessionUser } from "../api/types";
 import { CONSOLE } from "../api/scope";
 
-export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "plugins" | "assets" | "settings" | "page" | "key";
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "plugins" | "assets" | "settings" | "page" | "key" | "integrity";
 
 /** One of a product's pages (Database → Rules), under it in the sidebar. */
 export interface NavPage { to: string; label: string }
@@ -67,6 +67,8 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   if (c?.functions) out.push({ to: "/plugins", label: "Plugins", icon: "plugins", group: "build", pages: [] });
   // The project's API keys and passwords: its own, the products', and where they can be read from (admins).
   if (admin) out.push({ to: "/secrets", label: "Secrets", icon: "key", group: "build", pages: [] });
+  // The project's apps, and proof that requests come from them (with project setup).
+  if (c?.integrity) out.push({ to: "/integrity", label: "Integrity", icon: "integrity", group: "build", pages: [] });
   for (const p of facts.consolePages ?? []) out.push({ to: `/pages/${p.name}`, label: p.title, icon: "page", tablerIcon: p.icon, group: "pages", pages: [] });
   if (c?.logs?.app) {
     out.push({ to: "/logs", label: "Logs", icon: "logs", group: "monitor", pages: [

@@ -44,7 +44,6 @@ beforeEach(() => {
 test("admins get General, Users and permissions, and service accounts, each at its own address", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: { manageUsers: true } }, user: { role: "Admin" } });
   renderAt("/settings/general");
-  expect(await screen.findByText("Your apps")).toBeInTheDocument();
   expect(await screen.findByTestId("project-name")).toHaveTextContent("Demo");
   cleanup();
   renderAt("/settings/users");   // the old address

@@ -7,11 +7,11 @@ import { vi, expect, test, beforeEach } from "vitest";
 import { GeneralSettings as AppsPage } from "../AppsPage";
 import { api } from "../../../api/client";
 import { useSession } from "../../../auth/session";
-import type { AppsPageData, RegisteredApp } from "../../../api/apps";
+import type { AppsPageData } from "../../../api/apps";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, apps: vi.fn(), registeredApps: vi.fn(), registerApp: vi.fn(), removeApp: vi.fn(), setAppsPolicy: vi.fn(), setBrowserOrigins: vi.fn(),
+  return { ...actual, api: { ...actual.api, apps: vi.fn(),
     project: vi.fn(), renameProject: vi.fn(), setProjectImage: vi.fn(), removeProjectImage: vi.fn(), projectImage: vi.fn() } };
 });
 vi.mock("../../../auth/session", async (orig) => {
@@ -36,16 +36,9 @@ const data = (platforms: string[]): AppsPageData => ({
   snippet: "WincheFlutter.initializeApp(options: DefaultWincheOptions.currentPlatform)",
 });
 
-const clinic: RegisteredApp = {
-  id: "app-abc234def567", name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null,
-  webOrigins: ["https://app.example.com"], createdAt: "2026-11-14T10:00:00Z",
-  usage: { today: 12, last7Days: 80, lastSeen: new Date().toISOString() },
-};
-
 beforeEach(() => {
   vi.clearAllMocks();
   mock(api.apps).mockImplementation(async (platforms: string[]) => data(platforms));
-  mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [], unregistered: null });
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
   mock(api.project).mockResolvedValue({ setup: true, created: true, id: "clinic-records", name: "Clinic records", products: [], imageVersion: null });
   mock(api.projectImage).mockResolvedValue(new Blob(["x"], { type: "image/png" }));
@@ -91,54 +84,9 @@ test("non-admins can't rename or change the image", async () => {
   expect(screen.queryByRole("button", { name: "Add image" })).toBeNull();
 });
 
-test("no apps: an empty state; Add app asks for the SDK (only Flutter), registers it, then shows its own command and download", async () => {
-  mock(api.registerApp).mockResolvedValue({ id: "app-abc234def567" });
+test("its apps are under Integrity, not here", async () => {
   renderPage();
-  expect(await screen.findByText("No apps yet")).toBeInTheDocument();
-  expect(screen.queryByTestId("registered-app")).toBeNull();
-  await userEvent.click(screen.getByRole("button", { name: "Add app" }));
-  expect(await screen.findByRole("button", { name: "macOS: not available yet" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "Flutter" }));
-  const dialog = screen.getByRole("dialog");
-  await userEvent.type(within(dialog).getByLabelText("App name"), "Clinic app");
-  await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
-  // The id follows the name until it's edited; it's sent as chosen.
-  expect(within(dialog).getByLabelText("App id")).toHaveValue("clinic-app");
-  await userEvent.clear(within(dialog).getByLabelText("App id"));
-  await userEvent.type(within(dialog).getByLabelText("App id"), "clinic-ios");
-  await userEvent.click(within(dialog).getByRole("button", { name: "Register app" }));
-  await waitFor(() => expect(api.registerApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, webOrigins: [], id: "clinic-ios" }));
-  expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
-  await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
-});
-
-test("with apps: the list with each app's identifiers and requests, and the registered-only switch", async () => {
-  mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [clinic],
-    unregistered: { today: 3, last7Days: 5, lastSeen: null } });
-  mock(api.setAppsPolicy).mockResolvedValue({ registeredOnly: true });
-  renderPage();
-  const row = await screen.findByTestId("registered-app");
-  expect(screen.queryByText("No apps yet")).toBeNull();
-  expect(within(row).getByText("Clinic app")).toBeInTheDocument();
-  expect(within(row).getByText("com.example.clinic")).toBeInTheDocument();
-  expect(within(row).getByText("https://app.example.com")).toBeInTheDocument();
-  expect(within(row).getByText(/12 requests today · 80 this week · last seen just now/)).toBeInTheDocument();
-  expect(screen.getByText(/Without an app id: 3 requests today/)).toBeInTheDocument();
-  await userEvent.click(screen.getByLabelText("Only registered apps may call"));
-  await waitFor(() => expect(api.setAppsPolicy).toHaveBeenCalledWith(true));
-});
-
-test("browser access: any origin until some are set, registered web apps always allowed; saved with a reason", async () => {
-  mock(api.registeredApps).mockResolvedValue({ available: true, editable: true, registeredOnly: false, apps: [clinic], unregistered: null, browserOrigins: [] });
-  mock(api.setBrowserOrigins).mockResolvedValue({ browserOrigins: ["https://admin.example.com"] });
-  renderPage();
-  const card = await screen.findByTestId("browser-access");
-  expect(within(card).getByText("Any origin")).toBeInTheDocument();
-  expect(within(card).getByText("https://app.example.com")).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
-  await userEvent.type(within(card).getByRole("textbox", { name: "Browser origins" }), "https://admin.example.com{enter}");
-  await userEvent.type(within(card).getByLabelText("Reason for the change"), "Admin page");
-  await userEvent.click(within(card).getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(api.setBrowserOrigins).toHaveBeenCalledWith(["https://admin.example.com"], "Admin page"));
+  expect(await screen.findByTestId("project-name")).toBeInTheDocument();
+  expect(screen.queryByText("Your apps")).toBeNull();
+  expect(screen.queryByText("Browser access")).toBeNull();
 });

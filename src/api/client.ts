@@ -13,7 +13,7 @@ const pick = (typed: Record<string, string> | undefined, kind: "value" | "refere
   const found = Object.entries(typed ?? {}).flatMap(([k, v]) => { const b = secretBody(v)[kind]; return b ? [[k, b] as const] : []; });
   return found.length ? Object.fromEntries(found) : undefined;
 };
-import type { AppsPageData, AppFields, RegisteredAppsData } from "./apps";
+import type { AppsPageData, AppFields, IntegrityData, IntegrityMode } from "./apps";
 import type { ArchiveLocation, AreaSettings, DataArea, IndexSuggestion, LocationTest, StorageLocationState } from "./dataSettings";
 import type { SignInSettingsResponse, WincheAuthSettings } from "./appAuth";
 import type { AppAuthConfig, AppSession, AppUser, EmailTemplateInfo, ProviderCheckResult, ProvidersResponse, ProvidersSettings, SettingsVersionInfo, TokenTestResult } from "./appAuth";
@@ -240,12 +240,15 @@ export const api = {
   restoreDataSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `settings/history/${id}/restore`, { reason }),
   apps: (platforms: string[], app?: string) =>
     http<AppsPageData>("GET", `apps?platforms=${encodeURIComponent(platforms.join(","))}${app ? `&app=${encodeURIComponent(app)}` : ""}`),
-  registeredApps: () => http<RegisteredAppsData>("GET", "apps/registered"),
-  registerApp: (app: AppFields) => http<{ id: string }>("POST", "apps/registered", app),
-  updateApp: (id: string, app: AppFields) => http<{ id: string }>("PUT", `apps/registered/${encodeURIComponent(id)}`, app),
-  removeApp: (id: string) => http<void>("DELETE", `apps/registered/${encodeURIComponent(id)}`),
-  setAppsPolicy: (registeredOnly: boolean) => http<{ registeredOnly: boolean }>("PUT", "apps/policy", { registeredOnly }),
-  setBrowserOrigins: (origins: string[], reason: string) => http<{ browserOrigins: string[] }>("PUT", "apps/browser-origins", { origins, reason }),
+  integrity: () => http<IntegrityData>("GET", "integrity"),
+  addApp: (app: AppFields) => http<{ id: string }>("POST", "integrity/apps", app),
+  updateApp: (id: string, app: AppFields) => http<{ id: string }>("PUT", `integrity/apps/${encodeURIComponent(id)}`, app),
+  removeApp: (id: string) => http<void>("DELETE", `integrity/apps/${encodeURIComponent(id)}`),
+  setIntegrityEnforcement: (enforcement: Record<string, IntegrityMode>, tokenMinutes: number, reason: string) =>
+    http<{ enforcement: Record<string, IntegrityMode>; tokenMinutes: number }>("PUT", "integrity/enforcement", { enforcement, tokenMinutes, reason }),
+  /** A debug token for an app: the token is in this answer only. */
+  makeDebugToken: (app: string, name: string) => http<{ id: string; app: string; name: string; token: string }>("POST", "integrity/debug-tokens", { app, name }),
+  removeDebugToken: (id: string) => http<void>("DELETE", `integrity/debug-tokens/${encodeURIComponent(id)}`),
   functions: () => http<FunctionsPageData>("GET", "functions"),
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "functions/versions"),
   functionInstances: (name: string) => http<import("./functions").FunctionInstancesData>("GET", `functions/${encodeURIComponent(name)}/instances`),

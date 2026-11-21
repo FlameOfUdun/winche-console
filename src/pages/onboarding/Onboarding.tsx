@@ -10,7 +10,7 @@ import { errorMessage } from "../../api/appAuth";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { useSession } from "../../auth/session";
 import { TwoFactorSetup } from "../../auth/TwoFactorSetup";
-import { AddAppDialog } from "../apps/AppsPage";
+import { AddAppDialog } from "../integrity/IntegrityPage";
 import { NEW_PROVIDER, type ConsoleSignIn } from "../../api/server";
 import { ProviderEditor, saveProvider } from "../server/ConsoleProviders";
 import { surface } from "../../theme";
@@ -223,14 +223,14 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "app" && (
-            <Screen title="Add your first app" subtitle="Register it to get its winche_options.dart. You can add apps later in Project settings.">
+            <Screen title="Add your first app" subtitle="Add it to get its winche_options.dart. You can add apps later under Integrity.">
               {!apps.data ? <Loader size="sm" /> : (
                 <AddAppDialog opened={addingApp} baseUrl={apps.data.setup.baseUrl} snippet={apps.data.snippet}
                   onClose={async () => {
                     setAddingApp(false);
-                    // Registered one: on to the end. Closed without: stay, to add or skip.
-                    const registered = await qc.fetchQuery({ queryKey: ["registered-apps"], queryFn: api.registeredApps, staleTime: 0 });
-                    if (registered.apps.length > 0) setStep("done");
+                    // Added one: on to the end. Closed without: stay, to add or skip.
+                    const integrity = await qc.fetchQuery({ queryKey: ["integrity"], queryFn: api.integrity, staleTime: 0 });
+                    if (integrity.apps.length > 0) setStep("done");
                   }} />
               )}
               <Nav onSkip={() => setStep("done")} skipLabel="Skip for now" onNext={() => setAddingApp(true)} nextLabel="Add an app" disabled={!apps.data} />

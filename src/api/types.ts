@@ -55,6 +55,8 @@ export interface Capabilities {
   assets?: boolean;
   /** The project's own console pages (consolePage in its functions): anyone with a role here. */
   consolePages?: boolean;
+  /** The Integrity page: the project's apps and proof requests come from them (with project setup). */
+  integrity?: boolean;
   /** The Authentication tab: the app's users (Winche Auth). Admins only. */
   authentication?: boolean;
   invites: boolean;

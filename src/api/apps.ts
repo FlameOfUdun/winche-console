@@ -20,24 +20,36 @@ export const PLATFORM_LABEL: Record<string, string> = {
   android: "Android", ios: "iOS", macos: "macOS", web: "Web", windows: "Windows", linux: "Linux",
 };
 
-export interface AppUsage { today: number; last7Days: number; lastSeen: string | null }
+/** Requests today and over the last 7 days, and when the last was. */
+export interface Usage { today: number; last7Days: number; lastSeen: string | null }
 
-/** An app registered in the project (Project settings → Your apps). */
-export interface RegisteredApp {
-  id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[];
-  createdAt: string; usage: AppUsage | null;
+/** Each product's mode: not checked, checked and counted (never refused), or refused without a valid token. */
+export type IntegrityMode = "off" | "monitor" | "enforce";
+
+/** An app of the project (Integrity → Apps): what identifies it on each platform, and its requests per product. */
+export interface IntegrityApp {
+  id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  createdAt: string; usage: Record<string, Usage>;
 }
 
-export interface RegisteredAppsData {
-  available: boolean; editable: boolean; registeredOnly: boolean; apps: RegisteredApp[];
-  /** Web pages that may call the project's APIs from a browser, besides its registered web apps; none: any. */
-  browserOrigins?: string[];
-  /** Requests that named no registered app. */
-  unregistered: AppUsage | null;
+export interface IntegrityDebugToken { id: string; app: string; name: string; createdAt: string; createdBy: string | null }
+
+export interface IntegrityData {
+  available: boolean;
+  /** Whether tokens can be made here (the server has a master key). */
+  canSign: boolean;
+  editable: boolean;
+  products: string[];
+  enforcement: Record<string, IntegrityMode>;
+  tokenMinutes: number;
+  apps: IntegrityApp[];
+  /** Requests without a valid Integrity token, per product. */
+  unverified: Record<string, Usage>;
+  debugTokens: IntegrityDebugToken[];
 }
 
 export interface AppFields {
-  name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; webOrigins: string[];
-  /** Chosen when registering (blank: one is made); fixed after. */
+  name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  /** Chosen when adding (blank: one is made); fixed after. */
   id?: string;
 }

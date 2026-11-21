@@ -111,7 +111,7 @@ export function OverviewPage() {
             <Title order={2} fz={15}>Your apps</Title>
           </Group>
           <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
-          <Anchor component={Link} to="/settings/general" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
+          <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
         </Paper>
       </SimpleGrid>
     </Stack>

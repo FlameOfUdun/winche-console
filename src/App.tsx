@@ -1,6 +1,7 @@
 import { ServerSettingsPage } from "./pages/server/ServerSettingsPage";
 import { FunctionsPage } from "./pages/functions/FunctionsPage";
 import { PluginsPage } from "./pages/plugins/PluginsPage";
+import { IntegrityPage } from "./pages/integrity/IntegrityPage";
 import { SecretsPage } from "./pages/secrets/SecretsPage";
 import { ConsolePageView } from "./pages/functions/ConsolePageView";
 import { Routes, Route, Navigate } from "react-router-dom";
@@ -97,7 +98,8 @@ function ProjectConsole() {
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />
           <Route path="settings/:tab" element={<ProjectSettingsPage />} />
-          <Route path="apps" element={<Navigate to="/settings/general" replace />} />
+          <Route path="integrity" element={caps?.integrity ? <IntegrityPage /> : <Navigate to={home} replace />} />
+          <Route path="apps" element={<Navigate to="/integrity" replace />} />
           <Route path="access" element={<Navigate to="/settings/members" replace />} />
           <Route path="*" element={<Navigate to={home} replace />} />
         </Route>
