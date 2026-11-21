@@ -345,6 +345,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
           ...(e.sender === "smtp" && e.smtp ? [{ label: "From", value: e.smtp.fromName ? `${e.smtp.fromName} <${e.smtp.fromAddress}>` : e.smtp.fromAddress },
             { label: "Password", value: sc.data.smtpPassword?.reference ? `From ${sc.data.smtpPassword.reference}` : sc.data.smtpPassword ? `Set ${when(sc.data.smtpPassword.setAt)}` : <OnOff on={false} offLabel="Not set" /> }] : []),
           { label: "Verify link on sign-up", value: <OnOff on={e.sendVerificationOnSignUp} /> },
+          { label: "Sign-in and reset emails", value: e.sendInBackground === false ? "Sent before answering" : "Sent after answering" },
         ] : [{ label: "Winche Auth sends email", value: <OnOff on={false} /> }]}
         form={d && (
           <div style={{ padding: "0 24px 16px" }}>
@@ -410,6 +411,9 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
             </Group>
             <Switch label="Send a verify link when someone signs up" disabled={!editable} checked={e.sendVerificationOnSignUp}
               onChange={(ev) => setE({ sendVerificationOnSignUp: ev.currentTarget.checked })} />
+            <Switch label="Send sign-in link and password reset emails after answering" disabled={!editable} checked={e.sendInBackground !== false}
+              description="The answer doesn't wait for the email server, so how long it takes doesn't tell whether an address has an account. Off: sent before answering, so a failure to send shows in the answer."
+              onChange={(ev) => setE({ sendInBackground: ev.currentTarget.checked })} />
             <Group wrap="wrap">
               <NumberInput label="Emails per address per hour" w={200} min={1} max={100} disabled={!editable} value={e.maxPerAddressPerHour}
                 onChange={(v) => setE({ maxPerAddressPerHour: num(v) })} />

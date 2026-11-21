@@ -387,6 +387,21 @@ test("sign-in settings: SMTP with a write-only password and a test email", async
     expect.objectContaining({ email: expect.objectContaining({ sender: "smtp", smtp }) }), "pw", "Our own mail server", undefined, expect.any(Number)));
 });
 
+test("sign-in settings: sign-in link and reset emails can be sent before answering", async () => {
+  mock(api.saveSignInSettings).mockResolvedValue({ number: 2 });
+  mock(api.signInSettings).mockResolvedValue(signInResponse({ settings: { ...signInSettings, email: { ...signInSettings.email, sender: "logLinks" } } }));
+  renderPage("settings");
+  expect(await screen.findByText("Sent after answering")).toBeInTheDocument();   // absent: on
+  const card = await editCard("Emails to users");
+  const toggle = within(card).getByRole("switch", { name: /emails after answering/ });
+  expect(toggle).toBeChecked();
+  await userEvent.click(toggle);
+  await userEvent.type(within(card).getByLabelText("Reason for the change"), "Show send failures");
+  await userEvent.click(within(card).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.saveSignInSettings)).toHaveBeenCalledWith(
+    expect.objectContaining({ email: expect.objectContaining({ sendInBackground: false }) }), null, "Show send failures", undefined, expect.any(Number)));
+});
+
 test("sign-in settings: with the server's own email, it's offered and needs nothing set up", async () => {
   mock(api.appAuthConfig).mockResolvedValue({ ...config, serverEmail: "Amazon SES (eu-west-1) as no-reply@example.com" });
   mock(api.saveSignInSettings).mockResolvedValue({ number: 2 });

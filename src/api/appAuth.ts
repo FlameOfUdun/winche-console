@@ -63,6 +63,8 @@ export interface WincheAuthSettings {
   email: {
     enabled: boolean; appName: string; actionUrl: string | null; sendVerificationOnSignUp: boolean; maxPerAddressPerHour: number;
     verifyLinkHours: number; resetLinkHours: number; sender: "app" | "smtp" | "logLinks"; smtp: SmtpSettings | null;
+    /** Sign-in-link and password-reset emails sent after answering (absent from older servers: on). */
+    sendInBackground?: boolean;
   };
 }
 
