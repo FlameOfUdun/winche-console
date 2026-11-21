@@ -326,7 +326,7 @@ function DebugTokens({ data }: { data: IntegrityData }) {
               <Text size="sm" ff="monospace" data-testid="debug-token-value" style={{ flex: 1, minWidth: 0, overflowX: "auto", whiteSpace: "nowrap" }}>{made.token}</Text>
               <Copy value={made.token} label="debug token" />
             </Group>
-            <Text size="sm" c={surface.muted}>In the app: <Code>WincheIntegrity.debug('…')</Code> as its Integrity provider, in debug builds only.</Text>
+            <Text size="sm" c={surface.muted}>In the app, in debug builds only: <Code>app.useIntegrity(WincheDebugIntegrity('…'))</Code>.</Text>
             <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
           </Stack>
         )}
