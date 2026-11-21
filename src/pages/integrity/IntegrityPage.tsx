@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Badge, Button, Code, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, SimpleGrid, Stack, Table,
+  ActionIcon, Alert, Badge, Button, Code, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
   Text, TextInput, Title, Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
@@ -140,6 +140,12 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
                       {a.appleTeamId ? `${a.appleTeamId}.${a.appleBundleId}` : a.appleBundleId}</Badge>}
                   </Group>
                   <Text size="xs" c={surface.muted}>{usageLine(total(a.usage))}</Text>
+                  {a.appleBundleId && a.appleTeamId && (
+                    <Text size="xs" c={surface.muted} data-testid="app-attest-devices">
+                      App Attest: {a.devices ? `${a.devices.count.toLocaleString()} device${a.devices.count === 1 ? "" : "s"}${a.devices.development ? ` (${a.devices.development} development)` : ""} · last proof ${ago(a.devices.lastUsed)}` : "no devices yet"}
+                      {a.appleDevelopment ? " · development builds accepted" : ""}
+                    </Text>
+                  )}
                 </Stack>
               </Group>
               <Group gap={6} wrap="nowrap">
@@ -338,7 +344,7 @@ function DebugTokens({ data }: { data: IntegrityData }) {
   );
 }
 
-const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null };
+const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false };
 
 /**
  * Name, id and identifiers of an app. The id is chosen when adding (filled in from the name until edited) and shown
@@ -374,6 +380,9 @@ function AppFieldsForm({ value, onChange, fixedId }: { value: AppFields; onChang
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={value.appleTeamId ?? ""} onChange={(e) => onChange({ ...value, appleTeamId: e.currentTarget.value.toUpperCase() || null })} />
       </Group>
+      <Switch label="Accept development builds" checked={value.appleDevelopment}
+        description="App Attest keys from builds run from Xcode, besides TestFlight and App Store ones. Turn it off before you enforce in production."
+        onChange={(e) => onChange({ ...value, appleDevelopment: e.currentTarget.checked })} />
     </Stack>
   );
 }
@@ -383,7 +392,7 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   const [value, setValue] = useState<AppFields | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId } : EMPTY);
+  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId, appleDevelopment: app.appleDevelopment } : EMPTY);
   const close = () => { setValue(null); setError(null); onClose(); };
   const save = async () => {
     if (!app) return;

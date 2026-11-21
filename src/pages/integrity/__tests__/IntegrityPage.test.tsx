@@ -24,7 +24,7 @@ const page = (platforms: string[]): AppsPageData => ({
 const PRODUCTS = ["database", "storage", "authentication", "functions", "assets"];
 const clinic: IntegrityApp = {
   id: "app-abc234def567", name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345",
-  createdAt: "2026-11-14T10:00:00Z",
+  createdAt: "2026-11-14T10:00:00Z", appleDevelopment: true, devices: { count: 3, development: 1, lastUsed: new Date().toISOString() },
   usage: { database: { today: 10, last7Days: 70, lastSeen: new Date().toISOString() }, authentication: { today: 2, last7Days: 10, lastSeen: null } },
 };
 const integrity = (over: Partial<IntegrityData> = {}): IntegrityData => ({
@@ -68,7 +68,7 @@ test("no apps: an empty state; Add app asks for the SDK (only Flutter), adds it 
   expect(within(dialog).queryByLabelText("Web addresses")).toBeNull();
   await userEvent.click(within(dialog).getByRole("button", { name: "Add app" }));
   await waitFor(() => expect(api.addApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic",
-    appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345", id: "clinic-ios" }));
+    appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345", appleDevelopment: false, id: "clinic-ios" }));
   expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
@@ -83,6 +83,7 @@ test("with apps: each with its identifiers and verified requests; enforcement pe
   expect(within(row).getByText("com.example.clinic")).toBeInTheDocument();
   expect(within(row).getByText("ABCDE12345.com.example.clinic")).toBeInTheDocument();
   expect(within(row).getByText(/12 verified requests today · 80 this week · last seen just now/)).toBeInTheDocument();
+  expect(within(row).getByTestId("app-attest-devices")).toHaveTextContent("App Attest: 3 devices (1 development) · last proof just now · development builds accepted");
 
   const card = screen.getByTestId("integrity-enforcement");
   expect(within(card).getByText("Today: 10 verified · 3 without a token")).toBeInTheDocument();

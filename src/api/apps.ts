@@ -29,7 +29,11 @@ export type IntegrityMode = "off" | "monitor" | "enforce";
 /** An app of the project (Integrity → Apps): what identifies it on each platform, and its requests per product. */
 export interface IntegrityApp {
   id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  /** App Attest keys from development builds (run from Xcode) accepted too. */
+  appleDevelopment: boolean;
   createdAt: string; usage: Record<string, Usage>;
+  /** Devices that attested a key (App Attest): how many, development builds among them, the last proof. */
+  devices: { count: number; development: number; lastUsed: string | null } | null;
 }
 
 export interface IntegrityDebugToken { id: string; app: string; name: string; createdAt: string; createdBy: string | null }
@@ -50,6 +54,7 @@ export interface IntegrityData {
 
 export interface AppFields {
   name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  appleDevelopment: boolean;
   /** Chosen when adding (blank: one is made); fixed after. */
   id?: string;
 }
