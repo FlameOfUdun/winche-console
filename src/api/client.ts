@@ -248,6 +248,9 @@ export const api = {
     http<{ enforcement: Record<string, IntegrityMode>; tokenMinutes: number }>("PUT", "integrity/enforcement", { enforcement, tokenMinutes, reason }),
   /** A debug token for an app: the token is in this answer only. */
   makeDebugToken: (app: string, name: string) => http<{ id: string; app: string; name: string; token: string }>("POST", "integrity/debug-tokens", { app, name }),
+  /** The Google service account's key file (JSON), or a reference to where it's kept. */
+  setPlayServiceAccount: (value: string | null, reference: string | null) => http<unknown>("PUT", "integrity/play-service-account", { value, reference }),
+  removePlayServiceAccount: () => http<void>("DELETE", "integrity/play-service-account"),
   removeDebugToken: (id: string) => http<void>("DELETE", `integrity/debug-tokens/${encodeURIComponent(id)}`),
   functions: () => http<FunctionsPageData>("GET", "functions"),
   functionVersions: () => http<{ versions: FunctionVersion[] }>("GET", "functions/versions"),

@@ -31,10 +31,14 @@ export interface IntegrityApp {
   id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
   /** App Attest keys from development builds (run from Xcode) accepted too. */
   appleDevelopment: boolean;
+  /** Play Integrity: the Google Cloud project number, builds from outside Google Play accepted, the device level, signing certificates. */
+  androidCloudProjectNumber: number | null; androidSideloaded: boolean; androidDeviceIntegrity: AndroidDeviceLevel; androidCertificates: string[];
   createdAt: string; usage: Record<string, Usage>;
   /** Devices that attested a key (App Attest): how many, development builds among them, the last proof. */
   devices: { count: number; development: number; lastUsed: string | null } | null;
 }
+
+export type AndroidDeviceLevel = "basic" | "device" | "strong";
 
 export interface IntegrityDebugToken { id: string; app: string; name: string; createdAt: string; createdBy: string | null }
 
@@ -50,11 +54,14 @@ export interface IntegrityData {
   /** Requests without a valid Integrity token, per product. */
   unverified: Record<string, Usage>;
   debugTokens: IntegrityDebugToken[];
+  /** The Google service account Play Integrity signs in as (never its key). */
+  playServiceAccount: { setAt: string; setBy: string | null; reference: string | null; email: string | null } | null;
 }
 
 export interface AppFields {
   name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
   appleDevelopment: boolean;
+  androidCloudProjectNumber: number | null; androidSideloaded: boolean; androidDeviceIntegrity: AndroidDeviceLevel; androidCertificates: string[];
   /** Chosen when adding (blank: one is made); fixed after. */
   id?: string;
 }

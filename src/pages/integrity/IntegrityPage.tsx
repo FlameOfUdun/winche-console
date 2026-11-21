@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Badge, Button, Code, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
-  Text, TextInput, Title, Tooltip, UnstyledButton,
+  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
+  TagsInput, Text, Textarea, TextInput, Title, Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
   IconApps, IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconDeviceDesktop, IconDots, IconDownload,
@@ -10,7 +10,8 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
-import type { AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
+import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
+import { secretBody } from "../../api/secrets";
 import { EditCard } from "../../components/EditCard";
 import { EmptyState } from "../../components/EmptyState";
 import { isProjectId, projectIdFrom } from "../../api/project";
@@ -86,6 +87,7 @@ export function IntegrityPage() {
       {d?.available && page.data && (
         <>
           <Apps data={d} baseUrl={page.data.setup.baseUrl} snippet={page.data.snippet} />
+          <PlayServiceAccount data={d} />
           <Enforcement data={d} />
           <DebugTokens data={d} />
         </>
@@ -140,6 +142,13 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
                       {a.appleTeamId ? `${a.appleTeamId}.${a.appleBundleId}` : a.appleBundleId}</Badge>}
                   </Group>
                   <Text size="xs" c={surface.muted}>{usageLine(total(a.usage))}</Text>
+                  {a.androidPackage && (
+                    <Text size="xs" c={surface.muted} data-testid="play-integrity-setup">
+                      Play Integrity: {a.androidCloudProjectNumber ? `Cloud project ${a.androidCloudProjectNumber}` : "no Cloud project number yet"} · {DEVICE_LEVEL[a.androidDeviceIntegrity]}
+                      {a.androidSideloaded ? " · builds from outside Google Play accepted" : ""}
+                      {a.androidCertificates.length ? ` · ${a.androidCertificates.length} signing certificate${a.androidCertificates.length === 1 ? "" : "s"}` : ""}
+                    </Text>
+                  )}
                   {a.appleBundleId && a.appleTeamId && (
                     <Text size="xs" c={surface.muted} data-testid="app-attest-devices">
                       App Attest: {a.devices ? `${a.devices.count.toLocaleString()} device${a.devices.count === 1 ? "" : "s"}${a.devices.development ? ` (${a.devices.development} development)` : ""} · last proof ${ago(a.devices.lastUsed)}` : "no devices yet"}
@@ -344,7 +353,64 @@ function DebugTokens({ data }: { data: IntegrityData }) {
   );
 }
 
-const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false };
+const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+  androidCloudProjectNumber: null, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [] };
+
+const DEVICE_LEVEL: Record<AndroidDeviceLevel, string> = {
+  basic: "basic integrity (rooted devices may pass)", device: "device integrity", strong: "strong integrity (hardware-backed, recent security update)",
+};
+
+/**
+ * The Google service account Play Integrity signs in as: its key file, pasted or picked (kept as a secret, never shown
+ * again), or a reference to where it's kept.
+ */
+function PlayServiceAccount({ data }: { data: IntegrityData }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const account = data.playServiceAccount;
+  const needed = data.apps.some((a) => a.androidPackage);
+  if (!needed && !account) return null;
+  const close = () => { setOpen(false); setTyped(""); setError(null); };
+  const save = async () => {
+    const b = secretBody(typed.trim());
+    setBusy(true); setError(null);
+    try { await api.setPlayServiceAccount(b.value ?? null, b.reference ?? null); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }
+    catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <EditCard title="Google Play Integrity" testId="play-service-account"
+      description="Android apps prove themselves with Play Integrity; the server asks Google what each token says, signed in as this service account. In Google Cloud: enable the Play Integrity API, make a service account with a JSON key, and link the project to the app in Play Console (App integrity)."
+      actions={data.editable && <Button variant={account ? "subtle" : "filled"} leftSection={<IconKey size={15} />} onClick={() => setOpen(true)}>{account ? "Replace" : "Set service account"}</Button>}
+      rows={[
+        { label: "Service account", value: account ? <Text span size="sm" ff="monospace">{account.email ?? "set"}</Text> : <Text span size="sm" c="red">Not set: Android apps can't prove themselves</Text> },
+        ...(account ? [{ label: "Kept", value: account.reference ? `From ${account.reference}` : `Set ${when(account.setAt)}${account.setBy ? ` by ${account.setBy}` : ""}` }] : []),
+      ]}>
+      <Modal opened={open} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Google service account</Text>}>
+        <Stack gap="md">
+          <Textarea label="Key file (JSON)" description="Pasted here, or picked below; or a reference to where it's kept, like aws-sm:clinic/play-integrity. It's kept encrypted and never shown again."
+            autosize minRows={4} maxRows={10} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 12 } }}
+            value={typed} onChange={(e) => setTyped(e.currentTarget.value)} data-autofocus />
+          <Group justify="space-between">
+            <FileButton accept="application/json,.json" onChange={async (f) => { if (f) setTyped(await f.text()); }}>
+              {(props) => <Button {...props} variant="default" size="xs">Pick the key file</Button>}
+            </FileButton>
+            {account && data.editable && (
+              <Button variant="subtle" color="red" size="xs" onClick={async () => { await api.removePlayServiceAccount(); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }}>Remove it</Button>
+            )}
+          </Group>
+          {error && <Alert color="red" p="xs">{error}</Alert>}
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={close}>Cancel</Button>
+            <Button onClick={save} loading={busy} disabled={!typed.trim()}>Save</Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </EditCard>
+  );
+}
 
 /**
  * Name, id and identifiers of an app. The id is chosen when adding (filled in from the name until edited) and shown
@@ -372,6 +438,24 @@ function AppFieldsForm({ value, onChange, fixedId }: { value: AppFields; onChang
       <TextInput label="Android package" placeholder="com.example.clinic (optional)" leftSection={<IconBrandAndroid size={16} />}
         description="For Play Integrity"
         value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
+      {value.androidPackage && (
+        <>
+          <Group grow wrap="wrap" align="flex-start">
+            <NumberInput label="Google Cloud project number" description="The project with the Play Integrity API, linked in Play Console" placeholder="123456789012"
+              allowDecimal={false} allowNegative={false} hideControls value={value.androidCloudProjectNumber ?? ""}
+              onChange={(v) => onChange({ ...value, androidCloudProjectNumber: typeof v === "number" ? v : v ? Number(v) : null })} />
+            <Select label="The device must meet" allowDeselect={false} value={value.androidDeviceIntegrity}
+              data={(Object.keys(DEVICE_LEVEL) as AndroidDeviceLevel[]).map((k) => ({ value: k, label: DEVICE_LEVEL[k] }))}
+              onChange={(v) => onChange({ ...value, androidDeviceIntegrity: (v ?? "device") as AndroidDeviceLevel })} />
+          </Group>
+          <Switch label="Accept builds from outside Google Play" checked={value.androidSideloaded}
+            description="Debug and internal builds Google Play doesn't know. With signing certificates set below, only builds signed with them."
+            onChange={(e) => onChange({ ...value, androidSideloaded: e.currentTarget.checked })} />
+          <TagsInput label="Signing certificates (optional)" placeholder="SHA-256, base64url, then Enter"
+            description="Play Console → App integrity → App signing. When set, builds must be signed with one of them."
+            value={value.androidCertificates} onChange={(v) => onChange({ ...value, androidCertificates: v })} />
+        </>
+      )}
       <Group grow wrap="wrap" align="flex-start">
         <TextInput label="Apple bundle id" placeholder="com.example.clinic (optional)" leftSection={<IconBrandApple size={16} />}
           description="iOS and macOS, for App Attest"
@@ -392,7 +476,9 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   const [value, setValue] = useState<AppFields | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId, appleDevelopment: app.appleDevelopment } : EMPTY);
+  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId,
+    appleDevelopment: app.appleDevelopment, androidCloudProjectNumber: app.androidCloudProjectNumber, androidSideloaded: app.androidSideloaded,
+    androidDeviceIntegrity: app.androidDeviceIntegrity, androidCertificates: app.androidCertificates } : EMPTY);
   const close = () => { setValue(null); setError(null); onClose(); };
   const save = async () => {
     if (!app) return;
