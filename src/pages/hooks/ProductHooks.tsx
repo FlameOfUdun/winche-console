@@ -190,7 +190,7 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
   return (
     <Paper p={0} data-testid="hook-editor">
       <Stack gap="sm">
-        <TextInput label="Name" placeholder="Tell the ward system about new visits" value={h.name} onChange={(e) => set({ name: e.currentTarget.value })} />
+        <TextInput label="Name" placeholder="Tell the shipping system about new orders" value={h.name} onChange={(e) => set({ name: e.currentTarget.value })} />
         <Text fw={600} size="sm">When</Text>
         {!fixedSource && <SegmentedControl size="xs" w="fit-content" aria-label="Source" value={h.when.source}
           data={data.sources.map((s) => ({ value: s.name, label: s.title }))}
@@ -202,7 +202,7 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
           </Group>
         </Chip.Group>
         {source?.hasPaths && (
-          <TextInput label="Path (optional)" placeholder={source.name === "storage" ? "uploads/{userId}/{file=**}" : "patients/{patientId}"}
+          <TextInput label="Path (optional)" placeholder={source.name === "storage" ? "uploads/{userId}/{file=**}" : "orders/{orderId}"}
             description="{name} matches one part and can be used below; {name=**} matches the rest. Empty: every path."
             value={h.when.path ?? ""} onChange={(e) => setWhen({ path: e.currentTarget.value || null })} />
         )}

@@ -285,9 +285,9 @@ function AddIndexDialog({ opened, expiry, onClose, onAdd }: {
   return (
     <Modal opened={opened} onClose={() => { reset(); onClose(); }} radius="lg" title={<Text fw={700} fz={18}>{expiry ? "Add expiry" : "Add an index"}</Text>}>
       <Stack gap="md">
-        <TextInput label="Collection" placeholder="patients" data-autofocus value={collection} onChange={(e) => setCollection(e.currentTarget.value)}
+        <TextInput label="Collection" placeholder="orders" data-autofocus value={collection} onChange={(e) => setCollection(e.currentTarget.value)}
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} />
-        <TextInput label={expiry ? "Field with the time" : contains ? "List field" : "Fields"} placeholder={expiry ? "expiresAt" : contains ? "tags" : "ward, admittedAt desc"}
+        <TextInput label={expiry ? "Field with the time" : contains ? "List field" : "Fields"} placeholder={expiry ? "expiresAt" : contains ? "tags" : "status, createdAt desc"}
           description={expiry ? undefined : contains ? "Queries asking whether the list contains a value." : "In order, separated by commas; add desc to sort newest first."}
           value={fields} onChange={(e) => setFields(e.currentTarget.value)} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} />
         {!expiry && (

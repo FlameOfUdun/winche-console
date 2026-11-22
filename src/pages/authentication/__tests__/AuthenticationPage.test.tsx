@@ -44,11 +44,11 @@ const wincheCaps = { create: true, claims: true, claimsLabel: "Custom claims", s
 const config: AppAuthConfig = {
   directory: { kind: "wincheAuth", label: "Winche Auth", capabilities: wincheCaps }, trustedProviders: true,
   emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
-  email: { appName: "Clinic", actionUrl: "https://api.example.com/auth/v1/action", sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, logLinksOnly: false, sender: "SesEmailSender" },
+  email: { appName: "MyApp", actionUrl: "https://api.example.com/auth/v1/action", sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, logLinksOnly: false, sender: "SesEmailSender" },
   emailLink: null,
-  mfa: { issuer: "Clinic", recoveryCodes: 10, pendingMinutes: 5 },
+  mfa: { issuer: "MyApp", recoveryCodes: 10, pendingMinutes: 5 },
   identityProviders: [{ name: "google", kind: "google", displayName: "Google", authority: "https://accounts.google.com", audiences: ["x.apps.googleusercontent.com"], useSubjectAsUid: false, copiedClaims: [], testingOnly: false }], trustsWincheTokens: true,
-  trustedIssuers: [{ name: "keycloak", issuer: "https://auth.example.com/realms/example", authority: "https://auth.example.com/realms/example", audience: "clinic-api", uidClaim: "sub", claims: ["role"] }],
+  trustedIssuers: [{ name: "keycloak", issuer: "https://auth.example.com/realms/example", authority: "https://auth.example.com/realms/example", audience: "my-api", uidClaim: "sub", claims: ["role"] }],
   tokens: { issuer: "https://api.example.com", audience: "https://api.example.com", accessTokenMinutes: 15, refreshTokenDays: 60, keyRotationDays: 90, keysEncrypted: false },
   keys: [{ kid: "k-20261112-abc123", createdAt: "2026-11-12T10:00:00Z", retiredAt: null }],
   protection: { maxFailedSignIns: 5, lockoutMinutes: 15 },
@@ -72,7 +72,7 @@ beforeEach(() => {
   mock(useSession).mockReturnValue({ state: { capabilities: { logs: { app: true }, authentication: true } }, user: { role: "Admin" } });
   mock(api.rulesSubsystems).mockResolvedValue([]);
   mock(api.appUsers).mockResolvedValue({ users: [user(), user({ uid: "guest1", email: null, displayName: null, isAnonymous: true, providers: ["anonymous"], customClaims: {} })], total: 2 });
-  mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "Clinic/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
+  mock(api.appUser).mockResolvedValue({ user: user({ providers: ["password", "google"], mfaEnabled: true }), mfa: { recoveryCodesLeft: 7 }, sessions: [{ id: "s1", provider: "password", createdAt: "2026-11-12T10:00:00Z", lastUsedAt: "2026-11-12T15:41:00Z", expiresAt: "2027-01-11T10:00:00Z", userAgent: "MyApp/2.4.1 iOS", ipAddress: "10.0.0.7" }] });
   mock(api.appAuthConfig).mockResolvedValue(config);
   mock(api.keycloakSyncs).mockResolvedValue({ syncs: [] });
   mock(api.authProviders).mockResolvedValue(providersResponse());
@@ -81,15 +81,15 @@ beforeEach(() => {
 });
 
 const keycloak = {
-  name: "keycloak", displayName: "Example Health Keycloak", kind: "keycloak", issuer: "https://auth.example.com/realms/clinic", authority: null,
-  audiences: ["clinic-api"], validateAudience: true, uidClaim: "sub", claims: [{ from: "realm_access.roles", to: "roles" }], requireHttps: true,
+  name: "keycloak", displayName: "Example Keycloak", kind: "keycloak", issuer: "https://auth.example.com/realms/example", authority: null,
+  audiences: ["my-api"], validateAudience: true, uidClaim: "sub", claims: [{ from: "realm_access.roles", to: "roles" }], requireHttps: true,
 };
 const signInSettings = {
   emailPassword: { enabled: true, minLength: 10, requireVerifiedEmail: false }, anonymous: true, emailLink: { enabled: false, linkUrl: "" },
-  twoStep: { enabled: true, issuer: "Clinic", recoveryCodes: 10 },
+  twoStep: { enabled: true, issuer: "MyApp", recoveryCodes: 10 },
   providers: [{ name: "google", kind: "google" as const, displayName: "Google", authority: "https://accounts.google.com", audiences: ["x.apps.googleusercontent.com"], useSubjectAsUid: false, copiedClaims: [] }],
   sessions: { accessTokenMinutes: 15, refreshTokenDays: 60 }, lockout: { maxFailedSignIns: 5, lockoutMinutes: 15 },
-  email: { enabled: true, appName: "Clinic", actionUrl: null, sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, verifyLinkHours: 24, resetLinkHours: 1, sender: "app" as const, smtp: null },
+  email: { enabled: true, appName: "MyApp", actionUrl: null, sendVerificationOnSignUp: true, maxPerAddressPerHour: 5, verifyLinkHours: 24, resetLinkHours: 1, sender: "app" as const, smtp: null },
 };
 const signInResponse = (over: object = {}) => ({
   available: true, settings: signInSettings, codeDefault: signInSettings, source: "code", version: null, editable: true, whyReadOnly: null,
@@ -97,7 +97,7 @@ const signInResponse = (over: object = {}) => ({
 });
 const providersResponse = (over: object = {}) => ({
   settings: { trustWincheAuth: false, providers: [keycloak] }, codeDefault: { trustWincheAuth: false, providers: [] },
-  source: "console", version: { id: 7, area: "auth.identityProviders", areaTitle: "Identity providers", number: 3, at: "2026-11-12T16:05:00Z", by: "admin@example.com", reason: "Clinic rules", restoredFrom: null, reset: false },
+  source: "console", version: { id: 7, area: "auth.identityProviders", areaTitle: "Identity providers", number: 3, at: "2026-11-12T16:05:00Z", by: "admin@example.com", reason: "Team rules", restoredFrom: null, reset: false },
   editable: true, whyReadOnly: null, ...over,
 });
 
@@ -110,7 +110,7 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   expect(screen.getByText("Sign-ins and failures in Logs →")).toHaveAttribute("href", "/logs?resource=auth");
 
   await userEvent.click(rows[0]);
-  const dialog = await screen.findByRole("dialog", { name: "Selected user" });   // a plain name, not the rich header
+  const dialog = await screen.findByRole("dialog", { name: "User: Anna" });   // a plain name, not the rich header
   const tab = (name: RegExp | string) => userEvent.click(within(dialog).getByRole("tab", { name }));
 
   // Profile (the first tab): name and photo; email at once (not verified, a verify link) or by a link; a password.
@@ -121,13 +121,13 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   await waitFor(() => expect(mock(api.updateAppUserProfile)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "Anna Kowalska", "https://example.com/anna.png"));
   const email = within(dialog).getByLabelText("Email");
   await userEvent.clear(email);
-  await userEvent.type(email, "anna@clinic.example");
+  await userEvent.type(email, "anna@example.com");
   await userEvent.click(within(dialog).getByRole("button", { name: "Save email" }));
-  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@clinic.example", { confirm: false, verified: false, sendVerification: true }));
-  expect(await within(dialog).findByText(/a verify link is on its way to anna@clinic.example/)).toBeInTheDocument();
+  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@example.com", { confirm: false, verified: false, sendVerification: true }));
+  expect(await within(dialog).findByText(/a verify link is on its way to anna@example.com/)).toBeInTheDocument();
   await userEvent.click(within(dialog).getByText("Send a link to confirm"));
   await userEvent.click(within(dialog).getByRole("button", { name: "Send the link" }));
-  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenLastCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@clinic.example", { confirm: true }));
+  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenLastCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@example.com", { confirm: true }));
   expect(await within(dialog).findByText(/the email changes when they open it/)).toBeInTheDocument();
   expect(within(dialog).getByRole("button", { name: "Link sent" })).toBeDisabled();   // not sent again until the address changes
   await userEvent.type(within(dialog).getByLabelText("New password"), "a brand new password");
@@ -165,7 +165,7 @@ test("lists users; opening one shows sessions and claims, and its actions call t
 
   // Sessions.
   await tab(/Sessions/);
-  expect(within(dialog).getByText("Clinic/2.4.1 iOS")).toBeInTheDocument();
+  expect(within(dialog).getByText("MyApp/2.4.1 iOS")).toBeInTheDocument();
   await userEvent.click(within(within(dialog).getByTestId("app-session")).getByText("Sign out"));
   await waitFor(() => expect(mock(api.revokeAppSession)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "s1"));
 
@@ -190,7 +190,7 @@ test("sign-in method: each provider with its status; keys can be rotated in Sett
   expect(within(screen.getByTestId("method-emailLink")).getByText("Disabled")).toBeInTheDocument();
   expect(within(screen.getByTestId("method-anonymous")).getByText("Enabled")).toBeInTheDocument();
   expect(within(screen.getByTestId("signin-provider")).getAllByText("Google").length).toBeGreaterThan(0);
-  expect(screen.queryByText("Example Health Keycloak")).toBeNull();   // a trusted issuer: its own page
+  expect(screen.queryByText("Example Keycloak")).toBeNull();   // a trusted issuer: its own page
 
   cleanup();
   renderPage("settings");
@@ -228,7 +228,7 @@ test("email templates: edit with a live preview, save, test and reset", async ()
   renderPage("emails");
   await userEvent.click(await screen.findByRole("tab", { name: /Reset password/ }));
   expect(await screen.findByText(/admin@winche.local/)).toBeInTheDocument();
-  expect(screen.getByTestId("preview-subject")).toHaveTextContent("Reset your Clinic password");
+  expect(screen.getByTestId("preview-subject")).toHaveTextContent("Reset your MyApp password");
   expect(screen.getByText("Choose a new password")).toBeInTheDocument();   // the link as a button
   expect(screen.getByText(/Sent with SesEmailSender/)).toBeInTheDocument();
 
@@ -238,7 +238,7 @@ test("email templates: edit with a live preview, save, test and reset", async ()
   const subject = screen.getByLabelText("Subject");
   await userEvent.clear(subject);
   await userEvent.type(subject, "New %APP_NAME% password");
-  expect(screen.getByTestId("preview-subject")).toHaveTextContent("New Clinic password");
+  expect(screen.getByTestId("preview-subject")).toHaveTextContent("New MyApp password");
   await userEvent.click(screen.getByText("Save"));
   await waitFor(() => expect(mock(api.saveAppEmailTemplate)).toHaveBeenCalledWith("resetPassword", "New %APP_NAME% password", reset.body));
 
@@ -248,27 +248,27 @@ test("email templates: edit with a live preview, save, test and reset", async ()
 
 test("Keycloak-only apps: settings first; providers, mapping with the token test, saved with a reason", async () => {
   mock(api.appAuthConfig).mockResolvedValue({ ...config, wincheAuth: false, directory: null, tokens: null, protection: null, hooks: null, emailPassword: null, email: null, mfa: null, anonymous: false, identityProviders: [] });
-  mock(api.checkAuthProvider).mockResolvedValue({ found: true, issuer: "https://auth-staging.example.com/realms/clinic", keys: 2, algorithms: ["RS256"], error: null });
+  mock(api.checkAuthProvider).mockResolvedValue({ found: true, issuer: "https://auth-staging.example.com/realms/staging", keys: 2, algorithms: ["RS256"], error: null });
   mock(api.testAuthToken).mockResolvedValue({
     wouldSignIn: true, provider: "keycloak",
-    checks: [{ outcome: "ok", text: "Signed by Example Health Keycloak (key OqSi2)" }, { outcome: "warning", text: "groups is in the token but not passed to the rules" }],
-    auth: { uid: "6f1c2a9e", token: { uid: "6f1c2a9e", issuer: "keycloak", roles: ["clinician"] } }, notPassed: ["groups"],
+    checks: [{ outcome: "ok", text: "Signed by Example Keycloak (key OqSi2)" }, { outcome: "warning", text: "groups is in the token but not passed to the rules" }],
+    auth: { uid: "6f1c2a9e", token: { uid: "6f1c2a9e", issuer: "keycloak", roles: ["editor"] } }, notPassed: ["groups"],
   });
   mock(api.saveAuthProviders).mockResolvedValue({ number: 4 });
   renderPage("issuers");
 
   // Tokens from other issuers, accepted as they are: their own page.
   expect(await screen.findByText(/Version 3,/)).toBeInTheDocument();
-  expect(within(screen.getByTestId("provider-card")).getByText("Example Health Keycloak")).toBeInTheDocument();
+  expect(within(screen.getByTestId("provider-card")).getByText("Example Keycloak")).toBeInTheDocument();
 
   // Add a provider: check its address first.
   await userEvent.click(screen.getByText("Add issuer"));
   const form = await screen.findByLabelText("Provider");
-  await userEvent.type(within(form).getByLabelText("Address (issuer)"), "https://auth-staging.example.com/realms/clinic");
+  await userEvent.type(within(form).getByLabelText("Address (issuer)"), "https://auth-staging.example.com/realms/staging");
   await userEvent.click(within(form).getByText("Check address"));
   expect(await within(form).findByText(/Found it: .*2 signing keys \(RS256\)/)).toBeInTheDocument();
   expect(within(form).getByText(/Give the audience/)).toBeInTheDocument();
-  await userEvent.type(within(form).getByLabelText(/^Audience/), "clinic-api");
+  await userEvent.type(within(form).getByLabelText(/^Audience/), "my-api");
   await userEvent.clear(within(form).getByLabelText(/^Short name/));
   await userEvent.type(within(form).getByLabelText(/^Short name/), "staging");
   await userEvent.click(within(form).getByText("Add to the list"));
@@ -290,14 +290,14 @@ test("Keycloak-only apps: settings first; providers, mapping with the token test
   // Saving needs a reason.
   const bar = screen.getByTestId("save-bar");
   expect(within(bar).getByText("Save changes").closest("button")).toBeDisabled();
-  await userEvent.type(within(bar).getByLabelText("Reason for the change"), "Staging realm and clinic rules");
+  await userEvent.type(within(bar).getByLabelText("Reason for the change"), "Staging realm and team rules");
   await userEvent.click(within(bar).getByText("Save changes"));
-  await waitFor(() => expect(mock(api.saveAuthProviders)).toHaveBeenCalledWith(expect.objectContaining({ trustWincheAuth: false }), "Staging realm and clinic rules", expect.any(Number)));
+  await waitFor(() => expect(mock(api.saveAuthProviders)).toHaveBeenCalledWith(expect.objectContaining({ trustWincheAuth: false }), "Staging realm and team rules", expect.any(Number)));
 });
 
 test("change history: restore and reset ask why", async () => {
   mock(api.settingsHistory).mockResolvedValue({ editable: true, versions: [
-    { id: 9, area: "auth.identityProviders", areaTitle: "Identity providers", number: 2, at: "2026-11-12T16:05:00Z", by: "admin@example.com", reason: "Clinic rules", restoredFrom: null, reset: false, current: true },
+    { id: 9, area: "auth.identityProviders", areaTitle: "Identity providers", number: 2, at: "2026-11-12T16:05:00Z", by: "admin@example.com", reason: "Team rules", restoredFrom: null, reset: false, current: true },
     { id: 8, area: "auth.identityProviders", areaTitle: "Identity providers", number: 1, at: "2026-11-02T17:15:00Z", by: "dev@example.com", reason: "Trust Keycloak", restoredFrom: null, reset: false, current: false },
   ] });
   mock(api.restoreSettings).mockResolvedValue({ number: 3 });
@@ -483,8 +483,8 @@ test("sign-in settings: apps without UseSettings() say how to turn it on", async
 test("a Keycloak sync shows how it's doing and can be run now", async () => {
   const now = new Date().toISOString();
   mock(api.keycloakSyncs).mockResolvedValue({ syncs: [
-    { provider: "keycloak", displayName: "Example Health Keycloak", clientId: "winche-sync", server: "http://keycloak:8080/realms/winche",
-      pollSeconds: 10, reconcileHours: 24, claims: ["roles"], attributes: { ward: "ward" }, webhookUrl: "https://api.example.com/auth/v1/providers/keycloak/changed",
+    { provider: "keycloak", displayName: "Example Keycloak", clientId: "winche-sync", server: "http://keycloak:8080/realms/winche",
+      pollSeconds: 10, reconcileHours: 24, claims: ["roles"], attributes: { team: "team" }, webhookUrl: "https://api.example.com/auth/v1/providers/keycloak/changed",
       lastRunAt: now, eventsAfter: now, reconciledAt: null, lastChangeAt: null, lastError: "401 from Keycloak: check the client secret" },
     { provider: "staff", displayName: "Staff", clientId: "sync", server: "https://id.example.com/realms/staff",
       pollSeconds: 10, reconcileHours: 24, claims: [], attributes: {}, webhookUrl: null,
@@ -495,7 +495,7 @@ test("a Keycloak sync shows how it's doing and can be run now", async () => {
   const [failing, running] = await screen.findAllByTestId("keycloak-sync");
   expect(within(failing).getByText("Failing")).toBeInTheDocument();
   expect(within(failing).getByText("401 from Keycloak: check the client secret")).toBeInTheDocument();
-  expect(within(failing).getByText("ward")).toBeInTheDocument();
+  expect(within(failing).getByText("team")).toBeInTheDocument();
   expect(within(running).getByText("Running")).toBeInTheDocument();
   expect(within(running).getByText("off (polling only)")).toBeInTheDocument();
   await userEvent.click(within(failing).getByRole("button", { name: "Sync now" }));

@@ -66,10 +66,10 @@ test("members are listed with their roles, changed and removed in place", async 
 
 test("not a member of this project: says so and offers the projects they are in", async () => {
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { id: "b1", role: null, email: "bob@example.com", member: false } });
-  mock(api.projects).mockResolvedValue({ available: true, canCreate: false, current: "clinic", projects: [{ id: "wards", name: "Wards", consoleUrl: "/console/projects/wards", imageVersion: null }] });
+  mock(api.projects).mockResolvedValue({ available: true, canCreate: false, current: "demo", projects: [{ id: "boards", name: "Boards", consoleUrl: "/console/projects/boards", imageVersion: null }] });
   renderIt(<RequireProject><div>CONSOLE</div></RequireProject>);
   expect(await screen.findByText("You're not in this project")).toBeInTheDocument();
-  expect(await screen.findByText("Wards")).toBeInTheDocument();
+  expect(await screen.findByText("Boards")).toBeInTheDocument();
   expect(screen.queryByText("CONSOLE")).toBeNull();
   expect(api.project).not.toHaveBeenCalled();
 });

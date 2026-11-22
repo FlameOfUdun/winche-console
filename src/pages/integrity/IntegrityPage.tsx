@@ -13,7 +13,9 @@ import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
 import { secretBody } from "../../api/secrets";
+import { ConfirmModal } from "../../components/ConfirmModal";
 import { Copy } from "../../components/Copy";
+import { useOnTop } from "../../components/dialogStack";
 import { EditCard } from "../../components/EditCard";
 import { EmptyState } from "../../components/EmptyState";
 import { ScrollDialog } from "../../components/ScrollDialog";
@@ -212,37 +214,13 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
           </Stack>
         )}
       </Modal>
-      <Confirm opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove app" onClose={() => setRemoving(null)}
-        onConfirm={async () => { if (removing) await api.removeApp(removing.id); await refresh(); }}>
-        Its Integrity tokens and debug tokens stop working at once.
-        {enforced ? (list.length === 1 ? " It's the last app, so enforced products go back to Monitor." : " Copies of it already installed are refused where a product is enforced.") : ""}
-      </Confirm>
+      <ConfirmModal opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove app" onCancel={() => setRemoving(null)}
+        action={async () => { if (removing) await api.removeApp(removing.id); await refresh(); }}
+        message={<>
+          Its Integrity tokens and debug tokens stop working at once.
+          {enforced ? (list.length === 1 ? " It's the last app, so enforced products go back to Monitor." : " Copies of it already installed are refused where a product is enforced.") : ""}
+        </>} />
     </Paper>
-  );
-}
-
-/** Asks before something that can't be undone: busy while it runs, its error shown (and the dialog kept) when it fails. */
-function Confirm({ opened, title, confirmLabel, onConfirm, onClose, children }: {
-  opened: boolean; title: string; confirmLabel: string; onConfirm: () => Promise<unknown>; onClose: () => void; children: ReactNode;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => { if (opened) setError(null); }, [opened]);
-  const confirm = async () => {
-    setBusy(true); setError(null);
-    try { await onConfirm(); onClose(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
-  };
-  return (
-    <Modal opened={opened} onClose={() => { if (!busy) onClose(); }} radius="lg" title={<Text fw={700} fz={18}>{title}</Text>}>
-      <Stack gap="md">
-        <Text size="sm" c={surface.muted}>{children}</Text>
-        {error && <Alert color="red" p="xs">{error}</Alert>}
-        <Group justify="flex-end" gap="xs">
-          <Button variant="default" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button color="red" onClick={confirm} loading={busy}>{confirmLabel}</Button>
-        </Group>
-      </Stack>
-    </Modal>
   );
 }
 
@@ -460,10 +438,9 @@ function DebugTokens({ data }: { data: IntegrityData }) {
           </Stack>
         )}
       </Modal>
-      <Confirm opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove token" onClose={() => setRemoving(null)}
-        onConfirm={async () => { if (removing) await api.removeDebugToken(removing.id); await qc.invalidateQueries({ queryKey: INTEGRITY }); }}>
-        The Integrity tokens it got stop working at once.
-      </Confirm>
+      <ConfirmModal opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove token" onCancel={() => setRemoving(null)}
+        action={async () => { if (removing) await api.removeDebugToken(removing.id); await qc.invalidateQueries({ queryKey: INTEGRITY }); }}
+        message="The Integrity tokens it got stop working at once." />
     </Paper>
   );
 }
@@ -486,6 +463,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
   const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const onTop = useOnTop(open);   // not closed by Escape in the remove confirm over it
   const account = data.playServiceAccount;
   const needed = data.apps.some((a) => a.androidPackage);
   if (!needed && !account) return null;
@@ -504,7 +482,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
         { label: "Service account", value: account ? <Text span size="sm" ff="monospace">{account.email ?? "set"}</Text> : <Text span size="sm" c="red">Not set: Android apps can't prove themselves</Text> },
         ...(account ? [{ label: "Kept", value: account.reference ? `From ${account.reference}` : `Set ${when(account.setAt)}${account.setBy ? ` by ${account.setBy}` : ""}` }] : []),
       ]}>
-      <Modal opened={open} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Google service account</Text>}>
+      <Modal opened={open} onClose={close} closeOnEscape={onTop} size="lg" radius="lg" title={<Text fw={700} fz={18}>Google service account</Text>}>
         <Stack gap="md">
           <SecretInput label="Key file (JSON)" multiline value={typed} onChange={setTyped} savedReference={account?.reference}
             description="Pasted here or picked below. Kept in Winche Secrets, encrypted, never shown again." />
@@ -523,10 +501,9 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
           </Group>
         </Stack>
       </Modal>
-      <Confirm opened={removing} title="Remove the service account?" confirmLabel="Remove it" onClose={() => setRemoving(false)}
-        onConfirm={async () => { await api.removePlayServiceAccount(); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }}>
-        Android apps can't prove themselves until one is set again: where a product is enforced, their requests are refused.
-      </Confirm>
+      <ConfirmModal opened={removing} title="Remove the service account?" confirmLabel="Remove it" onCancel={() => setRemoving(false)}
+        action={async () => { await api.removePlayServiceAccount(); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }}
+        message="Android apps can't prove themselves until one is set again: where a product is enforced, their requests are refused." />
     </EditCard>
   );
 }

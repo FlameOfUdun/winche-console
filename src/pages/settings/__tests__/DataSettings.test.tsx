@@ -29,7 +29,7 @@ vi.mock("../../../auth/session", async (orig) => {
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const db: DatabaseSettings = {
-  indexes: [{ collection: "patients", fields: [{ path: "ward", direction: "asc" }], kind: "ordered", collectionGroup: false }],
+  indexes: [{ collection: "orders", fields: [{ path: "status", direction: "asc" }], kind: "ordered", collectionGroup: false }],
   dropUndeclaredIndexes: true, ttl: [], history: { enabled: false, retentionDays: 30 }, writeLimits: { maxDocumentKb: 1024, maxDepth: 20 },
   slowQueryMs: 500, expandLimit: 100, requestLog: { enabled: true, sampleRate: 0.1, slowMs: 1000 },
 };
@@ -89,14 +89,14 @@ test("indexes and expiry are a text: shown from the settings, then history turne
       : Promise.resolve(area(a === "database" ? { ...db, ttl: [{ collection: "sessions", field: "expiresAt" }] } : storage)));
   renderIt(<DatabaseIndexesView />);
   // A table of indexes, and of expiry rules.
-  expect(within(await screen.findByTestId("index-row")).getByText("patients")).toBeInTheDocument();
+  expect(within(await screen.findByTestId("index-row")).getByText("orders")).toBeInTheDocument();
   await userEvent.click(screen.getByText("Expiry (1)"));
   expect(within(screen.getByTestId("ttl-row")).getByText("expiresAt")).toBeInTheDocument();
   // All of it as text, one block per collection.
   await userEvent.click(screen.getByRole("button", { name: "Edit as text" }));
   const editor = await screen.findByRole("textbox", { name: "Indexes and expiry" });
-  expect(editor.textContent).toContain("collection patients {");
-  expect(editor.textContent).toContain("index (ward)");
+  expect(editor.textContent).toContain("collection orders {");
+  expect(editor.textContent).toContain("index (status)");
   expect(editor.textContent).toContain("expire when expiresAt");
   expect(screen.getByTestId("index-status")).toHaveTextContent("1 index");
   expect(screen.getByTestId("index-status")).toHaveTextContent("1 expiry");
@@ -113,22 +113,22 @@ test("a settings card shows what's set; Edit, change, and save with a reason", a
 
 test("a slow query's suggested index is added with one click", async () => {
   mock(api.indexSuggestions).mockResolvedValue({ suggestions: [
-    { collection: "visits", fields: [{ path: "patientId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false,
+    { collection: "visits", fields: [{ path: "userId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false,
       elapsedMs: 840, at: "2026-11-12T20:00:00Z", code: "ib.Add(...)" },
   ] });
   mock(api.parseIndexText).mockResolvedValue({
     ok: true, error: null, ttl: [],
-    indexes: [...db.indexes, { collection: "visits", fields: [{ path: "patientId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false }],
+    indexes: [...db.indexes, { collection: "visits", fields: [{ path: "userId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false }],
   });
   renderIt(<DatabaseIndexesView />);
   const box = await screen.findByTestId("index-suggestions");
   expect(within(box).getByText("visits")).toBeInTheDocument();
   await userEvent.click(within(box).getByRole("button", { name: "Add" }));
-  await userEvent.type(await screen.findByLabelText("Why?"), "Visits by patient");
+  await userEvent.type(await screen.findByLabelText("Why?"), "Visits by user");
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(mock(api.saveDataSettings)).toHaveBeenCalledWith("database", expect.objectContaining({
-    indexes: [...db.indexes, { collection: "visits", fields: [{ path: "patientId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false }],
-  }), "Visits by patient", expect.any(Number)));
+    indexes: [...db.indexes, { collection: "visits", fields: [{ path: "userId", direction: "asc" }, { path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false }],
+  }), "Visits by user", expect.any(Number)));
 });
 
 test("storage: the size limit and the clean-up change", async () => {
@@ -153,7 +153,7 @@ test("moving files: choose an R2 bucket, test it, then start copying with a reas
   expect(await screen.findByTestId("location-active")).toHaveTextContent("On this server's disk");
   await userEvent.click(screen.getByRole("button", { name: "Move files…" }));
   await userEvent.click(screen.getByText("Cloudflare R2"));
-  await userEvent.type(screen.getByLabelText("Bucket"), "clinic-files");
+  await userEvent.type(screen.getByLabelText("Bucket"), "my-files");
   await userEvent.type(screen.getByLabelText("Service address"), "https://acct.r2.cloudflarestorage.com");
   await userEvent.type(screen.getByLabelText("Access key id"), "AK");
   await userEvent.type(screen.getByLabelText(/Secret access key/), "SK");
@@ -162,7 +162,7 @@ test("moving files: choose an R2 bucket, test it, then start copying with a reas
   expect(await screen.findByTestId("location-test")).toHaveTextContent("✓ Write a file");
   await userEvent.type(screen.getByLabelText("Reason for the move"), "Off the server's disk");
   await userEvent.click(screen.getByRole("button", { name: "Start copying" }));
-  const bucket = { kind: "s3", s3: { bucket: "clinic-files", region: "auto", serviceUrl: "https://acct.r2.cloudflarestorage.com", accessKey: "AK", forcePathStyle: false } };
+  const bucket = { kind: "s3", s3: { bucket: "my-files", region: "auto", serviceUrl: "https://acct.r2.cloudflarestorage.com", accessKey: "AK", forcePathStyle: false } };
   expect(mock(api.testStorageLocation)).toHaveBeenCalledWith(bucket, "SK");
   await waitFor(() => expect(mock(api.startStorageMove)).toHaveBeenCalledWith(bucket, "SK", "Off the server's disk"));
 });
@@ -171,18 +171,18 @@ test("moving files: an AWS bucket with no access key uses the server's own permi
   mock(api.testStorageLocation).mockResolvedValue({ ok: true, steps: [{ name: "Write a file", ok: true, error: null }] });
   renderIt(<StorageSettingsView />);
   await userEvent.click(await screen.findByRole("button", { name: "Move files…" }));
-  await userEvent.type(screen.getByLabelText("Bucket"), "clinic-files");
+  await userEvent.type(screen.getByLabelText("Bucket"), "my-files");
   await userEvent.type(screen.getByLabelText("Region"), "eu-west-2");
   expect(screen.getByTestId("server-role-note")).toHaveTextContent("the server's own AWS permissions");
   await userEvent.click(screen.getByRole("button", { name: "Test" }));
-  expect(mock(api.testStorageLocation)).toHaveBeenCalledWith({ kind: "s3", s3: { bucket: "clinic-files", region: "eu-west-2", serviceUrl: null, accessKey: null, forcePathStyle: false } }, null);
+  expect(mock(api.testStorageLocation)).toHaveBeenCalledWith({ kind: "s3", s3: { bucket: "my-files", region: "eu-west-2", serviceUrl: null, accessKey: null, forcePathStyle: false } }, null);
   // A key id given: its secret is needed again.
   await userEvent.type(screen.getByLabelText("Access key id"), "AK");
   expect(screen.queryByTestId("server-role-note")).toBeNull();
   expect(screen.getByRole("button", { name: "Test" })).toBeDisabled();
 });
 
-const move = (phase: string) => ({ id: "m1", phase, startedAt: "2026-11-12T20:00:00Z", fromLabel: "On this server's disk", toLabel: "bucket clinic-files" });
+const move = (phase: string) => ({ id: "m1", phase, startedAt: "2026-11-12T20:00:00Z", fromLabel: "On this server's disk", toLabel: "bucket my-files" });
 
 test("moving files: once everything is copied, switch; finish waits for a clean catch-up", async () => {
   mock(api.storageLocation).mockResolvedValue(location({

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Box, Group, Modal, Text, type ModalProps } from "@mantine/core";
+import { useOnTop } from "./dialogStack";
 
 /**
  * A dialog whose title and buttons stay put: only what's between them scrolls, with a line at each edge, so a tall
@@ -13,10 +14,11 @@ export function ScrollDialog({ opened, onClose, title, footer, size = "lg", chil
   /** A fixed height (it stays the same whatever's shown), never taller than the window. */
   height?: number;
 }) {
+  const onTop = useOnTop(opened);   // a confirm over it takes Escape
   const heading = typeof title === "string" ? <Text fw={700} fz={18}>{title}</Text> : title;
   // Built from Modal's parts so a plain-text name ([ariaLabel]) reaches the dialog itself; the rich title then isn't its name.
   return (
-    <Modal.Root opened={opened} onClose={onClose} size={size} radius="lg" data-testid={testId}
+    <Modal.Root opened={opened} onClose={onClose} closeOnEscape={onTop} size={size} radius="lg" data-testid={testId}
       styles={{
         content: { display: "flex", flexDirection: "column", overflow: "hidden", maxHeight: "calc(100dvh - 2 * var(--modal-y-offset, 5dvh))",
           ...(height ? { height: `min(${height}px, calc(100dvh - 2 * var(--modal-y-offset, 5dvh)))` } : {}) },

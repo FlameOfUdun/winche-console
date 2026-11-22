@@ -208,7 +208,7 @@ function ProviderForm({ initial, others, onDone, onCancel }: {
         {/* The dialog's title names it. */}
         <FieldRow>
           <Select label="Type" data={PROVIDER_KINDS} value={p.kind} allowDeselect={false} onChange={(v) => setP({ ...p, kind: v ?? "oidc" })} />
-          <TextInput label="Name shown here" placeholder="Example Health Keycloak" value={p.displayName ?? ""} onChange={(e) => setP({ ...p, displayName: e.currentTarget.value })} />
+          <TextInput label="Name shown here" placeholder="Company Keycloak" value={p.displayName ?? ""} onChange={(e) => setP({ ...p, displayName: e.currentTarget.value })} />
         </FieldRow>
         <TextInput label="Address (issuer)" placeholder="https://auth.example.com/realms/app" ff="monospace"
           description={p.kind === "keycloak" ? "Keycloak: https://<server>/realms/<realm>" : p.kind === "entra" ? "Entra ID: https://login.microsoftonline.com/<tenant id>/v2.0" : undefined}

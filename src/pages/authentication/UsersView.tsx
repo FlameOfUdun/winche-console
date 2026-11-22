@@ -163,7 +163,7 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
   const name = u ? u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid) : "";
 
   return (
-    <ScrollDialog opened={!!uid} onClose={onClose} size="xl" ariaLabel="Selected user"
+    <ScrollDialog opened={!!uid} onClose={onClose} size="xl" ariaLabel={u ? `User: ${name}` : "User"}
       footer={u && detail.data ? (
         <Group justify="space-between" wrap="wrap" gap="xs" style={{ flex: 1 }}>
           <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it. Created {when(u.createdAt)}.</Text>

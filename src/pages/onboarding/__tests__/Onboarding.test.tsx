@@ -37,7 +37,7 @@ beforeEach(() => {
   sessionStorage.clear();
   mock(useSession).mockReturnValue({ state: { initialized: true, capabilities: {} }, user: { role: "Admin" }, refresh: vi.fn() });
   mock(api.project).mockResolvedValue({ setup: true, created: false, id: "winche", name: "winche", products: products([]) });
-  mock(api.apps).mockResolvedValue({ setup: { projectId: "clinic-records", name: "Clinic records", baseUrl: "https://api.example.com", services: [], providers: [] }, platforms: [], file: "", snippet: "main()" });
+  mock(api.apps).mockResolvedValue({ setup: { projectId: "my-records", name: "My records", baseUrl: "https://api.example.com", services: [], providers: [] }, platforms: [], file: "", snippet: "main()" });
   mock(api.serverSettings).mockRejectedValue(Object.assign(new Error("Not found"), { status: 404 }));   // a console on its own
 });
 
@@ -46,7 +46,7 @@ test("first run: the account, then the project (every product off), then a skipp
   mock(api.setup).mockResolvedValue({ email: "ann@example.com" });
   mock(api.login).mockResolvedValue({ requiresTwoFactor: false });
   mock(api.twoFactorSetup).mockResolvedValue({ sharedKey: "K", authenticatorUri: "otpauth://totp/x" });
-  mock(api.createProject).mockResolvedValue({ setup: true, created: true, id: "clinic-records", name: "Clinic records", products: products(["database", "authentication"]) });
+  mock(api.createProject).mockResolvedValue({ setup: true, created: true, id: "my-records", name: "My records", products: products(["database", "authentication"]) });
   mock(api.rulesParseText).mockResolvedValue({ ok: true, rulesJson: "{}", error: null, warnings: [] });
   mock(api.rulesSave).mockResolvedValue({});
   renderIt(<Onboarding mode="first-run" />);
@@ -57,10 +57,10 @@ test("first run: the account, then the project (every product off), then a skipp
   await waitFor(() => expect(api.login).toHaveBeenCalledWith("ann@example.com", "correct horse battery"));
   await userEvent.click(await screen.findByText("Do it later"));
 
-  await userEvent.type(await screen.findByLabelText("Project name"), "Clinic records");
-  expect(screen.getByLabelText("Project id")).toHaveValue("clinic-records");
+  await userEvent.type(await screen.findByLabelText("Project name"), "My records");
+  expect(screen.getByLabelText("Project id")).toHaveValue("my-records");
   await userEvent.click(screen.getByRole("button", { name: "Create project" }));
-  await waitFor(() => expect(api.createProject).toHaveBeenCalledWith({ name: "Clinic records", id: "clinic-records", products: [], database: null }));
+  await waitFor(() => expect(api.createProject).toHaveBeenCalledWith({ name: "My records", id: "my-records", products: [], database: null }));
 
   await userEvent.click(await screen.findByRole("button", { name: "Skip for now" }));
   expect(await screen.findByRole("button", { name: "Go to the console" })).toBeInTheDocument();

@@ -8,7 +8,7 @@ import { SessionContext } from "../../auth/session";
 
 vi.mock("../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../api/client")>();
-  return { ...actual, api: { ...actual.api, logout: vi.fn(), rulesSubsystems: vi.fn().mockResolvedValue([{ id: "database" }]), projects: vi.fn().mockResolvedValue({ available: true, canCreate: true, current: "p", projects: [] }), project: vi.fn().mockResolvedValue({ setup: false }), overview: vi.fn().mockResolvedValue({ project: { id: "clinic", name: "Clinic" }, products: [], changes: [] }), consolePages: vi.fn().mockResolvedValue({ pages: [{ name: "reports", title: "Weekly reports", icon: "chart-bar", order: 0 }] }) } };
+  return { ...actual, api: { ...actual.api, logout: vi.fn(), rulesSubsystems: vi.fn().mockResolvedValue([{ id: "database" }]), projects: vi.fn().mockResolvedValue({ available: true, canCreate: true, current: "p", projects: [] }), project: vi.fn().mockResolvedValue({ setup: false }), overview: vi.fn().mockResolvedValue({ project: { id: "demo", name: "Demo" }, products: [], changes: [] }), consolePages: vi.fn().mockResolvedValue({ pages: [{ name: "reports", title: "Weekly reports", icon: "chart-bar", order: 0 }] }) } };
 });
 
 const session = {
@@ -65,7 +65,7 @@ test("a flat sidebar of products (their pages are tabs); Server in the top bar f
   // The server's settings are its own console's: a link there (the server's, not this project's /console/projects/<id>).
   expect(screen.getByRole("link", { name: "Server" })).toHaveAttribute("href", expect.stringMatching(/^http:\/\/[^/]+\/console\/server$/));
   expect(screen.getByRole("link", { name: /Project settings/ })).toHaveAttribute("href", "/settings/general");
-  expect(await screen.findByText("Clinic")).toBeInTheDocument();
+  expect(await screen.findByText("Demo")).toBeInTheDocument();
 });
 
 test("the project's own pages are listed under Project pages", async () => {

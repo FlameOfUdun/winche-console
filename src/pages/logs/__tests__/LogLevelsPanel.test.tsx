@@ -20,7 +20,7 @@ function renderPanel(scope: "app" | "database" = "app") {
   return render(
     <MantineProvider>
       <QueryClientProvider client={new QueryClient()}>
-        <LogLevelsPanel scope={scope} categories={["Clinic.Reports.ReportEmailService", "Winche.Database.Runtime.Listening"]} />
+        <LogLevelsPanel scope={scope} categories={["MyApp.Reports.ReportEmailService", "Winche.Database.Runtime.Listening"]} />
       </QueryClientProvider>
     </MantineProvider>,
   );
@@ -39,7 +39,7 @@ test("adds a time-limited source level and saves it", async () => {
 
   await userEvent.click(screen.getByRole("button", { name: "Add a source" }));
   const dialog = await screen.findByRole("dialog");
-  await userEvent.type(within(dialog).getByLabelText("Source"), "Clinic.Reports");
+  await userEvent.type(within(dialog).getByLabelText("Source"), "MyApp.Reports");
   await userEvent.click(within(dialog).getByRole("button", { name: "Add" }));
   const before = Date.now();
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -48,7 +48,7 @@ test("adds a time-limited source level and saves it", async () => {
   const [defaultLevel, overrides] = (api.saveLogLevels as ReturnType<typeof vi.fn>).mock.calls[0];
   expect(defaultLevel).toBe("Warning");
   expect(overrides).toHaveLength(1);
-  expect(overrides[0].category).toBe("Clinic.Reports");
+  expect(overrides[0].category).toBe("MyApp.Reports");
   expect(overrides[0].level).toBe("Debug");
   const until = Date.parse(overrides[0].until);
   expect(until - before).toBeGreaterThan(59 * 60_000);   // "for 1 hour" by default
@@ -59,7 +59,7 @@ test("a sub-tab shows and edits only its library's overrides, keeping the rest",
   (api.logLevels as ReturnType<typeof vi.fn>).mockResolvedValue(levels({
     source: "console", updatedBy: "admin@example.com", updatedAt: "2026-11-12T14:00:00Z",
     overrides: [
-      { category: "Clinic.Reports", level: "Debug", until: null },
+      { category: "MyApp.Reports", level: "Debug", until: null },
       { category: "Winche.Database.Runtime", level: "Information", until: "2026-11-12T16:00:00Z" },
     ],
   }));
@@ -67,11 +67,11 @@ test("a sub-tab shows and edits only its library's overrides, keeping the rest",
   expect(await screen.findByText(/Changed by admin@example.com/)).toBeInTheDocument();
   expect(screen.getAllByTestId("level-override")).toHaveLength(1);
   expect(screen.getByDisplayValue("Winche.Database.Runtime")).toBeInTheDocument();
-  expect(screen.queryByDisplayValue("Clinic.Reports")).not.toBeInTheDocument();
+  expect(screen.queryByDisplayValue("MyApp.Reports")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Remove override" }));
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
-  await waitFor(() => expect(api.saveLogLevels).toHaveBeenCalledWith("Warning", [{ category: "Clinic.Reports", level: "Debug", until: null }]));
+  await waitFor(() => expect(api.saveLogLevels).toHaveBeenCalledWith("Warning", [{ category: "MyApp.Reports", level: "Debug", until: null }]));
 
   await userEvent.click(screen.getByRole("button", { name: "Back to the defaults" }));
   expect(api.resetLogLevels).toHaveBeenCalled();

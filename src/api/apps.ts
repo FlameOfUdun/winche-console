@@ -16,10 +16,6 @@ export interface AppsPageData {
   snippet: string;
 }
 
-export const PLATFORM_LABEL: Record<string, string> = {
-  android: "Android", ios: "iOS", macos: "macOS", web: "Web", windows: "Windows", linux: "Linux",
-};
-
 /** Requests today and over the last 7 days, and when the last was. */
 export interface Usage { today: number; last7Days: number; lastSeen: string | null }
 

@@ -81,7 +81,7 @@ export interface IndexSuggestion extends IndexSettings {
   code: string;
 }
 
-/** "ward, startedAt desc" ⇄ fields. */
+/** "status, createdAt desc" ⇄ fields. */
 export function parseFields(text: string): IndexSettings["fields"] {
   return text.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
     const [path, dir] = s.split(/\s+/);

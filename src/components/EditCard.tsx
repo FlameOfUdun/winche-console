@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Alert, Button, Drawer, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 import { IconHistory, IconPencil } from "@tabler/icons-react";
 import { errorWithList } from "../api/appAuth";
+import { useOnTop } from "./dialogStack";
 
 /** One value on a settings card: its name (and a line under it), and what it is now. */
 export interface ViewRow { label: ReactNode; value: ReactNode; hint?: ReactNode; testId?: string }
@@ -140,8 +141,9 @@ export function HistoryButton({ title = "Change history", subtitle, size, childr
 export function HistoryDrawer({ opened, onClose, title = "Change history", subtitle, size = 480, children }: {
   opened: boolean; onClose: () => void; title?: string; subtitle?: string; size?: number | string; children: ReactNode;
 }) {
+  const onTop = useOnTop(opened);   // a restore or revert dialog over it takes Escape
   return (
-    <Drawer opened={opened} onClose={onClose} position="right" size={size} padding="lg"
+    <Drawer opened={opened} onClose={onClose} closeOnEscape={onTop} position="right" size={size} padding="lg"
       title={<div><Text fw={600} fz={18}>{title}</Text>{subtitle && <Text size="sm" c="var(--w-faint)">{subtitle}</Text>}</div>}>
       {opened && children}
     </Drawer>

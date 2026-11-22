@@ -18,8 +18,8 @@ vi.mock("../../../api/client", async (orig) => {
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const visits = {
-  id: "visits", name: "New visits", enabled: true, when: { source: "database", events: ["created"], path: "patients/{patientId}" },
-  do: { kind: "webhook", url: "https://ward.example.com/hooks", options: {} },
+  id: "visits", name: "New visits", enabled: true, when: { source: "database", events: ["created"], path: "visits/{visitId}" },
+  do: { kind: "webhook", url: "https://records.example.com/hooks", options: {} },
 };
 const page = (over: Partial<HooksPageData> = {}): HooksPageData => ({
   settings: { hooks: [visits] }, source: "console", version: { number: 1, at: "2026-11-12T20:00:00Z", by: "admin@example.com", reason: "x" },
@@ -52,7 +52,7 @@ test("hooks read as sentences, with the last day's deliveries and the signing se
   mock(api.hookSecret).mockResolvedValue({ secret: "whsec_abc" });
   renderPage();
   const card = await screen.findByTestId("hook");
-  expect(within(card).getByText("When a document is created at patients/{patientId}, call https://ward.example.com/hooks.")).toBeInTheDocument();
+  expect(within(card).getByText("When a document is created at visits/{visitId}, call https://records.example.com/hooks.")).toBeInTheDocument();
   expect(within(card).getByText("Last day: 12 delivered, 1 failed")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Show" }));
   expect(await within(card).findByTestId("hook-secret")).toHaveTextContent("whsec_abc");
@@ -93,7 +93,7 @@ test("a webhook for users' events: tested with a sample, then saved with a reaso
 
 test("deliveries: a failed one shows why and can be retried", async () => {
   mock(api.hookDeliveries).mockResolvedValue({ deliveries: [{
-    id: "d1", hookId: "visits", hookName: "New visits", source: "database", type: "created", path: "patients/p1", status: "failed", attempts: 8,
+    id: "d1", hookId: "visits", hookName: "New visits", source: "database", type: "created", path: "visits/v1", status: "failed", attempts: 8,
     createdAt: "2026-11-12T20:00:00Z", nextAttemptAt: null, finishedAt: "2026-11-13T08:00:00Z", lastStatus: 503, lastResult: "Service Unavailable", durationMs: 40, event: { id: "e1" },
   }] });
   mock(api.retryHookDelivery).mockResolvedValue(undefined);

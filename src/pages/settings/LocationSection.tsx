@@ -126,11 +126,10 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
             <TextInput label="Service address" placeholder={preset === "r2" ? "https://<account id>.r2.cloudflarestorage.com" : "https://minio.example.com"}
               value={b.serviceUrl} onChange={(e) => set({ serviceUrl: e.currentTarget.value })} />
           )}
-          <Group grow wrap="wrap" align="flex-end">
-            <TextInput label="Access key id" value={b.accessKey} onChange={(e) => set({ accessKey: e.currentTarget.value })} />
-            <SecretInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable || serverRole}
-              value={serverRole ? "" : secret} onChange={(v) => { setSecret(v); setTest(null); }} />
-          </Group>
+          {/* One per line: the secret's Value/Reference switch makes its header taller, so side by side the boxes wouldn't line up. */}
+          <TextInput label="Access key id" value={b.accessKey} onChange={(e) => set({ accessKey: e.currentTarget.value })} />
+          <SecretInput label="Secret access key" description="Saved encrypted; it can't be read back." disabled={!s.secretsAvailable || serverRole}
+            value={serverRole ? "" : secret} onChange={(v) => { setSecret(v); setTest(null); }} />
           {serverRole && (
             <Text size="xs" c="dimmed" data-testid="server-role-note">
               No access key: the server's own AWS permissions are used (its task role or environment). Only server admins can choose this.

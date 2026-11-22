@@ -14,7 +14,7 @@ const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mock(api.openConsolePage).mockResolvedValue({ url: "/console/v1/projects/clinic/pages/reports/view/tok/", user: { email: "ann@example.com", role: "viewer" } });
+  mock(api.openConsolePage).mockResolvedValue({ url: "/console/v1/projects/demo/pages/reports/view/tok/", user: { email: "ann@example.com", role: "viewer" } });
   mock(api.consolePages).mockResolvedValue({ pages: [{ name: "reports", title: "Weekly reports", icon: null, order: 0 }] });
 });
 

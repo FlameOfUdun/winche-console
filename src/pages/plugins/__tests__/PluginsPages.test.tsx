@@ -59,7 +59,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mock(api.plugins).mockResolvedValue({ plugins: [], functionsUrl: "https://api.example.com/projects/clinic/functions/v1/http" });
+  mock(api.plugins).mockResolvedValue({ plugins: [], functionsUrl: "https://api.example.com/projects/demo/functions/v1/http" });
   mock(api.pluginCatalog).mockResolvedValue({ plugins: [{ package: PKG, version: "1.0.0", title: "Calls", description: "Click-to-call.", icon: null, author: "Acme", problem: null }] });
   mock(api.pluginSearch).mockResolvedValue({ results: [
     { package: PKG, version: "1.0.0", description: "dup", publisher: "acme", at: null, provided: false, curated: true },
@@ -146,7 +146,7 @@ test("installing step by step: a setting shown and needed only when another says
 });
 
 test("an installed copy: its setup steps with its own addresses and settings, what it needs, its history", async () => {
-  mock(api.plugins).mockResolvedValue({ plugins: [installed], functionsUrl: "https://api.example.com/projects/clinic/functions/v1/http" });
+  mock(api.plugins).mockResolvedValue({ plugins: [installed], functionsUrl: "https://api.example.com/projects/demo/functions/v1/http" });
   mock(api.pluginHistory).mockResolvedValue({ history: [
     { version: 5, what: "Settings changed: OFFICE_PHONE", note: "Changed calls's settings", by: "ann@example.com", at: "2026-11-19T11:00:00Z", rolledBackFrom: null },
     { version: 4, what: "Installed @acme/winche-plugin-calls 1.0.0", note: "From the pipeline", by: "ci", at: "2026-11-19T10:00:00Z", rolledBackFrom: null },
@@ -154,7 +154,7 @@ test("an installed copy: its setup steps with its own addresses and settings, wh
   renderAt("/plugins/installed/calls");
   const steps = await screen.findAllByTestId("setup-step");
   expect(steps).toHaveLength(2);   // the third needs an address
-  expect(steps[0]).toHaveTextContent("Point the number at https://api.example.com/projects/clinic/functions/v1/http/calls.incomingCall (calls ring +442071234567).");
+  expect(steps[0]).toHaveTextContent("Point the number at https://api.example.com/projects/demo/functions/v1/http/calls.incomingCall (calls ring +442071234567).");
   expect(steps[1]).toHaveTextContent("Keep CALLS__TOKEN safe.");
   expect(screen.getByText(/CALLS__TOKEN isn't set/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: "History" }));

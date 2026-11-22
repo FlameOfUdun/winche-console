@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Alert, Badge, Button, Group, Loader, Modal, Paper, Stack, Text, TextInput, Timeline, Title } from "@mantine/core";
 import { IconArrowBackUp, IconCheck, IconHistory } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
+import { useOnTop } from "../../components/dialogStack";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
@@ -99,6 +100,7 @@ export function AreaHistory({ area, editable, empty = true }: { area: DataArea; 
   const qc = useQueryClient();
   const history = useQuery({ queryKey: ["data-settings-history", area], queryFn: () => api.dataSettingsHistory(area) });
   const [restoring, setRestoring] = useState<{ id: number; number: number } | null>(null);
+  const onTop = useOnTop(!!restoring);   // opened over the history drawer: Escape closes only this
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const versions = history.data?.versions ?? [];
@@ -145,7 +147,7 @@ export function AreaHistory({ area, editable, empty = true }: { area: DataArea; 
           </Timeline.Item>
         ))}
       </Timeline>
-      <Modal opened={!!restoring} onClose={() => setRestoring(null)} radius="lg" title={<Text fw={700} fz={18}>Restore version {restoring?.number}?</Text>}>
+      <Modal opened={!!restoring} onClose={() => setRestoring(null)} closeOnEscape={onTop} radius="lg" title={<Text fw={700} fz={18}>Restore version {restoring?.number}?</Text>}>
         <Stack gap="md">
           <TextInput label="Why?" data-autofocus value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
           {error && <Alert color="red" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}

@@ -285,3 +285,71 @@ test("enforcement: clearing the minutes isn't a change; ready shows only where t
   await userEvent.clear(within(dialog).getByLabelText("Tokens last (minutes)"));
   expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
 });
+
+test("adding: fields changed after the app was made are saved once on retry (by its id, never a new id), then the secret key", async () => {
+  mock(api.addApp).mockResolvedValue({ id: "my-app" });
+  mock(api.updateApp).mockResolvedValue({});
+  mock(api.setTurnstileSecret).mockRejectedValueOnce(new Error("Secrets are unavailable")).mockResolvedValueOnce({});
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "Add app" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("App name"), "My app");
+  await userEvent.type(within(dialog).getByLabelText("Turnstile site key"), "0x4AAAAAAAsitekey123");
+  await userEvent.type(within(dialog).getByLabelText("Turnstile secret key"), "0x4AAAAAAAsecret12345");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Add app" }));
+  await within(dialog).findByText(/its Turnstile secret key wasn't saved/);
+  await userEvent.type(within(dialog).getByLabelText("Apple bundle id"), "com.example.myapp");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save secret key" }));
+  expect(await screen.findByText("winche configure --url https://api.example.com --app my-app")).toBeInTheDocument();
+  expect(api.addApp).toHaveBeenCalledTimes(1);
+  expect(api.updateApp).toHaveBeenCalledTimes(1);
+  const [id, fields] = mock(api.updateApp).mock.calls[0];
+  expect(id).toBe("my-app");
+  expect(fields).not.toHaveProperty("id");
+  expect(fields).toMatchObject({ name: "My app", appleBundleId: "com.example.myapp", webSiteKey: "0x4AAAAAAAsitekey123" });
+  expect(api.setTurnstileSecret).toHaveBeenLastCalledWith("my-app", "0x4AAAAAAAsecret12345", null);
+  expect(mock(api.updateApp).mock.invocationCallOrder[0]).toBeLessThan(mock(api.setTurnstileSecret).mock.invocationCallOrder[1]);
+});
+
+test("a debug token that arrives after its dialog was closed isn't shown when it's opened again", async () => {
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [myApp] }));
+  let arrive!: (t: { id: string; app: string; name: string; token: string }) => void;
+  mock(api.makeDebugToken).mockImplementation(() => new Promise((r) => { arrive = r; }));
+  renderPage();
+  const tokens = await screen.findByTestId("integrity-debug-tokens");
+  await userEvent.click(within(tokens).getByRole("button", { name: "Make debug token" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText("Name"), "CI");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Make token" }));
+  await waitFor(() => expect(api.makeDebugToken).toHaveBeenCalled());
+  await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  arrive({ id: "dt-2", app: myApp.id, name: "CI", token: "wdt_late-value" });
+  await userEvent.click(within(tokens).getByRole("button", { name: "Make debug token" }));
+  const again = await screen.findByRole("dialog");
+  expect(within(again).getByLabelText("Name")).toHaveValue("");
+  expect(within(again).getByRole("button", { name: "Make token" })).not.toHaveAttribute("data-loading");
+  expect(screen.queryByTestId("debug-token-value")).toBeNull();
+  expect(screen.queryByText("wdt_late-value")).toBeNull();
+});
+
+test("removing the Play service account: Escape leaves its dialog open; a failure is shown; once removed, both dialogs close", async () => {
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [myApp], playServiceAccount: { setAt: "2026-11-21T10:00:00Z", setBy: null, reference: null, email: "x@y.iam.gserviceaccount.com" } }));
+  mock(api.removePlayServiceAccount).mockRejectedValueOnce(new Error("Secrets are unavailable")).mockResolvedValueOnce(undefined);
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("play-service-account")).getByRole("button", { name: "Replace" }));
+  await userEvent.click(within(await screen.findByRole("dialog", { name: "Google service account" })).getByRole("button", { name: "Remove it" }));
+  await screen.findByRole("dialog", { name: "Remove the service account?" });
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Remove the service account?" })).toBeNull());
+  expect(screen.getByRole("dialog", { name: "Google service account" })).toBeInTheDocument();
+
+  await userEvent.click(within(screen.getByRole("dialog", { name: "Google service account" })).getByRole("button", { name: "Remove it" }));
+  const confirm = await screen.findByRole("dialog", { name: "Remove the service account?" });
+  await userEvent.click(within(confirm).getByRole("button", { name: "Remove it" }));
+  expect(await within(confirm).findByText("Secrets are unavailable")).toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "Google service account" })).toBeInTheDocument();
+  await userEvent.click(within(confirm).getByRole("button", { name: "Remove it" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(api.removePlayServiceAccount).toHaveBeenCalledTimes(2);
+});

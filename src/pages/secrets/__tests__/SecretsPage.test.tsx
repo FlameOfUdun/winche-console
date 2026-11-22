@@ -145,8 +145,8 @@ test("admins keep the project's own AWS key under Secrets, never shown again", a
   expect(card).toHaveTextContent("only a server admin can set references");
   const save = within(card).getByRole("button", { name: "Save" });
   expect(save).toBeDisabled();
-  await userEvent.type(within(card).getByLabelText(/Access key ID/), "AKIDWARDS");
+  await userEvent.type(within(card).getByLabelText(/Access key ID/), "AKIDEXAMPLE");
   await userEvent.type(within(card).getByLabelText(/Secret access key/), "s3cr3t");
   await userEvent.click(save);
-  await waitFor(() => expect(mock(api.setSourceKey)).toHaveBeenCalledWith("secrets.source.aws", { accessKeyId: "AKIDWARDS", secretAccessKey: "s3cr3t" }));
+  await waitFor(() => expect(mock(api.setSourceKey)).toHaveBeenCalledWith("secrets.source.aws", { accessKeyId: "AKIDEXAMPLE", secretAccessKey: "s3cr3t" }));
 });

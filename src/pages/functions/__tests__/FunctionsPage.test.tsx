@@ -24,7 +24,7 @@ const v1: FunctionVersion = {
   version: 1, note: "First", by: "admin@example.com", at: "2026-11-12T20:00:00Z", rolledBackFrom: null,
   functions: [
     { name: "hello", kind: "callable", events: null, path: null, cron: null, timeZone: null, description: "called by apps", timeoutSeconds: 60, integrity: true },
-    { name: "onVisit", kind: "documents", events: ["created"], path: "patients/{patientId}", cron: null, timeZone: null, description: "documents created at patients/{patientId}", timeoutSeconds: 60 },
+    { name: "onVisit", kind: "documents", events: ["created"], path: "visits/{visitId}", cron: null, timeZone: null, description: "documents created at visits/{visitId}", timeoutSeconds: 60 },
   ],
 };
 const page = (over: Partial<FunctionsPageData> = {}): FunctionsPageData => ({
@@ -228,7 +228,7 @@ test("many functions: a list searched by name or what they do, and filtered by k
   await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "hello");
   expect(screen.getAllByTestId("function")).toHaveLength(5);
   await userEvent.clear(screen.getByRole("textbox", { name: "Search functions" }));
-  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "patients/");
+  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "visits/");
   expect(screen.getAllByTestId("function")).toHaveLength(4);
   await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "nothing like this");
   expect(screen.getByText("No functions match.")).toBeInTheDocument();

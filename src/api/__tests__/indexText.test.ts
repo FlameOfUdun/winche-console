@@ -19,8 +19,8 @@ test("formats one block per collection, like the server", () => {
 test("a line goes into its collection's block, or a new one", () => {
   const line = indexLine({ collection: "visits", fields: [{ path: "at", direction: "desc" }], kind: "ordered", collectionGroup: false });
   expect(line).toBe("index (at desc)");
-  expect(addToBlock("collection visits {\n  index (patientId)\n}\n", "visits", false, line))
-    .toBe("collection visits {\n  index (patientId)\n  index (at desc)\n}\n");
+  expect(addToBlock("collection visits {\n  index (userId)\n}\n", "visits", false, line))
+    .toBe("collection visits {\n  index (userId)\n  index (at desc)\n}\n");
   expect(addToBlock("collection a {\n}\n", "visits", false, line)).toBe("collection a {\n}\n\ncollection visits {\n  index (at desc)\n}\n");
   expect(addToBlock("", "visits", true, line)).toBe("collection group visits {\n  index (at desc)\n}\n");
 });

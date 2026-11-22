@@ -10,6 +10,7 @@ import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
 import { ScrollDialog } from "../../components/ScrollDialog";
+import { useOnTop } from "../../components/dialogStack";
 import { CardsPage, HistoryButton } from "../../components/EditCard";
 import { AreaHistory } from "../settings/AreaSettings";
 import { EmptyState } from "../../components/EmptyState";
@@ -464,6 +465,7 @@ function VersionsTimeline() {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["function-versions"], queryFn: api.functionVersions });
   const [rolling, setRolling] = useState<number | null>(null);
+  const onTop = useOnTop(rolling !== null);   // opened over the history drawer: Escape closes only this
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -514,7 +516,7 @@ function VersionsTimeline() {
           );
         })}
       </Timeline>
-      <Modal opened={rolling !== null} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Roll back to version {rolling}?</Text>}>
+      <Modal opened={rolling !== null} onClose={close} closeOnEscape={onTop} radius="lg" title={<Text fw={700} fz={18}>Roll back to version {rolling}?</Text>}>
         <Stack gap="md">
           <Text size="sm">Its code is deployed again, as a new version. Functions it doesn't have stop running.</Text>
           <TextInput label="Note (optional)" placeholder="Why" data-autofocus value={note} onChange={(e) => setNote(e.currentTarget.value)} />

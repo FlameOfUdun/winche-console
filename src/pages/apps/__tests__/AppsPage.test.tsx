@@ -40,7 +40,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock(api.apps).mockImplementation(async (platforms: string[]) => data(platforms));
   mock(useSession).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
-  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "clinic-records", name: "Clinic records", products: [], imageVersion: null });
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "my-records", name: "My records", products: [], imageVersion: null });
   mock(api.projectImage).mockResolvedValue(new Blob(["x"], { type: "image/png" }));
 });
 
@@ -58,8 +58,8 @@ test("the project: name and id, no addresses; admins rename it (the id stays) an
   mock(api.renameProject).mockResolvedValue({});
   mock(api.setProjectImage).mockResolvedValue({ imageVersion: "1" });
   renderPage();
-  await waitFor(() => expect(screen.getByTestId("project-name")).toHaveTextContent("Clinic records"));
-  expect(screen.getByText("clinic-records")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId("project-name")).toHaveTextContent("My records"));
+  expect(screen.getByText("my-records")).toBeInTheDocument();
   expect(screen.queryByText("https://api.example.com")).toBeNull();   // no server or console address
   expect(screen.queryByText("What apps see")).toBeNull();
 
@@ -67,9 +67,9 @@ test("the project: name and id, no addresses; admins rename it (the id stays) an
   const dialog = await screen.findByRole("dialog");
   const input = within(dialog).getByLabelText("Project name");
   await userEvent.clear(input);
-  await userEvent.type(input, "Clinic");
+  await userEvent.type(input, "Records");
   await userEvent.click(within(dialog).getByRole("button", { name: "Rename" }));
-  await waitFor(() => expect(api.renameProject).toHaveBeenCalledWith("Clinic", "clinic-records"));
+  await waitFor(() => expect(api.renameProject).toHaveBeenCalledWith("Records", "my-records"));
 
   const file = new File(["png"], "logo.png", { type: "image/png" });
   await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, file);

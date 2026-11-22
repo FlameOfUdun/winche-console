@@ -29,7 +29,7 @@ export function ProjectAvatar({ version, consoleUrl, size = 32, radius = 8 }: {
 
 /**
  * [file] as a square [size]×[size] image, cropped to its middle: what the project's thumbnail is stored as (WebP where
- * the browser can write it, else JPEG, else PNG).
+ * the browser can write it; else JPEG, or PNG when it has see-through pixels).
  */
 export async function squareThumbnail(file: Blob, size = 256): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
@@ -43,10 +43,21 @@ export async function squareThumbnail(file: Blob, size = 256): Promise<Blob> {
   ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
   bitmap.close();
   const toBlob = (type: string, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
-  // A browser that can't write WebP hands back PNG instead: JPEG then, which keeps a photo small (PNG only as a last resort).
+  // A browser that can't write WebP hands back PNG instead: then JPEG or PNG, by whether the image is see-through.
   const webp = await toBlob("image/webp", 0.9);
-  const jpeg = webp?.type === "image/webp" ? null : await toBlob("image/jpeg", 0.85);
-  const blob = webp?.type === "image/webp" ? webp : jpeg?.type === "image/jpeg" ? jpeg : await toBlob("image/png", 1);
+  if (webp?.type === "image/webp") return webp;
+  const type = fallbackType(ctx.getImageData(0, 0, size, size).data);
+  const second = type === "image/jpeg" ? await toBlob(type, 0.85) : null;
+  const blob = second?.type === type ? second : await toBlob("image/png", 1);
   if (!blob) throw new Error("Couldn't read that image.");
   return blob;
+}
+
+/**
+ * The format a thumbnail falls back to when WebP can't be written, from its RGBA pixels: PNG when any is see-through
+ * (JPEG would turn it black), else JPEG, which keeps a photo small.
+ */
+export function fallbackType(rgba: ArrayLike<number>): "image/png" | "image/jpeg" {
+  for (let i = 3; i < rgba.length; i += 4) if (rgba[i] < 255) return "image/png";
+  return "image/jpeg";
 }
