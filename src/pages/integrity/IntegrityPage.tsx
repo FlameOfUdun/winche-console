@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
-import { isKeep, keepOf, keepValue, secretBody, secretProblem, secretTyped, trimSecret } from "../../api/secrets";
+import { isKeep, keepOf, keepValue, secretBody, secretProblem, secretTyped } from "../../api/secrets";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { Copy } from "../../components/Copy";
 import { useOnTop } from "../../components/dialogStack";
@@ -449,7 +449,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
   const save = async () => {
     const problem = secretProblem(typed);
     if (problem) { setError(problem); return; }
-    const b = secretBody(trimSecret(typed));
+    const b = secretBody(typed);
     setBusy(true); setError(null);
     try { await api.setPlayServiceAccount(b.value ?? null, b.reference ?? null); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -604,7 +604,7 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
     setBusy(true); setError(null);
     try {
       await api.updateApp(app.id, v);
-      if (v.webSiteKey && secretTyped(secret)) { const b = secretBody(trimSecret(secret)); await api.setTurnstileSecret(app.id, b.value ?? null, b.reference ?? null); }
+      if (v.webSiteKey && secretTyped(secret)) { const b = secretBody(secret); await api.setTurnstileSecret(app.id, b.value ?? null, b.reference ?? null); }
       await qc.invalidateQueries({ queryKey: INTEGRITY }); close();
     }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -689,7 +689,7 @@ export function AddAppDialog({ opened, onClose }: { opened: boolean; onClose: ()
       return;
     }
     try {
-      if (fields.webSiteKey && secretTyped(secret)) { const b = secretBody(trimSecret(secret)); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
+      if (fields.webSiteKey && secretTyped(secret)) { const b = secretBody(secret); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
       setAppId(id);
       await qc.invalidateQueries({ queryKey: INTEGRITY });
     } catch (e) {

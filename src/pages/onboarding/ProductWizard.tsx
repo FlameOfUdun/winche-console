@@ -12,7 +12,7 @@ import type { ArchiveLocation, StorageSettings } from "../../api/dataSettings";
 import { testModeRules, type ProductId, type RulesMode } from "../../api/project";
 import { surface } from "../../theme";
 import { SecretInput } from "../../components/SecretInput";
-import { secretTyped, trimSecret } from "../../api/secrets";
+import { secretProblem, secretTyped } from "../../api/secrets";
 
 const NAMES: Record<ProductId, string> = {
   database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets",
@@ -50,7 +50,7 @@ async function publishTestRules(sys: "database" | "storage" | "assets") {
 /** Moves storage to a bucket on a server that has no files yet: start, wait until copied, switch, finish. Answers the server's warning, if any. */
 async function moveToBucket(location: ArchiveLocation, secret: string): Promise<string | undefined> {
   const reason = "Setup: files kept in a bucket";
-  const started = await api.startStorageMove(location, secretTyped(secret) ? trimSecret(secret) : null, reason);
+  const started = await api.startStorageMove(location, secretTyped(secret) ? secret : null, reason);
   for (let i = 0; i < 60; i++) {
     const s = await api.storageLocation();
     if (s.move?.phase === "ready") break;
@@ -98,11 +98,13 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   const testBucket = async () => {
     setBucketTest("testing");
     try {
-      const r = await api.testStorageLocation(location(), secretTyped(bucket.secret) ? trimSecret(bucket.secret) : null);
+      const r = await api.testStorageLocation(location(), secretTyped(bucket.secret) ? bucket.secret : null);
       setBucketTest(r.ok ? "ok" : r.steps.filter((s) => !s.ok).map((s) => `${s.name}: ${s.error}`).join("; "));
     } catch (e) { setBucketTest(errorMessage(e)); }
   };
 
+  // The SMTP password is only saved after the product has started: checked here first, so a bad one can't be left behind.
+  const smtpProblem = product === "authentication" && auth?.email.sender === "smtp" ? secretProblem(smtpPassword) : null;
   const setA = (patch: Partial<WincheAuthSettings>) => setAuth((a) => (a ? { ...a, ...patch } : a));
 
   const steps: { label: string; content: ReactNode; ready?: boolean }[] = (() => {
@@ -168,7 +170,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
               )}
             </Stack>
           ) },
-          { label: "Email", content: (
+          { label: "Email", ready: !smtpProblem, content: (
             <Stack gap="md">
               <SegmentedControl value={auth.email.sender === "smtp" ? "smtp" : auth.email.sender === "app" && serverEmail ? "app" : "logLinks"}
                 onChange={(v) => setA({ email: { ...auth.email, enabled: true, sender: v as "app" | "smtp" | "logLinks", smtp: v === "smtp" ? auth.email.smtp ?? { host: "", port: 587, security: "startTls", username: null, fromAddress: "", fromName: null } : auth.email.smtp } })}
@@ -215,6 +217,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   // Once started, the server sets the product up (its tables and the like): followed here, then the choices are saved.
   const [settingUp, setSettingUp] = useState<ProductSetupRun | null>(null);
   const finish = async () => {
+    if (smtpProblem) { setError(smtpProblem); return; }
     setBusy(true); setError(null);
     try {
       setSettingUp(await api.startProduct(product));
@@ -229,7 +232,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
       if ((product === "database" || product === "storage" || product === "assets") && rules === "test") await publishTestRules(product);
       if (product === "storage" && storage.data && typeof maxMb === "number")
         await api.saveDataSettings<StorageSettings>("storage", { ...storage.data.settings, maxFileSizeMb: maxMb }, "Setup: largest file");
-      if (product === "authentication" && auth) await api.saveSignInSettings(auth, secretTyped(smtpPassword) ? smtpPassword : null, "Setup: sign-in methods");
+      if (product === "authentication" && auth) await api.saveSignInSettings(auth, auth.email.sender === "smtp" && secretTyped(smtpPassword) ? smtpPassword : null, "Setup: sign-in methods");
       await Promise.all(["project", "overview"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
       if (moved) setWarning(moved); else onClose();
     } catch (e) {

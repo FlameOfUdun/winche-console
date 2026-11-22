@@ -12,7 +12,7 @@ vi.mock("../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../api/client")>();
   return {
     ...actual,
-    api: { ...actual.api, serverSettings: vi.fn(), saveServerSettings: vi.fn(), serverSettingsHistory: vi.fn(), setServerSecret: vi.fn(), testConsoleSignIn: vi.fn(), updateUser: vi.fn() },
+    api: { ...actual.api, serverSettings: vi.fn(), saveServerSettings: vi.fn(), serverSettingsHistory: vi.fn(), setServerSecret: vi.fn(), testConsoleSignIn: vi.fn(), updateUser: vi.fn(), secretSources: vi.fn() },
     // The console accounts' Winche Auth (Server settings → Authentication).
     serverAuthApi: { ...actual.serverAuthApi, signInSettings: vi.fn(), saveSignInSettings: vi.fn(), appUsers: vi.fn(), appUser: vi.fn(), appAuthConfig: vi.fn(), settingsHistory: vi.fn() },
   };
@@ -46,6 +46,7 @@ beforeEach(() => {
     consoleSignIn: { callbackUrl: "https://api.example.com/console/v1/session/oidc/callback", logoutUrl: "https://api.example.com/console/v1/session/oidc/backchannel-logout" },
   });
   mock(api.saveServerSettings).mockResolvedValue({});
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, sources: [], keys: [] });
   mock(api.serverSettingsHistory).mockResolvedValue({ versions: [] });
   mock(serverAuthApi.signInSettings).mockResolvedValue({
     available: true, settings: accountsSignIn, codeDefault: accountsSignIn, source: "code", version: null, editable: true, whyReadOnly: null,
@@ -217,4 +218,67 @@ test("a Keycloak provider's sync: its client and secret, saved with the provider
     consoleProviders: [expect.objectContaining({ id: "staff", keycloakSync: expect.objectContaining({ clientId: "winche-sync" }) })],
   }), "Follow Keycloak", expect.any(Number)));
   expect(api.setServerSecret).toHaveBeenCalledWith("server.consoleSignIn.staff.keycloakSync.clientSecret", "sync-s3cret");
+});
+
+const staffProvider = { id: "staff", enabled: true, issuer: "https://login.example.com", clientId: "winche-console", scopes: "openid profile email",
+  buttonLabel: "Sign in with Staff ID", roleClaim: null, adminValues: [], memberValues: [], viewerValues: [], createAccounts: true, trustProviderTwoStep: true };
+const pageWith = (version: number) => ({ settings: { ...deployment, consoleProviders: [staffProvider] }, deployment, source: "console",
+  version: { number: version, at: "2026-11-14T10:00:00Z", by: "admin@example.com", reason: "x" }, secrets: [] });
+
+test("console sign-in: a client secret reference that isn't one keeps Save off and nothing is saved", async () => {
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "" }] });
+  mock(api.serverSettings).mockResolvedValue(pageWith(2));
+  renderIt("sign-in");
+  const row = await screen.findByTestId("console-provider");
+  await userEvent.click(within(row).getByRole("button", { name: /Sign in with Staff ID/ }));
+  await userEvent.click(await within(row).findByText("Reference"));
+  await userEvent.type(within(row).getByLabelText("Client secret (reference)"), "not-a-reference");
+  await userEvent.type(within(row).getByLabelText("Reason for the change"), "New secret");
+  expect(within(row).getByText("Not a reference")).toBeInTheDocument();
+  expect(within(row).getByRole("button", { name: "Save" })).toBeDisabled();
+  await userEvent.clear(within(row).getByLabelText("Client secret (reference)"));
+  await userEvent.type(within(row).getByLabelText("Client secret (reference)"), "aws-sm:staff");
+  expect(within(row).getByRole("button", { name: "Save" })).toBeEnabled();
+  expect(api.saveServerSettings).not.toHaveBeenCalled();
+});
+
+test("console sign-in: the secret failing after the settings were saved, a retry is based on the new version", async () => {
+  mock(api.serverSettings).mockResolvedValueOnce(pageWith(2)).mockResolvedValue(pageWith(3));
+  mock(api.setServerSecret).mockRejectedValueOnce(new Error("Secrets are unavailable")).mockResolvedValue(undefined);
+  renderIt("sign-in");
+  const row = await screen.findByTestId("console-provider");
+  await userEvent.click(within(row).getByRole("button", { name: /Sign in with Staff ID/ }));
+  await userEvent.type(within(row).getByLabelText("Client secret"), "s3cret");
+  await userEvent.type(within(row).getByLabelText("Reason for the change"), "New secret");
+  await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+  expect(await within(row).findByText("Secrets are unavailable")).toBeInTheDocument();
+  expect(api.saveServerSettings).toHaveBeenLastCalledWith(expect.anything(), "New secret", 2);
+  await waitFor(() => expect(api.serverSettings).toHaveBeenCalledTimes(2));
+  await userEvent.click(within(row).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(api.saveServerSettings).toHaveBeenLastCalledWith(expect.anything(), "New secret", 3));
+  expect(api.setServerSecret).toHaveBeenLastCalledWith("server.consoleSignIn.staff.clientSecret", "s3cret");
+});
+
+test("adding a provider: a client secret reference that isn't one keeps Add provider off", async () => {
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "" }] });
+  renderIt("sign-in");
+  await userEvent.click(await screen.findByRole("button", { name: "Add new provider" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(within(dialog).getByLabelText(/^Issuer/), "https://login.example.com");
+  await userEvent.type(within(dialog).getByLabelText(/^Client ID/), "winche-console");
+  await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Staff sign-in");
+  const add = within(dialog).getByRole("button", { name: "Add provider" });
+  expect(add).toBeEnabled();
+  await userEvent.click(await within(dialog).findByText("Reference"));
+  await userEvent.type(within(dialog).getByLabelText("Client secret (reference)"), "not-a-reference");
+  expect(add).toBeDisabled();
+  expect(api.saveServerSettings).not.toHaveBeenCalled();
+});
+
+test("saving a provider checks its secret before the settings are saved", async () => {
+  const { saveProvider } = await import("./ConsoleProviders");
+  const { REFERENCE } = await import("../../api/secrets");
+  await expect(saveProvider(deployment, staffProvider, REFERENCE + "not-a-reference", "r")).rejects.toThrow("Not a reference");
+  expect(api.saveServerSettings).not.toHaveBeenCalled();
+  expect(api.setServerSecret).not.toHaveBeenCalled();
 });

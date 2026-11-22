@@ -64,9 +64,11 @@ export function useSignInCards() {
 }
 
 /** One sign-in provider: a row with its status that opens to its settings, saved with a reason. */
-export function ProviderRow({ logo, name, sub, on, open, onToggle, form, onSave, onCancel, testId }: {
+export function ProviderRow({ logo, name, sub, on, open, onToggle, form, onSave, onCancel, testId, saveDisabled }: {
   logo: ReactNode; name: ReactNode; sub?: ReactNode; on: boolean; open: boolean; onToggle?: () => void;
   form: ReactNode; onSave: (reason: string) => Promise<unknown>; onCancel: () => void; testId?: string;
+  /** Save stays off (a typed secret that can't be sent as it is). */
+  saveDisabled?: boolean;
 }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
@@ -97,7 +99,7 @@ export function ProviderRow({ logo, name, sub, on, open, onToggle, form, onSave,
               <TextInput placeholder="Why are you making this change?" aria-label="Reason for the change" style={{ flex: "1 1 260px" }}
                 value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
               <Button variant="default" onClick={() => { setReason(""); setError(null); onCancel(); }} disabled={busy}>Cancel</Button>
-              <Button onClick={save} loading={busy} disabled={!reason.trim()}>Save</Button>
+              <Button onClick={save} loading={busy} disabled={!reason.trim() || saveDisabled}>Save</Button>
             </Group>
           </div>
         )}

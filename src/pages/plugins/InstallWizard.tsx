@@ -6,7 +6,7 @@ import { IconArrowLeft, IconArrowRight, IconCheck, IconDownload } from "@tabler/
 import { api } from "../../api/client";
 import { errorWithList } from "../../api/appAuth";
 import type { PluginPackageInfo } from "../../api/functions";
-import { secretTyped } from "../../api/secrets";
+import { secretProblem, secretTyped } from "../../api/secrets";
 import { PageBand } from "../../components/NavPageHeader";
 import { SecretInput } from "../../components/SecretInput";
 import { Access, CatalogBadge, ID_RULE, PluginIcon, SettingsFields, holds, missingSettings, secretFor, shownSecrets, startValues, suggestId, toSend, type Values } from "./shared";
@@ -48,8 +48,11 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
   const missing = missingSettings(m.settings, values);
   const asked = shownSecrets(m.secrets, values);
   const unset = asked.filter((s) => s.required && !secretTyped(secrets[s.name]));
+  // Every typed secret is checked before anything is installed, so a bad one never leaves the plugin in without it.
+  const badSecret = asked.some((s) => !!secretProblem(secrets[s.name]));
 
   const install = async () => {
+    if (badSecret) return;
     setBusy(true); setError(null);
     try {
       const r = await api.installPlugin({ id, package: info.package, version: info.version, settings: toSend(values) });
@@ -106,7 +109,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
                 </>
               )}
             </Stack>
-            {nav(true)}
+            {nav(!badSecret)}
           </Stepper.Step>
           <Stepper.Step label="Install" description="Check and go">
             <Stack gap="md" mt="lg">
@@ -128,7 +131,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
             </Stack>
             <Group justify="space-between" mt="xl">
               <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={15} />} onClick={() => setStep(2)} disabled={busy}>Back</Button>
-              <Button leftSection={<IconDownload size={15} />} onClick={install} loading={busy}>Install {m.title}</Button>
+              <Button leftSection={<IconDownload size={15} />} onClick={install} loading={busy} disabled={badSecret}>Install {m.title}</Button>
             </Group>
           </Stepper.Step>
           <Stepper.Completed>

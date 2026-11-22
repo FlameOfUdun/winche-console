@@ -145,6 +145,24 @@ test("installing step by step: a setting shown and needed only when another says
   expect(await screen.findByText("Calls is installed as calls")).toBeInTheDocument();
 });
 
+test("installing: a secret reference that isn't one stops the wizard before anything is installed", async () => {
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "" }] });
+  renderAt(`/plugins/install?name=${encodeURIComponent(PKG)}`);
+  await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+  await userEvent.type(screen.getByLabelText(/^Account/), "AC1");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.click(await screen.findByText("Reference"));
+  await userEvent.type(screen.getByLabelText(/Auth token.*\(reference\)/), "not-a-reference");
+  expect(screen.getByText("Not a reference")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+  await userEvent.clear(screen.getByLabelText(/Auth token.*\(reference\)/));
+  await userEvent.type(screen.getByLabelText(/Auth token.*\(reference\)/), "aws-sm:calls-token");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.click(screen.getByRole("button", { name: "Install Calls" }));
+  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("CALLS__TOKEN", "\u0000ref:aws-sm:calls-token"));
+  expect(mock(api.installPlugin)).toHaveBeenCalledTimes(1);
+});
+
 test("an installed copy: its setup steps with its own addresses and settings, what it needs, its history", async () => {
   mock(api.plugins).mockResolvedValue({ plugins: [installed], functionsUrl: "https://api.example.com/projects/demo/functions/v1/http" });
   mock(api.pluginHistory).mockResolvedValue({ history: [

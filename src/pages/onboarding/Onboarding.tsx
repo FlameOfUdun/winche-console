@@ -13,6 +13,7 @@ import { TwoFactorSetup } from "../../auth/TwoFactorSetup";
 import { AddAppDialog } from "../integrity/IntegrityPage";
 import { NEW_PROVIDER, type ConsoleSignIn } from "../../api/server";
 import { ProviderEditor, saveProvider } from "../server/ConsoleProviders";
+import { secretProblem } from "../../api/secrets";
 import { surface } from "../../theme";
 import logoUrl from "../../assets/winche-logo.png";
 
@@ -204,7 +205,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
               )}
               {error && <Alert color="red" p="xs" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
               <Nav onBack={() => setStep("secure")} backLabel="Two-step sign-in" onSkip={afterAccess} skipLabel="Skip for now" onNext={addProvider} nextLabel="Add provider" busy={busy}
-                disabled={!server.data || !provider.issuer || !provider.clientId} />
+                disabled={!server.data || !provider.issuer || !provider.clientId || !!secretProblem(providerSecret)} />
             </Screen>
           )}
 

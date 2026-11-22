@@ -8,13 +8,15 @@ import { Onboarding } from "../Onboarding";
 import { ProductGate } from "../ProductGate";
 import { api } from "../../../api/client";
 import { useSession } from "../../../auth/session";
+import { keepValue, secretBody } from "../../../api/secrets";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return { ...actual, api: { ...actual.api, setup: vi.fn(), login: vi.fn(), project: vi.fn(), createProject: vi.fn(), projects: vi.fn(), checkProjectDatabase: vi.fn(), startProduct: vi.fn(), productSetup: vi.fn(),
     rulesParseText: vi.fn(), rulesSave: vi.fn(), apps: vi.fn(), twoFactorSetup: vi.fn(), functions: vi.fn(),
     checkSetupCode: vi.fn(), createUser: vi.fn(), serverSettings: vi.fn(), saveServerSettings: vi.fn(), setServerSecret: vi.fn(),
-    secretSources: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(), storageLocation: vi.fn(), storageMoveStep: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn() } };
+    secretSources: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(), storageLocation: vi.fn(), storageMoveStep: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(),
+    signInSettings: vi.fn(), saveSignInSettings: vi.fn(), appAuthConfig: vi.fn() } };
 });
 vi.mock("../../../auth/session", async (orig) => {
   const actual = await orig<typeof import("../../../auth/session")>();
@@ -140,6 +142,20 @@ test("after two-step sign-in: the team's identity provider, optional, saved with
   expect(await screen.findByLabelText("Project name")).toBeInTheDocument();
 });
 
+test("first-run identity provider: a client secret reference that isn't one keeps Add provider off", async () => {
+  sessionStorage.setItem("winche.onboarding", "providers");
+  mock(api.serverSettings).mockResolvedValue(serverPage);
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "" }] });
+  renderIt(<Onboarding mode="first-run" />);
+  await userEvent.type(await screen.findByLabelText("Issuer"), "https://login.example.com/realms/staff");
+  await userEvent.type(screen.getByLabelText("Client ID"), "winche-console");
+  expect(screen.getByRole("button", { name: "Add provider" })).toBeEnabled();
+  await userEvent.click(await screen.findByText("Reference"));
+  await userEvent.type(screen.getByLabelText("Client secret (reference)"), "not-a-reference");
+  expect(screen.getByRole("button", { name: "Add provider" })).toBeDisabled();
+  expect(api.saveServerSettings).not.toHaveBeenCalled();
+});
+
 test("the identity provider can be skipped", async () => {
   sessionStorage.setItem("winche.onboarding", "providers");
   mock(api.serverSettings).mockResolvedValue(serverPage);
@@ -251,11 +267,33 @@ test("storage in a bucket: the secret key can be kept in AWS like everywhere els
   await userEvent.click(screen.getByRole("button", { name: "Test the bucket" }));
   expect(await screen.findByText("It works.")).toBeInTheDocument();
   const kept = mock(api.testStorageLocation).mock.calls[0][1] as string;
-  expect(kept).toContain("aws-sm");
-  expect(kept.endsWith("\u0000SK")).toBe(true);
+  expect(secretBody(kept)).toEqual({ value: "SK", reference: "keep:aws-sm" });   // trimmed when sent
   for (let i = 0; i < 5 && !screen.queryByRole("button", { name: "Start storage" }); i++)
     await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
   await userEvent.click(await screen.findByRole("button", { name: "Start storage" }));
   expect(await screen.findByTestId("move-warning", {}, { timeout: 3000 })).toHaveTextContent("couldn't be kept in AWS");
   expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+  // The move is started with the same In AWS value: its store and the key, not a plain value.
+  const [where, key, why] = mock(api.startStorageMove).mock.calls[0];
+  expect(where).toEqual(expect.objectContaining({ kind: "s3", s3: expect.objectContaining({ bucket: "my-files" }) }));
+  expect(key).toBe(keepValue("aws-sm", "  SK  "));
+  expect(why).toBe("Setup: files kept in a bucket");
+});
+
+test("the authentication wizard: an SMTP password reference that isn't one keeps Continue off, so nothing is started", async () => {
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "" }] });
+  mock(api.appAuthConfig).mockResolvedValue({ serverEmail: null });
+  mock(api.signInSettings).mockResolvedValue({ available: true, settings: {
+    emailPassword: { enabled: true, minLength: 10, requireVerifiedEmail: false }, anonymous: false, emailLink: { enabled: false, linkUrl: "" },
+    twoStep: { enabled: false }, email: { enabled: false, sender: "logLinks", smtp: null } } });
+  renderIt(<ProductGate product="authentication"><div>AUTH PAGE</div></ProductGate>);
+  await userEvent.click(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
+  await userEvent.click(await screen.findByText("Send with SMTP"));
+  await userEvent.click(await screen.findByText("Reference"));
+  await userEvent.type(screen.getByLabelText("Password (reference)"), "not-a-reference");
+  expect(screen.getByText("Not a reference")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+  expect(api.startProduct).not.toHaveBeenCalled();
 });

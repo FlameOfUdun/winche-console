@@ -14,7 +14,7 @@ import type { WincheAuthSettings } from "../../api/appAuth";
 import { KeycloakSyncFields } from "../authentication/KeycloakSyncFields";
 import { ProviderRow } from "../authentication/SignInSettings";
 import { IdentityProviderForm, RegisterAddresses, SecretField, TestSignIn } from "./IdentityProviderForm";
-import { secretBody, secretTyped } from "../../api/secrets";
+import { secretBody, secretProblem, secretTyped } from "../../api/secrets";
 import { surface } from "../../theme";
 
 /**
@@ -22,6 +22,8 @@ import { surface } from "../../theme";
  * client secret when one was typed. A new provider gets its id here.
  */
 export async function saveProvider(settings: ServerSettings, provider: ConsoleSignIn, secret: string, reason: string): Promise<ConsoleSignIn> {
+  const problem = secretProblem(secret);
+  if (problem) throw new Error(problem);
   const list = settings.consoleProviders ?? [];
   const p = provider.id ? provider : { ...provider, id: newProviderId(provider, list.map((x) => x.id)) };
   const next = list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? p : x)) : [...list, p];
@@ -73,17 +75,27 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
     // A new provider gets its id now; its secret, when one was typed, after the settings. One being removed goes.
     const i = editing?.startsWith("provider:") ? Number(editing.slice(9)) : -1;
     const list = draft.consoleProviders.map((p) => (p.id ? p : { ...p, id: newProviderId(p, draft.consoleProviders.map((x) => x.id)) }));
+    // Both secrets are checked before anything is saved.
+    const problem = removing ? null : secretProblem(secret) ?? secretProblem(syncSecret);
+    if (problem) throw new Error(problem);
     await api.saveServerSettings({ ...draft, consoleProviders: removing ? list.filter((_, j) => j !== i) : list }, reason, page.version?.number ?? 0);
-    if (secretTyped(secret) && !removing && list[i]) await api.setServerSecret(providerSecretName(list[i].id), secret);
-    if (secretTyped(syncSecret) && !removing && list[i]?.keycloakSync) await api.setServerSecret(syncSecretName(list[i].id), syncSecret);
-    if (editing === "passwords" && own && ownDraft && JSON.stringify(own) !== JSON.stringify(ownDraft)) {
-      await serverAuthApi.saveSignInSettings(ownDraft, null, reason);
-      await qc.invalidateQueries({ queryKey: ["console-accounts-signin"] });
+    try {
+      if (secretTyped(secret) && !removing && list[i]) await api.setServerSecret(providerSecretName(list[i].id), secret);
+      if (secretTyped(syncSecret) && !removing && list[i]?.keycloakSync) await api.setServerSecret(syncSecretName(list[i].id), syncSecret);
+      if (editing === "passwords" && own && ownDraft && JSON.stringify(own) !== JSON.stringify(ownDraft)) {
+        await serverAuthApi.saveSignInSettings(ownDraft, null, reason);
+        await qc.invalidateQueries({ queryKey: ["console-accounts-signin"] });
+      }
+    } catch (e) {
+      // The settings were saved: the page's version moves on with them, so trying again isn't refused as out of date.
+      await qc.invalidateQueries({ queryKey: ["server-settings"] });
+      throw e;
     }
     for (const key of ["server-settings", "server-settings-history"]) await qc.invalidateQueries({ queryKey: [key] });
     cancel();
   };
-  const row = (id: string) => ({ open: editing === id, onSave: save, onCancel: cancel });
+  const secretsBad = !removing && (!!secretProblem(secret) || !!secretProblem(syncSecret));
+  const row = (id: string) => ({ open: editing === id, onSave: save, onCancel: cancel, saveDisabled: editing === id && secretsBad });
   const shownProviders = editing?.startsWith("provider:") && draft ? draft.consoleProviders : providers;
   const setProvider = (i: number, p: ConsoleSignIn) => draft && setDraft({ ...draft, consoleProviders: draft.consoleProviders.map((x, j) => (j === i ? p : x)) });
   const onlyAdmins = s.consolePasswordsOnlyForAdmins && providers.some((p) => p.enabled);
@@ -247,7 +259,7 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
         <TextInput placeholder="Why are you making this change?" aria-label="Reason for the change" value={reason} onChange={(e) => setReason(e.currentTarget.value)} />
         <Group justify="flex-end" gap="xs">
           <Button variant="default" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button onClick={save} loading={busy} disabled={!reason.trim() || !value.issuer || !value.clientId}>Add provider</Button>
+          <Button onClick={save} loading={busy} disabled={!reason.trim() || !value.issuer || !value.clientId || !!secretProblem(secret)}>Add provider</Button>
         </Group>
       </Stack>
     </Modal>
