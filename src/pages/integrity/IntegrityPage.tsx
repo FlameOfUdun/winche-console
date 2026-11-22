@@ -71,7 +71,7 @@ export function IntegrityPage() {
   const page = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]) });
   const d = integrity.data;
   return (
-    <Stack gap="lg" maw={1100}>
+    <Stack gap="lg" maw={1100} pb={40}>
       <div>
         <Title order={1} fz={24}>Integrity</Title>
         <Text size="sm" c={surface.muted} mt={4} maw={720}>
