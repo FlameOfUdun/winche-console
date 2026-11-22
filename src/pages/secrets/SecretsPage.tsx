@@ -107,7 +107,7 @@ export function SecretsPage() {
           <Stack gap={2}>
             <Text size="sm" c="dimmed" data-testid="aws-key-line">
               <IconCloudLock size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-              Optional: {key.isSet ? <>the project's own {key.title} reads its AWS references ({when(key.setAt!)}). </> : <>an {key.title} of the project's own, to read secrets from AWS{sources.data?.appCredentials ? " (else the server's own credentials are used)" : ""}. </>}
+              The project's {key.title}: {key.isSet ? `set ${when(key.setAt!)}` : "not set"}.{" "}
               <Anchor component="button" size="sm" onClick={() => setKeyOpen(true)} data-testid="aws-key-button">{key.isSet ? "Change" : "Add one"}</Anchor>
             </Text>
             <AccessLine sources={sources.data?.sources ?? []} checking={checking} onCheck={checkAgain} />

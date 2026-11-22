@@ -35,11 +35,9 @@ export function SourceKeyDialog({ k, appCredentials, opened, onClose }: { k: Sou
         {k.isSet ? <Badge color="teal" variant="light" tt="none">Set</Badge> : <Badge color="gray" variant="light" tt="none">Not set</Badge>}</Group>}>
       <Stack gap="md" data-testid="source-key">
         <Text size="sm" c="dimmed">
-          Secrets that are references ({k.sources.join(", ")}) are read with it. {k.isSet
-            ? `Set ${when(k.setAt!)}${k.setBy ? ` by ${k.setBy}` : ""}; never shown again. Type a new one to replace it.`
-            : appCredentials
-              ? "Without it, they're read with the server's own credentials (its role)."
-              : "Without it, only a server admin can set references (they'd be read with the server's own credentials)."}
+          {k.isSet
+            ? `Set ${when(k.setAt!)}${k.setBy ? ` by ${k.setBy}` : ""}.`
+            : appCredentials ? "Not set: the server's own credentials are used." : "Not set: only a server admin can set references."}
         </Text>
         {k.fields.map((f) => {
           const props = {

@@ -5,7 +5,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
-import { variablesFor, type Hook, type HooksPageData, type HookTestResult } from "../../api/hooks";
+import { type Hook, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
 import { EmptyState } from "../../components/EmptyState";
 import { IconSend, IconWebhook } from "@tabler/icons-react";
@@ -89,7 +89,7 @@ function HooksList({ source: only }: { source: HookSource }) {
       {!available && <Alert color="yellow">This server doesn't pass these events to webhooks.</Alert>}
       {mine.length === 0 && (
         <EmptyState icon={IconWebhook} title="No webhooks yet"
-          description={`When ${only === "database" ? "documents" : only === "storage" ? "files" : only === "assets" ? "releases or channels" : "users"} change, call an address of yours. To do something on the server instead, write a function with that trigger (Functions).`}
+          description={`When ${only === "database" ? "documents" : only === "storage" ? "files" : only === "assets" ? "releases or channels" : "users"} change, call an address of yours.`}
           action={d.editable && <Button disabled={!available} onClick={addHook}>Add webhook</Button>} />
       )}
       {mine.map((h) => {
@@ -175,7 +175,6 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
   const [h, setH] = useState<Hook>(initial);
   const [test, setTest] = useState<HookTestResult | "testing" | null>(null);
   const source = data.sources.find((s) => s.name === h.when.source);
-  const vars = variablesFor(h, data.sources);
   const set = (patch: Partial<Hook>) => { setH({ ...h, ...patch }); setTest(null); };
   const setWhen = (patch: Partial<Hook["when"]>) => set({ when: { ...h.when, ...patch } });
   const setDo = (patch: Partial<Hook["do"]>) => set({ do: { ...h.do, ...patch } });
@@ -203,13 +202,12 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
         </Chip.Group>
         {source?.hasPaths && (
           <TextInput label="Path (optional)" placeholder={source.name === "storage" ? "uploads/{userId}/{file=**}" : "orders/{orderId}"}
-            description="{name} matches one part and can be used below; {name=**} matches the rest. Empty: every path."
+            description="{name} matches one part, {name=**} the rest. Empty: every path."
             value={h.when.path ?? ""} onChange={(e) => setWhen({ path: e.currentTarget.value || null })} />
         )}
         <Text fw={600} size="sm">Call</Text>
-        <TextInput label="Address" placeholder="https://api.example.com/winche-hooks" description="Gets a signed POST with the event as JSON."
+        <TextInput label="Address" placeholder="https://api.example.com/winche-hooks"
           value={h.do.url ?? ""} onChange={(e) => setDo({ url: e.currentTarget.value })} />
-        {vars.length > 0 && <Text size="xs" c="dimmed">The body's vars carry: {vars.map((v) => `{${v}}`).join(" ")}</Text>}
         <Group gap="xs">
           <Button size="xs" variant="default" disabled={!ready} loading={test === "testing"} onClick={runTest}>Send a test</Button>
           <Button size="xs" disabled={!ready} onClick={() => onDone({ ...h, name: h.name.trim() })}>Done</Button>
@@ -243,7 +241,7 @@ function Deliveries({ source }: { source: HookSource }) {
         data={[{ value: "all", label: "All" }, { value: "failed", label: "Failed" }, { value: "pending", label: "Waiting" }, { value: "delivered", label: "Delivered" }]} />
       {rows.length === 0 ? (
         <EmptyState icon={IconSend} title={status === "all" ? "No deliveries yet" : "None here"}
-          description={status === "all" ? "Each time a hook fires, its delivery shows here with how it went." : "No deliveries with this status."} compact={status !== "all"} />
+          description={status === "all" ? "Each delivery shows here." : "No deliveries with this status."} compact={status !== "all"} />
       ) : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table fz="sm" verticalSpacing={6} miw={760}>

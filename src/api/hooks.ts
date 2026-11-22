@@ -28,9 +28,3 @@ export interface HookDelivery {
   lastStatus: number | null; lastResult: string | null; durationMs: number | null; event: unknown;
 }
 
-/** The {names} a webhook's event carries in vars: the source's own, plus the path pattern's captures. */
-export function variablesFor(hook: Hook, sources: HookSource[]): string[] {
-  const source = sources.find((s) => s.name === hook.when.source);
-  const captures = [...(hook.when.path ?? "").matchAll(/\{([A-Za-z0-9_]+)(=\*\*)?\}/g)].map((m) => m[1]);
-  return [...new Set([...captures, ...(source?.variables ?? [])])];
-}

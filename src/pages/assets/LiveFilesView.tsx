@@ -13,7 +13,6 @@ import { NewReleaseModal } from "./NewReleaseModal";
 
 type LiveFile = AssetLiveFiles["files"][number];
 
-const PUBLISH = `winche assets deploy assets --channel production -m "What changed"`;
 
 /** Up to this size a file is previewed in the console (fetched whole). */
 const PREVIEW_MAX = 50 * 1024 * 1024;
@@ -73,8 +72,7 @@ export function LiveFilesView() {
   if (!channel)
     return (
       <EmptyState icon={IconPackage} title="No assets yet"
-        description="Assets are a folder of your app's content (translations, pages, audio, videos), published from your terminal or CI. Apps get the release their channel points at: its files show here."
-        action={<Code block ta="left">{PUBLISH}</Code>} />
+        description="Published files show here." />
     );
   const d = live.data;
   return (
@@ -203,7 +201,6 @@ function FileDialog({ file, release, onClose }: { file: LiveFile | null; release
               </Table.Td></Table.Tr>
               {file.url && <Table.Tr><Table.Td c="dimmed">On the CDN</Table.Td><Table.Td>
                 <Text size="xs" ff="monospace" style={{ wordBreak: "break-all" }}>{file.url}</Text>
-                <Text size="xs" c="dimmed">Apps never see this address: they get links it accepts for a few minutes.</Text>
               </Table.Td></Table.Tr>}
             </Table.Tbody>
           </Table>

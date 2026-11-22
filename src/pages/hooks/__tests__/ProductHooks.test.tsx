@@ -63,7 +63,7 @@ test("a webhook for users' events: tested with a sample, then saved with a reaso
   renderPage("auth");
   // Authentication → Webhooks lists only the users' webhooks: none yet (the database's isn't shown).
   expect(await screen.findByText("No webhooks yet")).toBeInTheDocument();
-  expect(screen.getByText(/write a function with that trigger/)).toBeInTheDocument();
+  expect(screen.queryByText(/write a function with that trigger/)).toBeNull();
   expect(screen.queryByText("New visits")).toBeNull();
   await userEvent.click(await screen.findByRole("button", { name: "Add webhook" }));
   const editor = await screen.findByTestId("hook-editor");
@@ -73,7 +73,6 @@ test("a webhook for users' events: tested with a sample, then saved with a reaso
   await userEvent.click(within(editor).getByText("deleted"));
   expect(within(editor).queryByLabelText(/Path/)).toBeNull();   // user events have no path
   await userEvent.type(within(editor).getByLabelText(/^Address/), "https://crm.example.com/winche");
-  expect(within(editor).getByText("The body's vars carry: {uid} {email} {provider}")).toBeInTheDocument();
   await userEvent.click(within(editor).getByRole("button", { name: "Send a test" }));
   expect(await within(editor).findByTestId("hook-test")).toHaveTextContent("Delivered (200) in 42 ms");
   await userEvent.click(within(editor).getByRole("button", { name: "Done" }));

@@ -1,4 +1,4 @@
-import { Alert, Anchor, Button, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { IconApps, IconArrowRight, IconShieldCheck, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
@@ -100,7 +100,7 @@ export function OverviewPage() {
       <SimpleGrid cols={{ base: 1, lg: 3 }} spacing="md">
         <Paper withBorder p="lg" style={{ gridColumn: "span 2" }} className="winche-span-2">
           <Title order={2} fz={15} mb="xs">Recent changes</Title>
-          {changes.length === 0 && <EmptyState compact bordered={false} icon={IconHistory} title="Nothing has changed yet" description="Rules, function versions and settings changes show here, with who made them." />}
+          {changes.length === 0 && <EmptyState compact bordered={false} icon={IconHistory} title="Nothing has changed yet" description="Saved changes show here." />}
           {changes.map((c, i) => (
             <Group key={i} gap="md" py={8} wrap="nowrap" data-testid="change" align="baseline"
               style={{ borderTop: i === 0 ? undefined : `1px solid ${surface.subtle}` }}>
@@ -116,12 +116,10 @@ export function OverviewPage() {
               <IconApps size={18} color="var(--w-accent)" />
               <Title order={2} fz={15}>Your apps</Title>
             </Group>
-            {session?.state?.capabilities?.integrity ? (
-              <>
-                <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
-                <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
-              </>
-            ) : <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder.</Text>}
+            <Text size="sm" c={surface.muted}>No apps yet.</Text>
+            {session?.state?.capabilities?.integrity && (
+              <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
+            )}
           </Paper>
         )}
       </SimpleGrid>

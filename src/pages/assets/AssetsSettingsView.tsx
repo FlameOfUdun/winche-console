@@ -31,7 +31,7 @@ export function AssetsSettingsView() {
       <AssetLocationCard />
       <AssetCdnsCard />
 
-      <EditCard title="Releases" description="What a release may hold. Publishing anything larger is refused." {...st.card("limits")}
+      <EditCard title="Releases" description="Publishing anything larger is refused." {...st.card("limits")}
         rows={[
           { label: "Files in a release", value: `up to ${s.maxFilesPerRelease.toLocaleString()}` },
           { label: "Largest file", value: bytes(s.maxFileBytes) },
@@ -48,7 +48,7 @@ export function AssetsSettingsView() {
           </>
         )} />
 
-      <EditCard title="Clean-up" description="Older releases no channel points at are deleted, then the contents nothing uses any more." {...st.card("keep")}
+      <EditCard title="Clean-up" {...st.card("keep")}
         rows={[{ label: "Keep", value: s.keepReleases === 0 ? "Every release" : `The newest ${s.keepReleases} releases` }]}
         form={d && (
           <EditRow label="Keep the newest" hint="0 keeps every release. Releases a channel points at are always kept.">
@@ -77,7 +77,7 @@ function AssetLocationCard() {
     try { await api.cancelAssetMove(); await refresh(); } catch (e) { setError(errorMessage(e)); }
   };
   return (
-    <EditCard title="Where assets are kept" description="Each content once, whatever the releases using it." testId="asset-location-card"
+    <EditCard title="Where assets are kept" testId="asset-location-card"
       rows={[{ label: "Kept in", value: <span data-testid="asset-location-active">{s.activeLabel}</span> }]}
       actions={!move && !choosing && <Button variant="subtle" disabled={!s.editable} onClick={() => setChoosing(true)}>Move assets…</Button>}>
       {(move || choosing) && (
@@ -150,12 +150,11 @@ export function AssetCdnsCard() {
 
   return (
     <EditCard title="CDNs" testId="asset-cdns-card"
-      description="Files a release names on a CDN instead of storing them. Apps never see these addresses: each read gets a link the CDN accepts for a few minutes."
       actions={<Button variant="subtle" disabled={!editable} onClick={() => { setError(null); setForm({ id: "", kind: "cloudfront", baseUrl: "", keyPairId: "", linkMinutes: 10, privateKey: "", reason: "", isNew: true }); }}>Add a CDN</Button>}>
       <div style={{ padding: "0 24px 16px" }}>
         {s.cdns.length === 0 ? (
           <EmptyState icon={IconCloud} title="No CDNs"
-            description="Keep large files such as videos on CloudFront: list them in assets.cdn.json and winche assets deploy publishes them without uploading." />
+            description="Keep large files such as videos on a CDN." />
         ) : (
           <Table fz="sm" verticalSpacing={6} data-testid="asset-cdns">
             <Table.Tbody>
@@ -193,25 +192,22 @@ export function AssetCdnsCard() {
         {form && (
           <Stack gap="sm">
             <TextInput label="Name" description="Letters, digits and -." value={form.id} disabled={!form.isNew} onChange={(e) => setForm({ ...form, id: e.currentTarget.value })} />
-            <TextInput label="Base address" description="The files' addresses start with it." placeholder="https://cdn.example.com/app/" value={form.baseUrl}
+            <TextInput label="Base address" placeholder="https://cdn.example.com/app/" value={form.baseUrl}
               onChange={(e) => setForm({ ...form, baseUrl: e.currentTarget.value })} />
             <Stack gap={4}>
               <Text size="sm" fw={500}>Links</Text>
               <SegmentedControl value={form.kind} onChange={(v) => setForm({ ...form, kind: v })} data-testid="cdn-kind"
                 data={[{ label: "Signed (CloudFront)", value: "cloudfront" }, { label: "Public", value: "public" }]} />
-              <Text size="xs" c="dimmed">{signedForm
-                ? "Apps get links that work for a few minutes; the address alone gets nothing."
-                : "Apps get the files' addresses as they are: anyone with one can download it. Switch to signed links later without changing the apps."}</Text>
+              {!signedForm && <Text size="xs" c="dimmed">Anyone with a file's address can download it.</Text>}
             </Stack>
             {signedForm && (
               <>
-                <TextInput label="Key pair id" description="The CloudFront public key's id, in a key group the distribution trusts." value={form.keyPairId}
+                <TextInput label="Key pair id" value={form.keyPairId}
                   onChange={(e) => setForm({ ...form, keyPairId: e.currentTarget.value })} />
                 <NumberInput label="Links work for" suffix=" minutes" min={1} max={60} value={form.linkMinutes} onChange={(v) => setForm({ ...form, linkMinutes: v })} />
                 <SecretInput label="Private key" multiline value={form.privateKey} onChange={(v) => setForm({ ...form, privateKey: v })}
                   savedReference={s.cdns.find((c) => c.id === form.id)?.key?.reference}
-                  placeholder={form.isNew || !s.cdns.find((c) => c.id === form.id)?.key ? "-----BEGIN PRIVATE KEY-----" : "Leave empty to keep the saved key"}
-                  description="The RSA key CloudFront checks links with: best as a reference to AWS, so it's never kept here." />
+                  placeholder={form.isNew || !s.cdns.find((c) => c.id === form.id)?.key ? "-----BEGIN PRIVATE KEY-----" : "Leave empty to keep the saved key"} />
               </>
             )}
             <TextInput label="Why" placeholder="Videos on CloudFront" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.currentTarget.value })} />
@@ -227,7 +223,7 @@ export function AssetCdnsCard() {
       <Modal opened={testing !== null} onClose={() => setTesting(null)} title={`Test ${testing?.cdn.id}`}>
         {testing && (
           <Stack gap="sm">
-            <TextInput label="A file on it" description="Asked for through a link signed now." value={testing.url} onChange={(e) => setTesting({ ...testing, url: e.currentTarget.value, result: null })} />
+            <TextInput label="A file on it" value={testing.url} onChange={(e) => setTesting({ ...testing, url: e.currentTarget.value, result: null })} />
             {testing.result && <Alert color={testing.result.ok ? "green" : "red"} p="xs" data-testid="asset-cdn-test">{testing.result.message}</Alert>}
             <Group justify="flex-end"><Button loading={testing.busy} onClick={runTest}>Test</Button></Group>
           </Stack>

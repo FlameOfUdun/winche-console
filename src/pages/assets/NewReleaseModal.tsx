@@ -137,9 +137,7 @@ export function NewReleaseModal({ opened, live, onClose }: { opened: boolean; li
         body: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, overflow: "hidden" },
       }}>
       <Stack gap="sm" data-testid="new-release" style={{ flex: "1 1 auto", minHeight: 0 }}>
-        <Text size="sm" c="dimmed">
-          Starts from {live.channel}'s release #{live.release}. A later deploy from your repository asks before taking out what you add here.
-        </Text>
+        <Text size="sm" c="dimmed">Starts from {live.channel}'s release #{live.release}.</Text>
 
         <Paper withBorder radius="md" px="sm" py="xs" style={{ borderStyle: "dashed", flexShrink: 0 }}
           onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files, false); }}

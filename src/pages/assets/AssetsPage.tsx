@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Badge, Button, Code, Collapse, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core";
+import { Alert, Badge, Button, Collapse, Group, Loader, Modal, Paper, ScrollArea, Select, Stack, Table, Text, Title, UnstyledButton } from "@mantine/core";
 import { HistoryDrawer } from "../../components/EditCard";
 import { IconChevronDown, IconChevronRight, IconPackage, IconRoute } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,7 +27,6 @@ export function AssetsPage() {
   );
 }
 
-const PUBLISH = `winche assets deploy assets --channel production -m "What changed"`;
 
 export function ReleasesView() {
   const data = useQuery({ queryKey: ["assets"], queryFn: api.assets, refetchInterval: 15_000 });
@@ -41,8 +40,7 @@ export function ReleasesView() {
   if (d.releases.length === 0)
     return (
       <EmptyState icon={IconPackage} title="No releases yet"
-        description="Assets are a folder of your app's content (translations, pages, images, videos), published from your terminal or CI. Each publish is a release; channels point apps at one."
-        action={<Code block ta="left">{PUBLISH}</Code>} />
+        description="Each publish is a release." />
     );
 
   const channelsOf = (n: number) => d.channels.filter((c) => c.release === n);
@@ -112,7 +110,7 @@ function ChannelsCard({ channels, releases, admin }: { channels: AssetChannel[];
       </Group>
       {channels.length === 0 ? (
         <EmptyState compact bordered={false} icon={IconRoute} title="No channels yet"
-          description={<>Publish with <Code>--channel production</Code> to make one, or point one at a release from the CLI.</>} />
+          description="Publishing to a channel makes one." />
       ) : (
         <Table fz="sm" verticalSpacing={8}>
           <Table.Tbody>

@@ -43,11 +43,11 @@ function renderView() {
   );
 }
 
-test("no releases: how to publish the first", async () => {
+test("no releases: an empty state", async () => {
   mock(api.assets).mockResolvedValue({ ...page, channels: [], releases: [] });
   renderView();
   expect(await screen.findByText("No releases yet")).toBeInTheDocument();
-  expect(screen.getByText(/winche assets deploy/)).toBeInTheDocument();
+  expect(screen.queryByText(/winche assets deploy/)).toBeNull();
 });
 
 test("channels and releases; a release opens with its files and changes", async () => {

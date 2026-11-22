@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Alert, Button, Code, Group, Loader, Modal, NumberInput, PasswordInput, SegmentedControl, SimpleGrid, Stack, Stepper, Switch, Text, TextInput,
+  Alert, Button, Group, Loader, Modal, NumberInput, PasswordInput, SegmentedControl, SimpleGrid, Stack, Stepper, Switch, Text, TextInput,
   UnstyledButton,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -136,7 +136,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
           ) },
           { label: "Starting rules", content: <RulesStep mode={rules} setMode={setRules} /> },
           { label: "File size", content: (
-            <NumberInput label="Largest file (MB)" description="Uploads bigger than this are refused. Change it any time in Storage → Settings."
+            <NumberInput label="Largest file (MB)" description="Bigger uploads are refused"
               min={1} max={10240} value={maxMb} onChange={(v) => setMaxMb(typeof v === "number" ? v : "")} w={260} />
           ) },
         ];
@@ -161,7 +161,6 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
                 <TextInput pl={52} label="Where the link opens" placeholder="https://app.example.com/finish-sign-in" value={auth.emailLink.linkUrl}
                   onChange={(e) => setA({ emailLink: { ...auth.emailLink, linkUrl: e.currentTarget.value } })} />
               )}
-              <Text size="sm" c={surface.faint}>Google, Apple and your own identity providers: in Sign-in methods, once started.</Text>
             </Stack>
           ) },
           { label: "Email", content: (
@@ -169,7 +168,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
               <SegmentedControl value={auth.email.sender === "smtp" ? "smtp" : auth.email.sender === "app" && serverEmail ? "app" : "logLinks"}
                 onChange={(v) => setA({ email: { ...auth.email, enabled: true, sender: v as "app" | "smtp" | "logLinks", smtp: v === "smtp" ? auth.email.smtp ?? { host: "", port: 587, security: "startTls", username: null, fromAddress: "", fromName: null } : auth.email.smtp } })}
                 data={[...(serverEmail ? [{ value: "app", label: "The server's email" }] : []), { value: "logLinks", label: "Not yet: log the links" }, { value: "smtp", label: "Send with SMTP" }]} />
-              {auth.email.sender === "app" && serverEmail && <Text size="sm" c={surface.faint}>Sent through {serverEmail}, from your app's name: nothing to set up.</Text>}
+              {auth.email.sender === "app" && serverEmail && <Text size="sm" c={surface.faint}>Sent through {serverEmail}.</Text>}
               {auth.email.sender === "smtp" && auth.email.smtp && (
                 <Stack gap="xs">
                   <SimpleGrid cols={2} spacing="xs">
@@ -184,37 +183,24 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
                     onChange={(e) => setA({ email: { ...auth.email, smtp: { ...auth.email.smtp!, fromAddress: e.currentTarget.value } } })} />
                 </Stack>
               )}
-              {auth.email.sender !== "smtp" && <Text size="sm" c={surface.muted}>Verification and reset links go to the server's logs until you set up sending, in Authentication → Settings.</Text>}
+              {auth.email.sender !== "smtp" && <Text size="sm" c={surface.muted}>Verification and reset links go to the server's logs until sending is set up.</Text>}
             </Stack>
           ) },
           { label: "Two-step sign-in", content: (
             <Stack gap="sm">
-              <Switch label="Let users add an authenticator app" description="Then every sign-in also asks for its code. Their tokens carry mfa: true."
+              <Switch label="Let users add an authenticator app"
                 checked={auth.twoStep.enabled} onChange={(e) => setA({ twoStep: { ...auth.twoStep, enabled: e.currentTarget.checked } })} />
             </Stack>
           ) },
         ];
       case "assets":
-        return [
-          { label: "Starting rules", content: <RulesStep mode={rules} setMode={setRules} /> },
-          { label: "Publishing", content: (
-            <Stack gap="sm">
-              <Text size="sm" c={surface.muted}>Assets are files in a folder of your app's repository, published from your terminal or CI. Each publish is a release; a channel points apps at one.</Text>
-              <Code block>{`winche login              # once
-winche assets deploy assets --channel production -m "First release"`}</Code>
-            </Stack>
-          ) },
-        ];
+        return [{ label: "Starting rules", content: <RulesStep mode={rules} setMode={setRules} /> }];
       case "functions":
-        return [{ label: "Your editor", content: (
+        return [{ label: "Runtime", content: (
           <Stack gap="sm">
             {fns.isLoading ? <Loader size="sm" /> : fns.data?.runtimeProblem
               ? <Alert color="red" title="This server can't run functions yet">{fns.data.runtimeProblem}</Alert>
               : <Alert color="teal" p="sm">This server can run functions.</Alert>}
-            <Text size="sm" c={surface.muted}>Functions are written in your editor and deployed from your terminal or CI:</Text>
-            <Code block>{`winche functions init     # a functions/ folder with types for VS Code
-winche login              # once
-winche functions deploy`}</Code>
           </Stack>
         ) }];
     }

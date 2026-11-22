@@ -98,14 +98,11 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
               placeholder={savedReference ?? `${list[0]?.name ?? "aws-ssm"}:…`} value={typed}
               onChange={(e) => { setTest(null); onChange(REFERENCE + e.currentTarget.value); }}
               description={savedReference && !typed
-                ? `Read from ${sourceTitle(savedReference, list)}: ${savedReference}. Type another to change it.`
-                : <>Where it's kept: {list.map((s, i) => <span key={s.name}>{i > 0 && "; "}<b>{s.name}:</b> {s.hint}</span>)}. Add <b>#field</b> for one field of a JSON secret.</>} />
+                ? `Read from ${sourceTitle(savedReference, list)}: ${savedReference}`
+                : undefined} />
             <Button variant="default" onClick={run} loading={testing} disabled={!typed || disabled}>Test</Button>
           </Group>
           {test && <Text size="xs" c={test.ok ? "teal" : "red"} data-testid="secret-test">{test.ok ? "Read just now: it works." : test.problem}</Text>}
-          {sources.data && !sources.data.appCredentials && (
-            <Text size="xs" c="dimmed">Read with the project's own key for that place (Settings → Secrets); the server's own credentials are for its admins.</Text>
-          )}
         </>
       )}
     </Stack>

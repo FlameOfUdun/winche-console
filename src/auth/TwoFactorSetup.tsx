@@ -38,7 +38,7 @@ export function TwoFactorSetup({ onDone, forced }: { onDone: () => void; forced?
       {/* Forced setup sits in a sign-in card that already has the heading. */}
       {!forced && <Title order={4}>Set up two-step sign-in</Title>}
       <Text size="sm" c="dimmed" ta={forced ? "center" : undefined}>
-        Scan this with an authenticator app (Google Authenticator, 1Password, Authy), then type the 6-digit code.
+        Scan this with an authenticator app, then type the 6-digit code.
       </Text>
       {info && (
         <>
