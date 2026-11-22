@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Alert, Group, NumberInput, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
+import { FieldRow } from "./FieldRow";
+import { Alert, NumberInput, PasswordInput, SegmentedControl, Select, Stack, Text, TextInput } from "@mantine/core";
 import type { DataMoveCheck, DataMoveTarget } from "../api/dataLocation";
 import { surface } from "../theme";
 
@@ -37,15 +38,15 @@ export function ProjectDatabaseFields({ state: s }: { state: ProjectDatabaseStat
       </Stack>
       {s.where === "elsewhere" && (
         <>
-          <Group grow align="flex-end" wrap="wrap">
+          <FieldRow>
             <TextInput label="Host" placeholder="db.example.com" styles={mono} value={s.db.host} onChange={(e) => s.set({ host: e.currentTarget.value })} />
             <NumberInput label="Port" styles={mono} min={1} max={65535} value={s.db.port} onChange={(v) => s.set({ port: Number(v) || 5432 })} />
-          </Group>
-          <Group grow align="flex-end" wrap="wrap">
+          </FieldRow>
+          <FieldRow>
             <TextInput label="User" styles={mono} value={s.db.username} onChange={(e) => s.set({ username: e.currentTarget.value })} />
             <PasswordInput label="Password" autoComplete="new-password" value={s.db.password} onChange={(e) => s.set({ password: e.currentTarget.value })} />
             <Select label="SSL" allowDeselect={false} data={["Disable", "Prefer", "Require", "VerifyFull"]} value={s.db.sslMode} onChange={(v) => v && s.set({ sslMode: v })} />
-          </Group>
+          </FieldRow>
           <TextInput label="Database" description="New (if this user may create databases), or an empty one. Empty: named after the project." styles={mono}
             value={s.db.database} onChange={(e) => s.set({ database: e.currentTarget.value })} />
           {s.check && (s.check.ok

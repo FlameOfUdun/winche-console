@@ -1,4 +1,5 @@
 import { useAuthApi } from "./authScope";
+import { FieldRow } from "../../components/FieldRow";
 import { SavedVersionContext, SectionTitle } from "../../components/SectionTitle";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -205,10 +206,10 @@ function ProviderForm({ initial, others, onDone, onCancel }: {
     <Paper p={0} aria-label="Provider">
       <Stack gap="sm">
         {/* The dialog's title names it. */}
-        <Group grow align="flex-start" wrap="wrap">
+        <FieldRow>
           <Select label="Type" data={PROVIDER_KINDS} value={p.kind} allowDeselect={false} onChange={(v) => setP({ ...p, kind: v ?? "oidc" })} />
           <TextInput label="Name shown here" placeholder="Example Health Keycloak" value={p.displayName ?? ""} onChange={(e) => setP({ ...p, displayName: e.currentTarget.value })} />
-        </Group>
+        </FieldRow>
         <TextInput label="Address (issuer)" placeholder="https://auth.example.com/realms/app" ff="monospace"
           description={p.kind === "keycloak" ? "Keycloak: https://<server>/realms/<realm>" : p.kind === "entra" ? "Entra ID: https://login.microsoftonline.com/<tenant id>/v2.0" : undefined}
           value={p.issuer} onChange={(e) => { setP({ ...p, issuer: e.currentTarget.value }); setCheck(null); }} />
@@ -223,13 +224,13 @@ function ProviderForm({ initial, others, onDone, onCancel }: {
               : check.error}
           </Alert>
         )}
-        <Group grow align="flex-start" wrap="wrap">
+        <FieldRow>
           <TextInput label="Audience" description="The app's client id at the provider (several: separate with commas)." ff="monospace"
             value={p.audiences.join(", ")} disabled={!p.validateAudience}
             onChange={(e) => setP({ ...p, audiences: e.currentTarget.value.split(",").map((a) => a.trim()).filter(Boolean) })} />
           <TextInput label="Short name" description="Rules see it as request.auth.token.issuer." ff="monospace"
             value={p.name} onChange={(e) => setP({ ...p, name: e.currentTarget.value.trim() })} />
-        </Group>
+        </FieldRow>
         <Switch label="Check the audience" checked={p.validateAudience} onChange={(e) => setP({ ...p, validateAudience: e.currentTarget.checked })} />
         {problems.length > 0 && <Text size="xs" c="red.8">{problems.join(" ")}</Text>}
         <Group gap="xs">

@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { FieldRow } from "../../components/FieldRow";
 import {
-  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Table,
-  Tabs, TagsInput, Text, Textarea, TextInput, Title, Tooltip,
+  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Table,
+  Tabs, TagsInput, Text, TextInput, Title, Tooltip,
 } from "@mantine/core";
 import {
   IconApps, IconBrandAndroid, IconBrandApple, IconDots, IconDownload,
@@ -15,6 +16,7 @@ import { secretBody } from "../../api/secrets";
 import { EditCard } from "../../components/EditCard";
 import { EmptyState } from "../../components/EmptyState";
 import { ScrollDialog } from "../../components/ScrollDialog";
+import { SecretInput } from "../../components/SecretInput";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { surface } from "../../theme";
 import { Copy } from "../apps/AppsPage";
@@ -485,9 +487,8 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
       ]}>
       <Modal opened={open} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Google service account</Text>}>
         <Stack gap="md">
-          <Textarea label="Key file (JSON)" description="Pasted here, or picked below; or a reference to where it's kept, like aws-sm:clinic/play-integrity. It's kept encrypted and never shown again."
-            autosize minRows={4} maxRows={10} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 12 } }}
-            value={typed} onChange={(e) => setTyped(e.currentTarget.value)} data-autofocus />
+          <SecretInput label="Key file (JSON)" multiline value={typed} onChange={setTyped} savedReference={account?.reference}
+            description="Pasted here or picked below. Kept in Winche Secrets, encrypted, never shown again." />
           <Group justify="space-between">
             <FileButton accept="application/json,.json" onChange={async (f) => { if (f) setTyped(await f.text()); }}>
               {(props) => <Button {...props} variant="default" size="xs">Pick the key file</Button>}
@@ -511,16 +512,18 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
  * Name, id and identifiers of an app. The id is chosen when adding (filled in from the name until edited) and shown
  * locked when editing: it's in the app's options file.
  */
-function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }: {
+function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, savedSecretReference }: {
   value: AppFields; onChange: (v: AppFields) => void; fixedId?: string;
   /** The Turnstile secret key typed (write-only), and whether one is kept. */
   secret: string; onSecret: (s: string) => void; secretSet?: boolean;
+  /** The kept secret's reference, when it's read from elsewhere (AWS). */
+  savedSecretReference?: string | null;
 }) {
   const [idEdited, setIdEdited] = useState(false);
   const id = value.id ?? "";
   return (
     <Stack gap="sm">
-      <Group grow wrap="wrap" align="flex-start">
+      <FieldRow>
       <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name}
         onChange={(e) => {
           const name = e.currentTarget.value;
@@ -535,17 +538,17 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
           error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
           onChange={(e) => { setIdEdited(true); onChange({ ...value, id: e.currentTarget.value.toLowerCase() }); }} />
       )}
-      </Group>
+      </FieldRow>
       <Text size="xs" c={surface.muted}>Set the platforms the app runs on; the rest stay empty.</Text>
 
       <PlatformHeading icon={<IconBrandApple size={16} />} title="Apple (iOS, macOS)" proof="App Attest" />
-      <Group grow wrap="wrap" align="flex-start">
+      <FieldRow>
         <TextInput label="Apple bundle id" placeholder="com.example.clinic"
           value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
         <TextInput label="Apple team id" placeholder="ABCDE12345" description="In your Apple developer account"
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={value.appleTeamId ?? ""} onChange={(e) => onChange({ ...value, appleTeamId: e.currentTarget.value.toUpperCase() || null })} />
-      </Group>
+      </FieldRow>
       {(value.appleBundleId || value.appleTeamId) && (
         <Switch label="Accept development builds" checked={value.appleDevelopment}
           description="App Attest keys from builds run from Xcode, besides TestFlight and App Store ones. Turn it off before you enforce in production."
@@ -553,21 +556,21 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
       )}
 
       <PlatformHeading icon={<IconBrandAndroid size={16} />} title="Android" proof="Play Integrity" />
-      <Group grow wrap="wrap" align="flex-start">
+      <FieldRow>
         <TextInput label="Android package" placeholder="com.example.clinic"
           value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
         <NumberInput label="Google Cloud project number" description="Linked to the app in Play Console" placeholder="123456789012"
           disabled={!value.androidPackage}
           allowDecimal={false} allowNegative={false} hideControls value={value.androidCloudProjectNumber ?? ""}
           onChange={(v) => onChange({ ...value, androidCloudProjectNumber: typeof v === "number" ? v : v ? Number(v) : null })} />
-      </Group>
+      </FieldRow>
       {value.androidPackage && (
         <>
-          <Group grow wrap="wrap" align="flex-start">
+          <FieldRow>
             <Select label="The device must meet" allowDeselect={false} value={value.androidDeviceIntegrity}
               data={(Object.keys(DEVICE_LEVEL) as AndroidDeviceLevel[]).map((k) => ({ value: k, label: DEVICE_LEVEL[k] }))}
               onChange={(v) => onChange({ ...value, androidDeviceIntegrity: (v ?? "device") as AndroidDeviceLevel })} />
-          </Group>
+          </FieldRow>
           <Switch label="Accept builds from outside Google Play" checked={value.androidSideloaded}
             description="Debug and internal builds Google Play doesn't know. With signing certificates set below, only builds signed with them."
             onChange={(e) => onChange({ ...value, androidSideloaded: e.currentTarget.checked })} />
@@ -578,21 +581,19 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
       )}
 
       <PlatformHeading icon={<IconWorld size={16} />} title="Web" proof="browser check (Cloudflare Turnstile)" />
-      <Group grow wrap="wrap" align="flex-start">
+      <FieldRow>
         <TextInput label="Turnstile site key" placeholder="0x4AAAAAAA…"
           description="Cloudflare → Turnstile → Add widget (Invisible)"
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
-        <PasswordInput label="Turnstile secret key" placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…, or aws-sm:…"}
-          description="Kept encrypted, never shown again" disabled={!value.webSiteKey}
-          value={secret} onChange={(e) => onSecret(e.currentTarget.value)} />
-      </Group>
+        <TagsInput label="Sites the app runs on" placeholder="app.example.com, then Enter" disabled={!value.webSiteKey}
+          description="Empty: any. Add the same ones to the widget."
+          value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
+      </FieldRow>
       {value.webSiteKey && (
-        <>
-          <TagsInput label="Sites the app runs on" placeholder="app.example.com, then Enter (empty: any)"
-            description="A browser check made on another site is refused. Add the same hostnames to the widget in Cloudflare."
-            value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
-        </>
+        <SecretInput label="Turnstile secret key" value={secret} onChange={onSecret}
+          placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…"} savedReference={savedSecretReference}
+          description="Kept in Winche Secrets, encrypted, never shown again" />
       )}
     </Stack>
   );
@@ -633,7 +634,7 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
     <ScrollDialog opened={!!app} onClose={close} title={`Edit ${app?.name ?? ""}`}
       footer={<><Button variant="default" onClick={close}>Cancel</Button><Button onClick={save} loading={busy} disabled={!v.name.trim()}>Save</Button></>}>
       <Stack gap="md">
-        <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} secret={secret} onSecret={setSecret} secretSet={!!app?.turnstileSecret} />
+        <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} secret={secret} onSecret={setSecret} secretSet={!!app?.turnstileSecret} savedSecretReference={app?.turnstileSecret?.reference} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
       </Stack>
     </ScrollDialog>

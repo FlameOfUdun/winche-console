@@ -126,3 +126,10 @@
 .winche-markdown table { border-collapse: collapse; margin: 0.6em 0; display: block; overflow-x: auto; }
 .winche-markdown th, .winche-markdown td { border: 1px solid var(--w-border); padding: 4px 10px; text-align: left; vertical-align: top; }
 .winche-markdown a { color: var(--w-accent); }
+
+/* FieldRow: each field's help line and error go under its box, so the boxes line up. */
+.w-field-row .mantine-InputWrapper-root { display: flex; flex-direction: column; }
+.w-field-row .mantine-InputWrapper-label { order: 0; }
+.w-field-row .mantine-InputWrapper-root > :not(.mantine-InputWrapper-label):not(.mantine-InputWrapper-description):not(.mantine-InputWrapper-error) { order: 1; }
+.w-field-row .mantine-InputWrapper-description { order: 2; margin-top: 4px; }
+.w-field-row .mantine-InputWrapper-error { order: 3; margin-top: 4px; }

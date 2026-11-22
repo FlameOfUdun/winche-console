@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { FieldRow } from "../../components/FieldRow";
 import { ActionIcon, Alert, Badge, Button, Code, CopyButton, Group, Paper, Stack, Switch, TagsInput, Text, TextInput, Tooltip } from "@mantine/core";
 import { SecretInput } from "../../components/SecretInput";
 import { IconCheck, IconCopy, IconPlayerPlay } from "@tabler/icons-react";
@@ -29,19 +30,19 @@ export function IdentityProviderForm({ value, onChange, secretSlot, unsavedSecre
   const shownCallback = callbackUrl;
   return (
     <Stack gap="md">
-      <Group grow align="flex-end" wrap="wrap">
+      <FieldRow>
         <TextInput label="Issuer" placeholder="https://login.example.com/realms/staff" styles={mono} value={value.issuer ?? ""}
           onChange={(e) => set({ issuer: e.currentTarget.value || null })} />
         <TextInput label="Client ID" placeholder="winche-console" styles={mono} value={value.clientId ?? ""}
           onChange={(e) => set({ clientId: e.currentTarget.value || null })} />
-      </Group>
+      </FieldRow>
       {secretSlot}
       <RegisterAddresses callbackUrl={shownCallback} logoutUrl={logoutUrl} />
-      <Group grow align="flex-end" wrap="wrap">
+      <FieldRow>
         <TextInput label="Button" placeholder="Sign in with your organization" value={value.buttonLabel ?? ""}
           onChange={(e) => set({ buttonLabel: e.currentTarget.value || null })} />
         <TextInput label="Scopes" styles={mono} value={value.scopes} onChange={(e) => set({ scopes: e.currentTarget.value })} />
-      </Group>
+      </FieldRow>
 
       <Paper withBorder radius="md" p="md" bg={surface.subtle}>
         <Stack gap="sm">

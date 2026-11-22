@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FieldRow } from "../../components/FieldRow";
 import { Alert, Badge, Button, Group, Loader, Paper, Progress, SegmentedControl, Stack, Stepper, Switch, Text, TextInput } from "@mantine/core";
 import { SecretInput } from "../../components/SecretInput";
 import { secretTyped } from "../../api/secrets";
@@ -117,10 +118,10 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
       ) : (
         <>
           <SegmentedControl size="xs" w="fit-content" aria-label="Provider" value={preset} data={PRESETS} onChange={(v) => { setPreset(v as Preset); setTest(null); }} />
-          <Group grow wrap="wrap" align="flex-end">
+          <FieldRow>
             <TextInput label="Bucket" placeholder="my-app-files" value={b.bucket} onChange={(e) => set({ bucket: e.currentTarget.value })} />
             {preset !== "r2" && <TextInput label="Region" placeholder="eu-west-2" value={b.region} onChange={(e) => set({ region: e.currentTarget.value })} />}
-          </Group>
+          </FieldRow>
           {preset !== "aws" && (
             <TextInput label="Service address" placeholder={preset === "r2" ? "https://<account id>.r2.cloudflarestorage.com" : "https://minio.example.com"}
               value={b.serviceUrl} onChange={(e) => set({ serviceUrl: e.currentTarget.value })} />

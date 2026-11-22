@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FieldRow } from "../../components/FieldRow";
 import { Alert, Button, Collapse, Group, Modal, Paper, Select, Stack, Switch, TagsInput, Text, TextInput, UnstyledButton } from "@mantine/core";
 import { errorWithList } from "../../api/appAuth";
 import { IconChevronDown, IconPlus } from "@tabler/icons-react";
@@ -207,18 +208,18 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
   return (
     <Modal opened onClose={onClose} size="lg" radius="lg" title={<Text fw={700} fz={18}>Add a sign-in provider</Text>}>
       <Stack gap="md">
-        <Group grow wrap="wrap" align="flex-end">
+        <FieldRow>
           <Select label="Kind" allowDeselect={false} value={kind.value} data={KINDS.map((k) => ({ value: k.value, label: k.label }))} onChange={choose} />
           <TextInput label="Shown as" description="The sign-in button" placeholder={`Sign in with ${kind.value === "oidc" ? "your organization" : kind.label}`}
             value={value.buttonLabel ?? ""} onChange={(e) => set({ buttonLabel: e.currentTarget.value || null })} />
-        </Group>
+        </FieldRow>
         <TextInput label="Issuer" description={kind.issuerHint} placeholder={kind.issuer} styles={mono}
           value={value.issuer ?? ""} onChange={(e) => set({ issuer: e.currentTarget.value || null })} />
-        <Group grow wrap="wrap" align="flex-end">
+        <FieldRow>
           <TextInput label="Client ID" description="The console's client at the provider" placeholder="winche-console" styles={mono}
             value={value.clientId ?? ""} onChange={(e) => set({ clientId: e.currentTarget.value || null })} />
           <SecretField value={secret} onChange={setSecret} />
-        </Group>
+        </FieldRow>
         <RegisterAddresses callbackUrl={page.consoleSignIn?.callbackUrl} logoutUrl={page.consoleSignIn?.logoutUrl} />
         <Switch label="Make an account for people the console doesn't know yet" checked={value.createAccounts}
           onChange={(e) => set({ createAccounts: e.currentTarget.checked })} />

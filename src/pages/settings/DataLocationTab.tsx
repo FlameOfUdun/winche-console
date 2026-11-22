@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FieldRow } from "../../components/FieldRow";
 import {
   Alert, Badge, Button, Group, Loader, Modal, NumberInput, Paper, PasswordInput, Progress, Select, SimpleGrid, Stack, Switch, Text, TextInput, Title,
 } from "@mantine/core";
@@ -178,15 +179,15 @@ function MoveDialog({ opened, onClose, info, onStarted }: { opened: boolean; onC
         <Switch label="To another PostgreSQL server" checked={elsewhere} onChange={(e) => { setElsewhere(e.currentTarget.checked); setCheck(null); }} />
         {elsewhere && (
           <>
-            <Group grow align="flex-end" wrap="wrap">
+            <FieldRow>
               <TextInput label="Host" styles={mono} value={t.host} onChange={(e) => set({ host: e.currentTarget.value })} />
               <NumberInput label="Port" styles={mono} min={1} max={65535} value={t.port} onChange={(v) => set({ port: Number(v) || 5432 })} />
-            </Group>
-            <Group grow align="flex-end" wrap="wrap">
+            </FieldRow>
+            <FieldRow>
               <TextInput label="User" styles={mono} value={t.username} onChange={(e) => set({ username: e.currentTarget.value })} />
               <PasswordInput label="Password" value={t.password} onChange={(e) => set({ password: e.currentTarget.value })} />
               <Select label="SSL" allowDeselect={false} data={["Disable", "Prefer", "Require", "VerifyFull"]} value={t.sslMode} onChange={(v) => v && set({ sslMode: v })} />
-            </Group>
+            </FieldRow>
           </>
         )}
         <TextInput label="Database" description="New, or an empty one." styles={mono} value={t.database} onChange={(e) => set({ database: e.currentTarget.value })} />

@@ -1,4 +1,5 @@
 import { KeycloakSyncFields } from "./KeycloakSyncFields";
+import { FieldRow } from "../../components/FieldRow";
 import { useAuthApi } from "./authScope";
 import { useState, type ReactNode } from "react";
 import {
@@ -115,13 +116,13 @@ function ProviderFields({ value, onChange, sync }: {
   const set = (p: Partial<SignInProviderSettings>) => onChange({ ...value, ...p });
   return (
     <>
-      <Group grow wrap="wrap" align="flex-end">
+      <FieldRow>
         <Select label="Kind" allowDeselect={false} value={value.kind}
           data={[{ value: "google", label: "Google" }, { value: "apple", label: "Apple" }, { value: "oidc", label: "OpenID Connect" }]}
           onChange={(v) => set({ kind: (v ?? "oidc") as SignInProviderSettings["kind"] })} />
         <TextInput label="Name" description="The id apps sign in with" value={value.name} onChange={(e) => set({ name: e.currentTarget.value })} />
         <TextInput label="Shown as" value={value.displayName ?? ""} onChange={(e) => set({ displayName: e.currentTarget.value || null })} />
-      </Group>
+      </FieldRow>
       {value.kind === "oidc" && (
         <TextInput label="Address" placeholder="https://login.example.com" value={value.authority ?? ""}
           onChange={(e) => set({ authority: e.currentTarget.value || null })} />
@@ -404,11 +405,11 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
         <Switch label="Winche Auth sends email" disabled={!editable} checked={e.enabled} onChange={(ev) => setE({ enabled: ev.currentTarget.checked })} />
         {e.enabled && (
           <>
-            <Group grow wrap="wrap">
+            <FieldRow>
               <TextInput label="App name" description="In subjects and messages" disabled={!editable} value={e.appName} onChange={(ev) => setE({ appName: ev.currentTarget.value })} />
               <TextInput label="Action page (optional)" description="Where links open; Winche Auth's built-in page when empty" placeholder="https://app.example.com/auth-action"
                 disabled={!editable} value={e.actionUrl ?? ""} onChange={(ev) => setE({ actionUrl: ev.currentTarget.value || null })} />
-            </Group>
+            </FieldRow>
             <Switch label="Send a verify link when someone signs up" disabled={!editable} checked={e.sendVerificationOnSignUp}
               onChange={(ev) => setE({ sendVerificationOnSignUp: ev.currentTarget.checked })} />
             <Switch label="Send sign-in link and password reset emails after answering" disabled={!editable} checked={e.sendInBackground !== false}
@@ -437,13 +438,13 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
           {e.sender === "smtp" && (
             <Stack gap="sm">
               <Text size="xs" c="dimmed">Any email service with SMTP works: Amazon SES, Postmark, SendGrid, Microsoft 365, Gmail…</Text>
-              <Group grow wrap="wrap" align="flex-end">
+              <FieldRow>
                 <TextInput label="Server" placeholder="email-smtp.eu-west-2.amazonaws.com" disabled={!editable} value={smtp.host} onChange={(ev) => setSmtp({ host: ev.currentTarget.value })} />
                 <NumberInput label="Port" min={1} max={65535} disabled={!editable} value={smtp.port} onChange={(v) => setSmtp({ port: num(v) })} />
                 <Select label="Security" disabled={!editable} allowDeselect={false} value={smtp.security}
                   data={[{ value: "startTls", label: "STARTTLS (587)" }, { value: "tls", label: "TLS (465)" }, { value: "none", label: "None (local only)" }]}
                   onChange={(v) => setSmtp({ security: (v ?? "startTls") as SmtpSettings["security"] })} />
-              </Group>
+              </FieldRow>
               <Group grow wrap="wrap" align="flex-end">
                 <TextInput label="Username" disabled={!editable} value={smtp.username ?? ""} onChange={(ev) => setSmtp({ username: ev.currentTarget.value || null })} />
                 {passwordSet && !replacing ? (
@@ -459,11 +460,11 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
                     value={password} onChange={setPassword} savedReference={passwordSet?.reference} />
                 )}
               </Group>
-              <Group grow wrap="wrap">
+              <FieldRow>
                 <TextInput label="From address" placeholder="no-reply@example.com" disabled={!editable} value={smtp.fromAddress} onChange={(ev) => setSmtp({ fromAddress: ev.currentTarget.value })} />
                 <TextInput label="From name (optional)" placeholder={e.appName || "The app's name"} disabled={!editable} value={smtp.fromName ?? ""}
                   onChange={(ev) => setSmtp({ fromName: ev.currentTarget.value || null })} />
-              </Group>
+              </FieldRow>
               {!secretsAvailable && <Alert color="yellow">Passwords can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
               <Group gap="xs" align="flex-end">
                 <TextInput label="Send a test to" placeholder="Your address" value={to} onChange={(ev) => setTo(ev.currentTarget.value)} />
