@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FieldRow } from "../../components/FieldRow";
 import {
   ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Table,
@@ -13,13 +13,13 @@ import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
 import { secretBody } from "../../api/secrets";
+import { Copy } from "../../components/Copy";
 import { EditCard } from "../../components/EditCard";
 import { EmptyState } from "../../components/EmptyState";
 import { ScrollDialog } from "../../components/ScrollDialog";
 import { SecretInput } from "../../components/SecretInput";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { surface } from "../../theme";
-import { Copy } from "../apps/AppsPage";
 
 const INTEGRITY = ["integrity"];
 
@@ -166,12 +166,12 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
       {list.length > 0 && (
         <Stack gap={0}>
           {list.map((a) => (
-            <Group key={a.id} justify="space-between" wrap="nowrap" gap="md" py={14} data-testid="integrity-app"
+            <Group key={a.id} justify="space-between" wrap="wrap" gap="md" py={14} data-testid="integrity-app"
               style={{ borderTop: `1px solid ${surface.subtle}` }}>
-              <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
+              <Group gap="md" wrap="nowrap" style={{ minWidth: 0, flex: "1 1 260px" }}>
                 <Stack gap={2} style={{ minWidth: 0 }}>
-                  <Group gap={8} wrap="nowrap">
-                    <Text fw={600} truncate>{a.name}</Text>
+                  <Group gap={8} wrap="wrap" style={{ rowGap: 0 }}>
+                    <Text fw={600} style={{ overflowWrap: "anywhere" }}>{a.name}</Text>
                     <Text size="xs" ff="monospace" c={surface.faint}>{a.id}</Text>
                     <Copy value={a.id} label="app id" />
                   </Group>
@@ -212,19 +212,37 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
           </Stack>
         )}
       </Modal>
-      <Modal opened={!!removing} onClose={() => setRemoving(null)} radius="lg" title={<Text fw={700} fz={18}>Remove {removing?.name}?</Text>}>
-        <Stack gap="md">
-          <Text size="sm" c={surface.muted}>
-            Its Integrity tokens and debug tokens stop working at once.
-            {enforced ? (list.length === 1 ? " It's the last app, so enforced products go back to Monitor." : " Copies of it already installed are refused where a product is enforced.") : ""}
-          </Text>
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={() => setRemoving(null)}>Cancel</Button>
-            <Button color="red" onClick={async () => { if (removing) await api.removeApp(removing.id); setRemoving(null); await refresh(); }}>Remove app</Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <Confirm opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove app" onClose={() => setRemoving(null)}
+        onConfirm={async () => { if (removing) await api.removeApp(removing.id); await refresh(); }}>
+        Its Integrity tokens and debug tokens stop working at once.
+        {enforced ? (list.length === 1 ? " It's the last app, so enforced products go back to Monitor." : " Copies of it already installed are refused where a product is enforced.") : ""}
+      </Confirm>
     </Paper>
+  );
+}
+
+/** Asks before something that can't be undone: busy while it runs, its error shown (and the dialog kept) when it fails. */
+function Confirm({ opened, title, confirmLabel, onConfirm, onClose, children }: {
+  opened: boolean; title: string; confirmLabel: string; onConfirm: () => Promise<unknown>; onClose: () => void; children: ReactNode;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (opened) setError(null); }, [opened]);
+  const confirm = async () => {
+    setBusy(true); setError(null);
+    try { await onConfirm(); onClose(); } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal opened={opened} onClose={() => { if (!busy) onClose(); }} radius="lg" title={<Text fw={700} fz={18}>{title}</Text>}>
+      <Stack gap="md">
+        <Text size="sm" c={surface.muted}>{children}</Text>
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={onClose} disabled={busy}>Cancel</Button>
+          <Button color="red" onClick={confirm} loading={busy}>{confirmLabel}</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 
@@ -246,7 +264,7 @@ function readyToEnforce(data: IntegrityData, p: string) {
 function ShareBar({ share }: { share: number | null }) {
   return (
     <div role="img" aria-label={share === null ? "no requests yet" : `${share}% verified`}
-      style={{ height: 8, width: 160, borderRadius: 999, background: share === null ? surface.subtle : "var(--mantine-color-orange-2)", overflow: "hidden", flexShrink: 0 }}>
+      style={{ height: 8, width: 160, borderRadius: 999, background: share === null ? surface.subtle : "light-dark(var(--mantine-color-orange-2), rgba(253, 126, 20, 0.35))", overflow: "hidden", flexShrink: 0 }}>
       {share !== null && <div style={{ width: `${share}%`, height: "100%", background: "var(--mantine-color-teal-6)" }} />}
     </div>
   );
@@ -310,11 +328,12 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { if (opened) { setModes(data.enforcement); setMinutes(data.tokenMinutes); setReason(""); setError(null); } }, [opened, data.enforcement, data.tokenMinutes]);
-  const changed = data.products.some((p) => modes[p] !== data.enforcement[p]) || Number(minutes) !== data.tokenMinutes;
+  const typedMinutes = typeof minutes === "number" ? minutes : null;   // cleared: the lifetime stays as it is
+  const changed = data.products.some((p) => modes[p] !== data.enforcement[p]) || (typedMinutes !== null && typedMinutes !== data.tokenMinutes);
   const save = async () => {
     setBusy(true); setError(null);
     try {
-      await api.setIntegrityEnforcement(modes, Number(minutes) || data.tokenMinutes, reason.trim());
+      await api.setIntegrityEnforcement(modes, typedMinutes || data.tokenMinutes, reason.trim());
       await qc.invalidateQueries({ queryKey: INTEGRITY });
       onClose();
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -334,7 +353,7 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
                     data={MODES.map((x) => ({ ...x, disabled: x.value === "enforce" && data.apps.length === 0 }))} />
                 </Table.Td>
                 <Table.Td>
-                  {readyToEnforce(data, p) ? <Text size="xs" c="teal">✓ ready</Text> : <Text size="xs" c={surface.faint}>{MODE_TEXT[modes[p]]}</Text>}
+                  {modes[p] === "monitor" && readyToEnforce(data, p) ? <Text size="xs" c="teal">✓ ready</Text> : <Text size="xs" c={surface.faint}>{MODE_TEXT[modes[p]]}</Text>}
                 </Table.Td>
               </Table.Tr>
             ))}
@@ -346,7 +365,7 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
           </Alert>
         ))}
         <NumberInput label="Tokens last (minutes)" description="30 minutes to 24 hours. Shorter: a stolen token is good for less time; apps prove themselves more often."
-          w={300} min={30} max={1440} value={minutes} onChange={setMinutes} />
+          w={300} min={30} max={1440} allowDecimal={false} allowNegative={false} value={minutes} onChange={setMinutes} />
         <TextInput label="Reason for the change" placeholder="Our apps all send tokens" value={reason} onChange={(e) => setReason(e.currentTarget.value)}
           description="Kept in the history with the change" />
         {error && <Alert color="red" p="xs">{error}</Alert>}
@@ -366,16 +385,19 @@ function DebugTokens({ data }: { data: IntegrityData }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const appName = (id: string) => data.apps.find((a) => a.id === id)?.name ?? id;
-  const close = () => { setMaking(false); setApp(null); setName(""); setMade(null); setError(null); };
+  // Which opening of the dialog a token is being made for: one that arrives after it's closed isn't shown later.
+  const attempt = useRef(0);
+  const close = () => { attempt.current++; setMaking(false); setApp(null); setName(""); setMade(null); setError(null); setBusy(false); };
   const make = async () => {
     const forApp = app ?? data.apps[0]?.id;
     if (!forApp) return;
+    const mine = ++attempt.current;
     setBusy(true); setError(null);
     try {
       const r = await api.makeDebugToken(forApp, name.trim());
-      setMade({ name: r.name, token: r.token });
+      if (mine === attempt.current) setMade({ name: r.name, token: r.token });
       await qc.invalidateQueries({ queryKey: INTEGRITY });
-    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+    } catch (e) { if (mine === attempt.current) setError(errorMessage(e)); } finally { if (mine === attempt.current) setBusy(false); }
   };
   return (
     <Paper withBorder p="lg" data-testid="integrity-debug-tokens">
@@ -412,7 +434,8 @@ function DebugTokens({ data }: { data: IntegrityData }) {
         </Table>
       )}
 
-      <Modal opened={making} onClose={close} radius="lg" title={<Text fw={700} fz={18}>{made ? `${made.name}: copy it now` : "Make a debug token"}</Text>}>
+      <Modal opened={making} onClose={close} radius="lg" closeOnEscape={!made} closeOnClickOutside={!made}
+        title={<Text fw={700} fz={18}>{made ? `${made.name}: copy it now` : "Make a debug token"}</Text>}>
         {!made ? (
           <Stack gap="md">
             <Select label="For the app" data={data.apps.map((a) => ({ value: a.id, label: a.name }))} value={app ?? data.apps[0]?.id ?? null}
@@ -437,15 +460,10 @@ function DebugTokens({ data }: { data: IntegrityData }) {
           </Stack>
         )}
       </Modal>
-      <Modal opened={!!removing} onClose={() => setRemoving(null)} radius="lg" title={<Text fw={700} fz={18}>Remove {removing?.name}?</Text>}>
-        <Stack gap="md">
-          <Text size="sm" c={surface.muted}>The Integrity tokens it got stop working at once.</Text>
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={() => setRemoving(null)}>Cancel</Button>
-            <Button color="red" onClick={async () => { if (removing) await api.removeDebugToken(removing.id); setRemoving(null); await qc.invalidateQueries({ queryKey: INTEGRITY }); }}>Remove token</Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <Confirm opened={!!removing} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove token" onClose={() => setRemoving(null)}
+        onConfirm={async () => { if (removing) await api.removeDebugToken(removing.id); await qc.invalidateQueries({ queryKey: INTEGRITY }); }}>
+        The Integrity tokens it got stop working at once.
+      </Confirm>
     </Paper>
   );
 }
@@ -465,6 +483,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState("");
+  const [removing, setRemoving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const account = data.playServiceAccount;
@@ -494,7 +513,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
               {(props) => <Button {...props} variant="default" size="xs">Pick the key file</Button>}
             </FileButton>
             {account && data.editable && (
-              <Button variant="subtle" color="red" size="xs" onClick={async () => { await api.removePlayServiceAccount(); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }}>Remove it</Button>
+              <Button variant="subtle" color="red" size="xs" onClick={() => setRemoving(true)}>Remove it</Button>
             )}
           </Group>
           {error && <Alert color="red" p="xs">{error}</Alert>}
@@ -504,6 +523,10 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
           </Group>
         </Stack>
       </Modal>
+      <Confirm opened={removing} title="Remove the service account?" confirmLabel="Remove it" onClose={() => setRemoving(false)}
+        onConfirm={async () => { await api.removePlayServiceAccount(); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }}>
+        Android apps can't prove themselves until one is set again: where a product is enforced, their requests are refused.
+      </Confirm>
     </EditCard>
   );
 }
@@ -524,7 +547,7 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
   return (
     <Stack gap="sm">
       <FieldRow>
-      <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name}
+      <TextInput label="App name" placeholder="My app" data-autofocus value={value.name}
         onChange={(e) => {
           const name = e.currentTarget.value;
           onChange({ ...value, name, ...(fixedId || idEdited ? {} : { id: name.trim() ? projectIdFrom(name) : "" }) });
@@ -543,7 +566,7 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
 
       <PlatformHeading icon={<IconBrandApple size={16} />} title="Apple (iOS, macOS)" proof="App Attest" />
       <FieldRow>
-        <TextInput label="Apple bundle id" placeholder="com.example.clinic"
+        <TextInput label="Apple bundle id" placeholder="com.example.myapp"
           value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
         <TextInput label="Apple team id" placeholder="ABCDE12345" description="In your Apple developer account"
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
@@ -557,7 +580,7 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
 
       <PlatformHeading icon={<IconBrandAndroid size={16} />} title="Android" proof="Play Integrity" />
       <FieldRow>
-        <TextInput label="Android package" placeholder="com.example.clinic"
+        <TextInput label="Android package" placeholder="com.example.myapp"
           value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
         <NumberInput label="Google Cloud project number" description="Linked to the app in Play Console" placeholder="123456789012"
           disabled={!value.androidPackage}
@@ -664,7 +687,7 @@ function Command({ value }: { value: string }) {
 }
 
 /** How to connect the app, one guide per SDK (Flutter today; the rest greyed out until they exist). Nothing is stored. */
-export function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
+function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
   const [guide, setGuide] = useState("flutter");
   return (
     <Stack gap="md">
@@ -679,7 +702,7 @@ export function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; sni
         <Tabs.List>
           {GUIDES.map((g) => g.ready
             ? <Tabs.Tab key={g.id} value={g.id}>{g.label}</Tabs.Tab>
-            : <Tooltip key={g.id} label="Not available yet" withArrow><Tabs.Tab value={g.id} disabled>{g.label}</Tabs.Tab></Tooltip>)}
+            : <Tooltip key={g.id} label="Not available yet" withArrow><span style={{ display: "inline-flex" }}><Tabs.Tab value={g.id} disabled>{g.label}</Tabs.Tab></span></Tooltip>)}
         </Tabs.List>
         <Tabs.Panel value="flutter" pt="lg"><FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={appId} /></Tabs.Panel>
       </Tabs>
@@ -688,10 +711,11 @@ export function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; sni
 }
 
 /** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main() with Integrity. */
-export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
+function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const download = async () => {
-    setBusy(true);
+    setBusy(true); setError(null);
     try {
       const data = await api.apps(ALL_PLATFORMS, appId);
       const url = URL.createObjectURL(new Blob([data.file], { type: "text/plain" }));
@@ -700,6 +724,8 @@ export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; sni
       a.download = "winche_options.dart";
       a.click();
       URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(`Couldn't download it: ${errorMessage(e)}`);
     } finally {
       setBusy(false);
     }
@@ -715,6 +741,7 @@ export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; sni
           <Text size="sm" c={surface.faint}>or</Text>
           <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
         </Group>
+        {error && <Alert color="red" p="xs">{error}</Alert>}
       </Step>
       <Step n={3} title="Start Winche in main(), with Integrity">
         <Command value={snippet} />
@@ -733,19 +760,35 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
   const qc = useQueryClient();
   const [fields, setFields] = useState<AppFields>(EMPTY);
   const [appId, setAppId] = useState<string | null>(null);
+  // Added, but its secret key not saved yet: trying again sends only the secret (and any change), never a second app.
+  const [created, setCreated] = useState<{ id: string; fields: AppFields } | null>(null);
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const close = () => { setFields(EMPTY); setAppId(null); setSecret(""); setError(null); onClose(); };
+  const close = () => { setFields(EMPTY); setAppId(null); setCreated(null); setSecret(""); setError(null); onClose(); };
   const add = async () => {
     setBusy(true); setError(null);
+    let id = created?.id ?? null;
     try {
-      const { id } = await api.addApp({ ...fields, id: fields.id?.trim() || undefined });
+      if (!id) {
+        id = (await api.addApp({ ...fields, id: fields.id?.trim() || undefined })).id;
+        setCreated({ id, fields });
+        await qc.invalidateQueries({ queryKey: INTEGRITY });
+      } else if (JSON.stringify(created!.fields) !== JSON.stringify(fields)) {
+        const { id: _, ...rest } = fields;
+        await api.updateApp(id, rest);
+        setCreated({ id, fields });
+      }
+    } catch (e) {
+      setError(errorMessage(e)); setBusy(false);
+      return;
+    }
+    try {
       if (fields.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
       setAppId(id);
       await qc.invalidateQueries({ queryKey: INTEGRITY });
     } catch (e) {
-      setError(errorMessage(e));
+      setError(`The app was added, but its Turnstile secret key wasn't saved: ${errorMessage(e)}. Try again, or skip and set it later from Edit.`);
     } finally {
       setBusy(false);
     }
@@ -754,13 +797,13 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
     <ScrollDialog opened={opened} onClose={close} title={appId ? `Connect ${fields.name.trim()}` : "Add an app"}
       footer={!appId ? (
         <>
-          <Button variant="default" onClick={close}>Cancel</Button>
-          <Button onClick={add} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>Add app</Button>
+          {created ? <Button variant="default" onClick={() => setAppId(created.id)} disabled={busy}>Skip</Button> : <Button variant="default" onClick={close}>Cancel</Button>}
+          <Button onClick={add} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>{created ? "Save secret key" : "Add app"}</Button>
         </>
       ) : <Button onClick={close}>Done</Button>}>
       {!appId ? (
         <Stack gap="md">
-          <AppFieldsForm value={fields} onChange={setFields} secret={secret} onSecret={setSecret} />
+          <AppFieldsForm value={fields} onChange={setFields} fixedId={created?.id} secret={secret} onSecret={setSecret} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
         </Stack>
       ) : <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={appId} />}

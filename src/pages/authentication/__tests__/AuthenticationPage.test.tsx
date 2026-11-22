@@ -36,7 +36,7 @@ vi.mock("../../../auth/session", async (orig) => {
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const user = (over: Partial<AppUser> = {}): AppUser => ({
   uid: "Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", email: "anna.k@example.com", emailVerified: true, displayName: "Anna", photoUrl: null,
-  isAnonymous: false, disabled: false, providers: ["password"], customClaims: { role: "clinician" }, createdAt: "2026-11-03T10:00:00Z",
+  isAnonymous: false, disabled: false, providers: ["password"], customClaims: { role: "editor" }, createdAt: "2026-11-03T10:00:00Z",
   lastSignInAt: "2026-11-12T15:41:00Z", lockedOutUntil: null, ...over,
 });
 const wincheCaps = { create: true, claims: true, claimsLabel: "Custom claims", sessions: true, unlock: true, resetMfa: true, unlinkProviders: true,
@@ -110,7 +110,7 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   expect(screen.getByText("Sign-ins and failures in Logs →")).toHaveAttribute("href", "/logs?resource=auth");
 
   await userEvent.click(rows[0]);
-  const dialog = await screen.findByRole("dialog");
+  const dialog = await screen.findByRole("dialog", { name: "Selected user" });   // a plain name, not the rich header
   const tab = (name: RegExp | string) => userEvent.click(within(dialog).getByRole("tab", { name }));
 
   // Profile (the first tab): name and photo; email at once (not verified, a verify link) or by a link; a password.
@@ -129,6 +129,7 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   await userEvent.click(within(dialog).getByRole("button", { name: "Send the link" }));
   await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenLastCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@clinic.example", { confirm: true }));
   expect(await within(dialog).findByText(/the email changes when they open it/)).toBeInTheDocument();
+  expect(within(dialog).getByRole("button", { name: "Link sent" })).toBeDisabled();   // not sent again until the address changes
   await userEvent.type(within(dialog).getByLabelText("New password"), "a brand new password");
   await userEvent.click(within(dialog).getByRole("button", { name: "Set password" }));
   await waitFor(() => expect(mock(api.setAppUserPassword)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "a brand new password"));
@@ -136,7 +137,7 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   // Access: claims, and turning the account off.
   await tab("Access");
   const claims = within(dialog).getByLabelText("Custom claims (JSON)") as HTMLTextAreaElement;
-  expect(JSON.parse(claims.value)).toEqual({ role: "clinician" });
+  expect(JSON.parse(claims.value)).toEqual({ role: "editor" });
   await userEvent.clear(claims);
   await userEvent.type(claims, "{{ \"role\": \"admin\" }");
   await userEvent.click(within(dialog).getByText("Save claims"));

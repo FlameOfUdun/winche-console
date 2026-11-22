@@ -1,29 +1,16 @@
 import { useState } from "react";
-import { ActionIcon, Alert, Button, CopyButton, FileButton, Group, Loader, Modal, Stack, Text, TextInput, Tooltip } from "@mantine/core";
-import { IconCheck, IconCopy, IconPencil, IconPhoto } from "@tabler/icons-react";
+import { Alert, Button, FileButton, Group, Loader, Modal, Stack, Text, TextInput } from "@mantine/core";
+import { IconPencil, IconPhoto } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
+import { Copy } from "../../components/Copy";
 import { EditCard } from "../../components/EditCard";
 import { ProjectAvatar, squareThumbnail } from "../../components/ProjectAvatar";
 import { useSession } from "../../auth/session";
 import { ConfirmByIdDialog } from "../../components/ProjectDangerDialogs";
 import { surface } from "../../theme";
 import { serverConsoleUrl } from "../../layout/nav";
-
-export function Copy({ value, label }: { value: string; label: string }) {
-  return (
-    <CopyButton value={value} timeout={1500}>
-      {({ copied, copy }) => (
-        <Tooltip label={copied ? "Copied" : `Copy ${label}`} withArrow>
-          <ActionIcon variant="subtle" color={copied ? "teal" : "gray"} onClick={copy} aria-label={`Copy ${label}`}>
-            {copied ? <IconCheck size={16} /> : <IconCopy size={16} />}
-          </ActionIcon>
-        </Tooltip>
-      )}
-    </CopyButton>
-  );
-}
 
 /** Project settings → General: the project (thumbnail, name, id). Its apps are under Integrity. */
 export function GeneralSettings() {

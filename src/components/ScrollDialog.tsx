@@ -13,22 +13,32 @@ export function ScrollDialog({ opened, onClose, title, footer, size = "lg", chil
   /** A fixed height (it stays the same whatever's shown), never taller than the window. */
   height?: number;
 }) {
+  const heading = typeof title === "string" ? <Text fw={700} fz={18}>{title}</Text> : title;
+  // Built from Modal's parts so a plain-text name ([ariaLabel]) reaches the dialog itself; the rich title then isn't its name.
   return (
-    <Modal opened={opened} onClose={onClose} size={size} radius="lg" data-testid={testId} aria-label={ariaLabel}
-      title={typeof title === "string" ? <Text fw={700} fz={18}>{title}</Text> : title}
+    <Modal.Root opened={opened} onClose={onClose} size={size} radius="lg" data-testid={testId}
       styles={{
         content: { display: "flex", flexDirection: "column", overflow: "hidden", maxHeight: "calc(100dvh - 2 * var(--modal-y-offset, 5dvh))",
           ...(height ? { height: `min(${height}px, calc(100dvh - 2 * var(--modal-y-offset, 5dvh)))` } : {}) },
         header: { flexShrink: 0, borderBottom: "1px solid var(--w-border)" },
         body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: 0 },
       }}>
-      {top && <Box px="md" pt="xs" style={{ flexShrink: 0 }}>{top}</Box>}
-      <Box px="md" py="md" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</Box>
-      {footer && (
-        <Group justify="flex-end" gap="xs" px="md" py="sm" style={{ flexShrink: 0, borderTop: "1px solid var(--w-border)" }}>
-          {footer}
-        </Group>
-      )}
-    </Modal>
+      <Modal.Overlay />
+      <Modal.Content aria-label={ariaLabel}>
+        <Modal.Header>
+          {ariaLabel ? <div style={{ minWidth: 0, flex: 1 }}>{heading}</div> : <Modal.Title>{heading}</Modal.Title>}
+          <Modal.CloseButton />
+        </Modal.Header>
+        <Modal.Body>
+          {top && <Box px="md" pt="xs" style={{ flexShrink: 0 }}>{top}</Box>}
+          <Box px="md" py="md" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>{children}</Box>
+          {footer && (
+            <Group justify="flex-end" gap="xs" px="md" py="sm" style={{ flexShrink: 0, borderTop: "1px solid var(--w-border)" }}>
+              {footer}
+            </Group>
+          )}
+        </Modal.Body>
+      </Modal.Content>
+    </Modal.Root>
   );
 }

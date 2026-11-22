@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { MantineProvider } from "@mantine/core";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
@@ -47,7 +47,7 @@ test("with Integrity: its apps, what's enforced, and today's verified share", as
   (api.integrity as ReturnType<typeof vi.fn>).mockResolvedValue({
     available: true, canSign: true, editable: false, products, tokenMinutes: 60, debugTokens: [], playServiceAccount: null,
     enforcement: { database: "enforce", storage: "monitor", authentication: "enforce", functions: "monitor", assets: "off" },
-    apps: [{ id: "a", name: "Clinic", androidPackage: "com.example.clinic", appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+    apps: [{ id: "a", name: "My app", androidPackage: "com.example.myapp", appleBundleId: null, appleTeamId: null, appleDevelopment: false,
       androidCloudProjectNumber: 1, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [],
       turnstileSecret: null, createdAt: "", devices: null, usage: { database: { today: 9, last7Days: 9, lastSeen: null } } }],
     unverified: { database: { today: 1, last7Days: 1, lastSeen: null } },
@@ -64,4 +64,37 @@ test("with Integrity: its apps, what's enforced, and today's verified share", as
   expect(within(card).getByText(/1 not set up/)).toBeInTheDocument();   // no service account for Play Integrity
   expect(within(card).getByText("Enforced: Database, Authentication")).toBeInTheDocument();
   expect(within(card).getByText("Today 90% verified (9 of 10)")).toBeInTheDocument();
+});
+
+const renderOverview = () => render(
+  <MantineProvider>
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter><OverviewPage /></MemoryRouter>
+    </QueryClientProvider>
+  </MantineProvider>,
+);
+
+test("without Integrity on this server: no link to its page", async () => {
+  (api.overview as ReturnType<typeof vi.fn>).mockResolvedValue({ project: { id: "p", name: "Demo" }, products: [], changes: [] });
+  (useSession as ReturnType<typeof vi.fn>).mockReturnValue({ state: { capabilities: {} }, user: { role: "Admin" } });
+  renderOverview();
+  expect(await screen.findByText("Your apps")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Manage apps/ })).toBeNull();
+});
+
+test("Integrity with every product Off doesn't say it's monitoring; the share is rounded down", async () => {
+  (api.overview as ReturnType<typeof vi.fn>).mockResolvedValue({ project: { id: "p", name: "Demo" }, products: [], changes: [] });
+  (useSession as ReturnType<typeof vi.fn>).mockReturnValue({ state: { capabilities: { integrity: true } }, user: { role: "Viewer" } });
+  const products = ["database", "storage"];
+  (api.integrity as ReturnType<typeof vi.fn>).mockResolvedValue({
+    available: true, canSign: true, editable: false, products, tokenMinutes: 60, debugTokens: [], playServiceAccount: null,
+    enforcement: { database: "off", storage: "off" }, unverified: { database: { today: 1, last7Days: 1, lastSeen: null } },
+    apps: [{ id: "a", name: "My app", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+      androidCloudProjectNumber: null, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [],
+      turnstileSecret: null, createdAt: "", devices: null, usage: { database: { today: 199, last7Days: 199, lastSeen: null } } }],
+  });
+  renderOverview();
+  const card = await screen.findByTestId("integrity-summary");
+  await waitFor(() => expect(within(card).getByText("Off: no product checks tokens")).toBeInTheDocument());
+  expect(within(card).getByText("Today 99% verified (199 of 200)")).toBeInTheDocument();   // 99.5, not 100
 });

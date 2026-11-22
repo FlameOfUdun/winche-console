@@ -224,7 +224,7 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
                 {detail.data.sessions.length === 0 && <EmptyState compact bordered={false} icon={IconDevices} title="Not signed in anywhere" />}
                 {detail.data.sessions.map((s) => (
                   <Group key={s.id} justify="space-between" wrap="nowrap" gap="xs" data-testid="app-session"
-                    style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
+                    style={{ border: "1px solid var(--w-border)", borderRadius: 8, padding: "6px 10px" }}>
                     <div style={{ minWidth: 0 }}>
                       <Text size="sm" truncate>{s.userAgent ?? "Unknown device"}</Text>
                       <Text size="xs" c="dimmed">{s.provider} · {s.ipAddress ?? "no address"} · last used {when(s.lastUsedAt)}</Text>
@@ -277,11 +277,15 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
   const canPassword = !readOnly && (consoleAccounts || !!caps?.password);
   const profileChanged = displayName.trim() !== (u.displayName ?? "") || photoUrl.trim() !== (u.photoUrl ?? "");
   const emailChanged = email.trim() !== (u.email ?? "") && email.includes("@");
+  // The address a confirm link last went to: not sent again until the address is changed.
+  const [linkSentTo, setLinkSentTo] = useState<string | null>(null);
+  const linkSent = emailMode === "confirm" && !consoleAccounts && linkSentTo === email.trim();
 
   const saveEmail = () => consoleAccounts
     ? run(() => api.updateUser(uid, { email: email.trim() }), "Email changed; their sign-ins ended.")
     : emailMode === "confirm"
       ? run(() => authApi.setAppUserEmail(uid, email.trim(), { confirm: true }), `A link is on its way to ${email.trim()}: the email changes when they open it (their old address is told, with an undo link).`)
+          .then((ok) => { if (ok) setLinkSentTo(email.trim()); })
       : run(() => authApi.setAppUserEmail(uid, email.trim(), { confirm: false, verified, sendVerification: !verified && sendVerification }),
           `Email changed; their sign-ins ended${!verified && sendVerification ? `, and a verify link is on its way to ${email.trim()}` : ""}.`);
 
@@ -342,7 +346,7 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
           )}
           {canEmail && emailChanged && (
             <Group gap="xs">
-              <Button size="xs" loading={busy} onClick={saveEmail}>{emailMode === "confirm" && !consoleAccounts ? "Send the link" : "Save email"}</Button>
+              <Button size="xs" loading={busy} disabled={linkSent} onClick={saveEmail}>{linkSent ? "Link sent" : emailMode === "confirm" && !consoleAccounts ? "Send the link" : "Save email"}</Button>
               <Button size="xs" variant="subtle" onClick={() => setEmail(u.email ?? "")}>Cancel</Button>
             </Group>
           )}
@@ -407,7 +411,7 @@ function SignInTab({ user: u, uid, busy, run, fromKeycloak, mfa }: TabProps & { 
           const linked = p !== "password" && p !== "anonymous";
           return (
             <Group key={p} justify="space-between" wrap="nowrap" data-testid="app-user-provider"
-              style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
+              style={{ border: "1px solid var(--w-border)", borderRadius: 8, padding: "6px 10px" }}>
               <Text size="sm">{providerLabel(p, config.data)}</Text>
               {linked && can("unlinkProviders") && u.providers.length > 1 && (
                 <Button size="xs" variant="subtle" disabled={busy}
@@ -478,7 +482,7 @@ function AccessTab({ user: u, uid, busy, run, fromKeycloak }: TabProps & { fromK
       <Stack gap={6}>
         <Group justify="space-between"><Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
           <Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
-        <Textarea autosize minRows={4} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "clinician" }'
+        <Textarea autosize minRows={4} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "editor" }'
           value={claims} onChange={(e) => { setClaims(e.currentTarget.value); setClaimsError(null); }} error={claimsError} />
         <Text size="xs" c="dimmed">In the user's next token: when they next refresh or sign in.</Text>
         <Group gap="xs">

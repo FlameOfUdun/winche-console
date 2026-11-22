@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { Alert, Anchor, Badge, Button, Code, Group, Loader, Modal, NumberInput, Paper, Select, SimpleGrid, Stack, Table, Tabs, Text, Textarea, TextInput, Timeline, UnstyledButton } from "@mantine/core";
 import type { FunctionsSettings } from "../../api/dataSettings";
@@ -69,8 +69,10 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
   );
   const shown = functions.find((f) => f.name === open) ?? null;
   const many = functions.length > 8;
-  const q = search.trim().toLowerCase();
-  const visible = functions.filter((f) => (!kind || f.kind === kind)
+  // The search and kind filter count only while they're shown (more than 8 functions).
+  const q = many ? search.trim().toLowerCase() : "";
+  const byKind = many ? kind : null;
+  const visible = functions.filter((f) => (!byKind || f.kind === byKind)
     && (!q || [f.name, f.about ?? "", runs(f)].some((t) => t.toLowerCase().includes(q))));
   const kinds = [...new Set(functions.map((f) => f.kind))];
   return (
@@ -124,11 +126,13 @@ function FunctionDialog({ f, onClose }: { f: FunctionInfo | null; onClose: () =>
   const [tab, setTab] = useState<string | null>("details");
   const canSeeRuns = !!state?.capabilities?.hooks;
   const close = () => { setTab("details"); onClose(); };
+  // The tabs (Mantine's, by this id) and the one panel drawn below name each other.
+  const tabsId = useId();
   return (
     <ScrollDialog opened={!!f} onClose={close} size="xl" height={680}
       title={f && <Group gap={8}><Text fw={700} fz={18} ff="monospace">{f.name}</Text><Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge></Group>}
       top={f && (
-        <Tabs value={tab} onChange={setTab}>
+        <Tabs id={tabsId} value={tab} onChange={setTab}>
           <Tabs.List>
             <Tabs.Tab value="details">Details</Tabs.Tab>
             {f.kind === "callable" && <Tabs.Tab value="run">Run</Tabs.Tab>}
@@ -139,7 +143,7 @@ function FunctionDialog({ f, onClose }: { f: FunctionInfo | null; onClose: () =>
         </Tabs>
       )}>
       {f && (
-        <div role="tabpanel">
+        <div role="tabpanel" id={`${tabsId}-panel-${tab}`} aria-labelledby={`${tabsId}-tab-${tab}`}>
           {tab === "details" && <Details f={f} />}
           {tab === "run" && <RunPanel name={f.name} example={f.example} />}
           {tab === "runs" && <TriggeredRuns name={f.name} />}

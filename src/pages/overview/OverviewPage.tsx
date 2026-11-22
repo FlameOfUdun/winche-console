@@ -116,8 +116,12 @@ export function OverviewPage() {
               <IconApps size={18} color="var(--w-accent)" />
               <Title order={2} fz={15}>Your apps</Title>
             </Group>
-            <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
-            <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
+            {session?.state?.capabilities?.integrity ? (
+              <>
+                <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
+                <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
+              </>
+            ) : <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder.</Text>}
           </Paper>
         )}
       </SimpleGrid>
@@ -132,6 +136,7 @@ function IntegritySummary({ data }: { data: IntegrityData }) {
   const no = Object.values(data.unverified).reduce((n, u) => n + u.today, 0);
   const unready = data.apps.filter((a) => readiness(a, data).some((r) => r.color === "red")).length;
   const label = (p: string) => p.charAt(0).toUpperCase() + p.slice(1);
+  const allOff = data.products.every((p) => data.enforcement[p] === "off");
   return (
     <Paper withBorder p="lg" data-testid="integrity-summary">
       <Group gap={10} mb={6}>
@@ -140,8 +145,8 @@ function IntegritySummary({ data }: { data: IntegrityData }) {
       </Group>
       <Stack gap={4}>
         <Text size="sm">{data.apps.length === 0 ? "No apps yet" : `${data.apps.length} app${data.apps.length === 1 ? "" : "s"}`}{unready ? <Text span c="red" size="sm">{` · ${unready} not set up`}</Text> : null}</Text>
-        <Text size="sm" c={surface.muted}>{enforced.length ? `Enforced: ${enforced.map(label).join(", ")}` : "Monitoring: nothing refused yet"}</Text>
-        <Text size="sm" c={surface.muted}>{ok + no === 0 ? "No requests today" : `Today ${Math.round((ok / (ok + no)) * 100)}% verified (${ok.toLocaleString()} of ${(ok + no).toLocaleString()})`}</Text>
+        <Text size="sm" c={surface.muted}>{enforced.length ? `Enforced: ${enforced.map(label).join(", ")}` : allOff ? "Off: no product checks tokens" : "Monitoring: nothing refused yet"}</Text>
+        <Text size="sm" c={surface.muted}>{ok + no === 0 ? "No requests today" : `Today ${Math.floor((ok / (ok + no)) * 100)}% verified (${ok.toLocaleString()} of ${(ok + no).toLocaleString()})`}</Text>
       </Stack>
       <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">{data.apps.length ? "Integrity →" : "Add an app →"}</Anchor>
     </Paper>

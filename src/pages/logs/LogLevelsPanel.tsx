@@ -100,7 +100,7 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
         {rows.length === 0 && <Text size="xs" c="dimmed">None — every source uses the default.</Text>}
         {rows.map((r, i) => (
           <Group key={i} gap="xs" align="flex-end" wrap="nowrap" data-testid="level-override">
-            <Autocomplete placeholder={prefix ? `${prefix}.…` : "e.g. Clinic.Reports"} w={300} value={r.category}
+            <Autocomplete placeholder={prefix ? `${prefix}.…` : "e.g. MyApp.Reports"} w={300} value={r.category}
               data={categories.filter((c) => !prefix || c.startsWith(prefix))} onChange={(v) => set(i, { category: v })}
               aria-label="Source" />
             <Select w={140} data={LEVELS} value={r.level} allowDeselect={false} onChange={(v) => v && set(i, { level: v as LogLevel })}
@@ -120,7 +120,7 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
         <Modal opened={!!adding} onClose={() => setAdding(null)} title={<Text fw={700} fz={18}>Log a source differently</Text>} radius="lg">
           {adding && (
             <Stack gap="md">
-              <Autocomplete label="Source" placeholder={prefix ? `${prefix}.…` : "e.g. Clinic.Reports"} data-autofocus value={adding.category}
+              <Autocomplete label="Source" placeholder={prefix ? `${prefix}.…` : "e.g. MyApp.Reports"} data-autofocus value={adding.category}
                 data={categories.filter((c) => !prefix || c.startsWith(prefix))} onChange={(v) => setAdding({ ...adding, category: v })} />
               <Select label="Keep" data={LEVELS} value={adding.level} allowDeselect={false} onChange={(v) => v && setAdding({ ...adding, level: v as LogLevel })} />
               <Select label="For how long" data={DURATIONS} value={adding.duration ?? "60"} allowDeselect={false} onChange={(v) => setAdding({ ...adding, duration: v })} />

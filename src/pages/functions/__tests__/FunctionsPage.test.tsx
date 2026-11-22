@@ -70,6 +70,10 @@ test("a callable opens in a dialog and runs from there with its result and logs"
   await userEvent.click(cards[0]);
   const dialog = await screen.findByRole("dialog");
   await userEvent.click(within(dialog).getByRole("tab", { name: "Run" }));
+  // The panel drawn by hand and its tab name each other.
+  const run = within(dialog).getByRole("tab", { name: "Run" });
+  const panel = within(dialog).getByRole("tabpanel", { name: "Run" });
+  expect(run).toHaveAttribute("aria-controls", panel.id);
   const data = within(dialog).getByLabelText("Data (JSON)");
   await userEvent.clear(data);
   await userEvent.type(data, '{{"name":"Ann"}');
@@ -238,8 +242,22 @@ test("a few functions: no search", async () => {
 
 test("an HTTP function shows its own address", async () => {
   mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: [
-    { name: "stripeWebhook", kind: "http", events: ["POST"], path: null, cron: null, timeZone: null, description: "HTTP POST at /functions/v1/http/{name}", timeoutSeconds: 60 },
+    { name: "paymentWebhook", kind: "http", events: ["POST"], path: null, cron: null, timeZone: null, description: "HTTP POST at /functions/v1/http/{name}", timeoutSeconds: 60 },
   ] } }));
   renderPage();
-  expect(await screen.findByText("HTTP POST at /functions/v1/http/stripeWebhook")).toBeInTheDocument();
+  expect(await screen.findByText("HTTP POST at /functions/v1/http/paymentWebhook")).toBeInTheDocument();
+});
+
+test("the search only counts while it's shown: down to 8 functions, every one is listed again", async () => {
+  const nine = Array.from({ length: 9 }, (_, i) => ({ ...v1.functions[i % 2], name: i % 2 ? `onVisit${i}` : `hello${i}` }));
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: nine } }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<MantineProvider><QueryClientProvider client={client}><MemoryRouter><FunctionsPage /></MemoryRouter></QueryClientProvider></MantineProvider>);
+  expect(await screen.findAllByTestId("function")).toHaveLength(9);
+  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "hello");
+  expect(screen.getAllByTestId("function")).toHaveLength(5);
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: nine.slice(0, 8) } }));
+  await client.invalidateQueries();
+  await waitFor(() => expect(screen.getAllByTestId("function")).toHaveLength(8));
+  expect(screen.queryByRole("textbox", { name: "Search functions" })).toBeNull();
 });

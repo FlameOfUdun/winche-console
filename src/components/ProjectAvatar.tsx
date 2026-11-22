@@ -29,7 +29,7 @@ export function ProjectAvatar({ version, consoleUrl, size = 32, radius = 8 }: {
 
 /**
  * [file] as a square [size]×[size] image, cropped to its middle: what the project's thumbnail is stored as (WebP where
- * the browser can write it, else PNG).
+ * the browser can write it, else JPEG, else PNG).
  */
 export async function squareThumbnail(file: Blob, size = 256): Promise<Blob> {
   const bitmap = await createImageBitmap(file);
@@ -42,9 +42,11 @@ export async function squareThumbnail(file: Blob, size = 256): Promise<Blob> {
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
   bitmap.close();
-  const toBlob = (type: string) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.9));
-  const webp = await toBlob("image/webp");
-  const blob = webp?.type === "image/webp" ? webp : await toBlob("image/png");
+  const toBlob = (type: string, quality: number) => new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
+  // A browser that can't write WebP hands back PNG instead: JPEG then, which keeps a photo small (PNG only as a last resort).
+  const webp = await toBlob("image/webp", 0.9);
+  const jpeg = webp?.type === "image/webp" ? null : await toBlob("image/jpeg", 0.85);
+  const blob = webp?.type === "image/webp" ? webp : jpeg?.type === "image/jpeg" ? jpeg : await toBlob("image/png", 1);
   if (!blob) throw new Error("Couldn't read that image.");
   return blob;
 }
