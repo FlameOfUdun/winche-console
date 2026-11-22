@@ -76,6 +76,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
                 <Text fw={600} fz={16} ff="monospace" truncate>{f.name}</Text>
                 <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
                   {f.plugin && <Badge variant="light" color="grape" tt="none" title={`From the plugin installed as ${f.plugin}`}>plugin</Badge>}
+                  {f.integrity && <Badge variant="light" color="teal" tt="none" title="Only apps that prove they're the project's own (Integrity) may call it" data-testid="needs-integrity">own apps only</Badge>}
                   <Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge>
                 </Group>
               </Group>

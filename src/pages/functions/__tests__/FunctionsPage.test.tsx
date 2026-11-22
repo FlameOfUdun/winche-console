@@ -23,7 +23,7 @@ const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
 const v1: FunctionVersion = {
   version: 1, note: "First", by: "admin@example.com", at: "2026-11-12T20:00:00Z", rolledBackFrom: null,
   functions: [
-    { name: "hello", kind: "callable", events: null, path: null, cron: null, timeZone: null, description: "called by apps", timeoutSeconds: 60 },
+    { name: "hello", kind: "callable", events: null, path: null, cron: null, timeZone: null, description: "called by apps", timeoutSeconds: 60, integrity: true },
     { name: "onVisit", kind: "documents", events: ["created"], path: "patients/{patientId}", cron: null, timeZone: null, description: "documents created at patients/{patientId}", timeoutSeconds: 60 },
   ],
 };
@@ -53,6 +53,12 @@ test("the page shows what's live as cards; there's no editor and no deploy guide
   expect(await screen.findByText("No functions yet")).toBeInTheDocument();
   expect(screen.queryByText(/winche functions deploy/)).not.toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /Code of/ })).not.toBeInTheDocument();
+});
+
+test("a callable only the project's own apps may call says so", async () => {
+  mock(api.functions).mockResolvedValue(page());
+  renderPage();
+  expect(await screen.findByTestId("needs-integrity")).toHaveTextContent("own apps only");
 });
 
 test("a callable opens in a dialog and runs from there with its result and logs", async () => {

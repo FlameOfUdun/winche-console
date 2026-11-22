@@ -3,6 +3,8 @@ export interface FunctionInfo {
   cron: string | null; timeZone: string | null; description: string; timeoutSeconds: number;
   /** The plugin copy it belongs to (its id), or null for the project's own code. */
   plugin?: string | null;
+  /** A callable only apps that prove themselves (Integrity) may call ({ integrity: true }). */
+  integrity?: boolean;
   /** The secrets it declared (options.secrets). */
   secrets?: string[];
   /** The run time its code sets, if it does (timeoutSeconds is the one in force). */
