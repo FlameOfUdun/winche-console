@@ -28,7 +28,7 @@ export type IntegrityMode = "off" | "monitor" | "enforce";
 
 /** An app of the project (Integrity → Apps): what identifies it on each platform, and its requests per product. */
 export interface IntegrityApp {
-  id: string; name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  id: string; name: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
   /** App Attest keys from development builds (run from Xcode) accepted too. */
   appleDevelopment: boolean;
   /** Play Integrity: the Google Cloud project number, builds from outside Google Play accepted, the device level, signing certificates. */
@@ -61,7 +61,7 @@ export interface IntegrityData {
 }
 
 export interface AppFields {
-  name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
+  name: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
   appleDevelopment: boolean;
   androidCloudProjectNumber: number | null; androidSideloaded: boolean; androidDeviceIntegrity: AndroidDeviceLevel; androidCertificates: string[];
   webSiteKey: string | null; webHostnames: string[];

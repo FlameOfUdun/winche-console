@@ -47,7 +47,7 @@ test("with Integrity: its apps, what's enforced, and today's verified share", as
   (api.integrity as ReturnType<typeof vi.fn>).mockResolvedValue({
     available: true, canSign: true, editable: false, products, tokenMinutes: 60, debugTokens: [], playServiceAccount: null,
     enforcement: { database: "enforce", storage: "monitor", authentication: "enforce", functions: "monitor", assets: "off" },
-    apps: [{ id: "a", name: "Clinic", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+    apps: [{ id: "a", name: "Clinic", androidPackage: "com.example.clinic", appleBundleId: null, appleTeamId: null, appleDevelopment: false,
       androidCloudProjectNumber: 1, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [],
       turnstileSecret: null, createdAt: "", devices: null, usage: { database: { today: 9, last7Days: 9, lastSeen: null } } }],
     unverified: { database: { today: 1, last7Days: 1, lastSeen: null } },

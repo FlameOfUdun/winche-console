@@ -24,7 +24,7 @@ const page = (platforms: string[]): AppsPageData => ({
 });
 const PRODUCTS = ["database", "storage", "authentication", "functions", "assets"];
 const clinic: IntegrityApp = {
-  id: "app-abc234def567", name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345",
+  id: "app-abc234def567", name: "Clinic app", androidPackage: "com.example.clinic", appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345",
   androidCloudProjectNumber: 123456789012, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [],
   webSiteKey: "0x4AAAAAAAsitekey123", webHostnames: ["app.example.com"], turnstileSecret: null,
   createdAt: "2026-11-14T10:00:00Z", appleDevelopment: true, devices: { count: 3, development: 1, lastUsed: new Date().toISOString() },
@@ -52,15 +52,17 @@ function renderPage() {
   );
 }
 
-test("no apps: an empty state; Add app asks for the SDK (only Flutter), adds it with its identifiers, then shows its own command and download", async () => {
+test("no apps: an empty state; Add app is one step (name and the platforms' ids, no SDK), then a guide per SDK with its command and download", async () => {
   mock(api.addApp).mockResolvedValue({ id: "app-abc234def567" });
   renderPage();
   expect(await screen.findByText("No apps yet")).toBeInTheDocument();
   expect(screen.getByText("Add an app first.")).toBeInTheDocument();   // no debug tokens without one
   await userEvent.click(screen.getByRole("button", { name: "Add app" }));
-  expect(await screen.findByRole("button", { name: "macOS: not available yet" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "Flutter" }));
-  const dialog = screen.getByRole("dialog");
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).queryByText("What's your app built with?")).toBeNull();   // no SDK to pick
+  expect(within(dialog).getByText("Apple (iOS, macOS)")).toBeInTheDocument();
+  expect(within(dialog).getByText("Android")).toBeInTheDocument();
+  expect(within(dialog).getByText("Web")).toBeInTheDocument();
   await userEvent.type(within(dialog).getByLabelText("App name"), "Clinic app");
   await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
   await userEvent.type(within(dialog).getByLabelText("Google Cloud project number"), "123456789012");
@@ -74,11 +76,16 @@ test("no apps: an empty state; Add app asks for the SDK (only Flutter), adds it 
   await userEvent.type(within(dialog).getByLabelText("App id"), "clinic-ios");
   expect(within(dialog).queryByLabelText("Web addresses")).toBeNull();
   await userEvent.click(within(dialog).getByRole("button", { name: "Add app" }));
-  await waitFor(() => expect(api.addApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic",
+  await waitFor(() => expect(api.addApp).toHaveBeenCalledWith({ name: "Clinic app", androidPackage: "com.example.clinic",
     appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345", appleDevelopment: false, androidCloudProjectNumber: 123456789012,
     androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: "0x4AAAAAAAsitekey123", webHostnames: ["app.example.com"], id: "clinic-ios" }));
   expect(api.setTurnstileSecret).toHaveBeenCalledWith("app-abc234def567", "0x4AAAAAAAsecret12345", null);
   expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
+  // The guide: Flutter, the others greyed out; its steps start Integrity too.
+  expect(screen.getByRole("tab", { name: "Flutter" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByRole("tab", { name: "Android" })).toBeDisabled();
+  expect(screen.getByText(/winche_functions winche_integrity$/)).toBeInTheDocument();
+  expect(screen.getByText(/app.useIntegrity\(WinchePlatformIntegrity/)).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
 });

@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
-  TagsInput, Text, Textarea, TextInput, Title, Tooltip, UnstyledButton,
+  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Table,
+  Tabs, TagsInput, Text, Textarea, TextInput, Title, Tooltip,
 } from "@mantine/core";
 import {
-  IconApps, IconBrandAndroid, IconBrandApple, IconBrandFlutter, IconBrandUbuntu, IconBrandWindows, IconDeviceDesktop, IconDots, IconDownload,
+  IconApps, IconBrandAndroid, IconBrandApple, IconDots, IconDownload,
   IconKey, IconLock, IconPencil, IconPlus, IconTrash, IconWorld,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,15 +20,13 @@ import { Copy } from "../apps/AppsPage";
 
 const INTEGRITY = ["integrity"];
 
-/** The SDKs an app can use: Flutter today; the rest are shown greyed out until they exist. */
-const SDKS: { id: string; label: string; icon: typeof IconWorld; ready: boolean }[] = [
-  { id: "flutter", label: "Flutter", icon: IconBrandFlutter, ready: true },
-  { id: "android", label: "Android", icon: IconBrandAndroid, ready: false },
-  { id: "ios", label: "iOS", icon: IconBrandApple, ready: false },
-  { id: "web", label: "Web", icon: IconWorld, ready: false },
-  { id: "macos", label: "macOS", icon: IconDeviceDesktop, ready: false },
-  { id: "windows", label: "Windows", icon: IconBrandWindows, ready: false },
-  { id: "linux", label: "Linux", icon: IconBrandUbuntu, ready: false },
+/** The guides to connect an app, one per SDK: Flutter today; the rest greyed out until they exist. Nothing is stored about it. */
+const GUIDES: { id: string; label: string; ready: boolean }[] = [
+  { id: "flutter", label: "Flutter", ready: true },
+  { id: "android", label: "Android", ready: false },
+  { id: "ios", label: "iOS", ready: false },
+  { id: "web", label: "Web", ready: false },
+  { id: "windows", label: "Windows", ready: false },
 ];
 const ALL_PLATFORMS = ["android", "ios", "macos", "web", "windows", "linux"];
 
@@ -168,9 +166,6 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
             <Group key={a.id} justify="space-between" wrap="nowrap" gap="md" py={14} data-testid="integrity-app"
               style={{ borderTop: `1px solid ${surface.subtle}` }}>
               <Group gap="md" wrap="nowrap" style={{ minWidth: 0 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--w-accent-soft)", display: "grid", placeItems: "center", flexShrink: 0 }}>
-                  <IconBrandFlutter size={22} color="var(--w-accent)" />
-                </div>
                 <Stack gap={2} style={{ minWidth: 0 }}>
                   <Group gap={8} wrap="nowrap">
                     <Text fw={600} truncate>{a.name}</Text>
@@ -208,8 +203,8 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
       <AppFormDialog app={editing} onClose={() => setEditing(null)} />
       <Modal opened={!!connecting} onClose={() => setConnecting(null)} size="lg" radius="lg" title={<Text fw={700} fz={18}>Connect {connecting?.name}</Text>}>
         {connecting && (
-          <Stack gap="xl" pt="xs">
-            <FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={connecting.id} />
+          <Stack gap="lg" pt="xs">
+            <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={connecting.id} />
             <Group justify="flex-end"><Button onClick={() => setConnecting(null)}>Done</Button></Group>
           </Stack>
         )}
@@ -395,7 +390,7 @@ function DebugTokens({ data }: { data: IntegrityData }) {
   );
 }
 
-const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+const EMPTY: AppFields = { name: "", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false,
   androidCloudProjectNumber: null, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [] };
 
 const DEVICE_LEVEL: Record<AndroidDeviceLevel, string> = {
@@ -481,8 +476,24 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
           error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
           onChange={(e) => { setIdEdited(true); onChange({ ...value, id: e.currentTarget.value.toLowerCase() }); }} />
       )}
-      <TextInput label="Android package" placeholder="com.example.clinic (optional)" leftSection={<IconBrandAndroid size={16} />}
-        description="For Play Integrity"
+      <Text size="xs" c={surface.muted}>Every platform is optional: set the ones the app runs on.</Text>
+
+      <PlatformHeading icon={<IconBrandApple size={16} />} title="Apple (iOS, macOS)" proof="App Attest" />
+      <Group grow wrap="wrap" align="flex-start">
+        <TextInput label="Apple bundle id" placeholder="com.example.clinic"
+          value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
+        <TextInput label="Apple team id" placeholder="ABCDE12345" description="In your Apple developer account"
+          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+          value={value.appleTeamId ?? ""} onChange={(e) => onChange({ ...value, appleTeamId: e.currentTarget.value.toUpperCase() || null })} />
+      </Group>
+      {(value.appleBundleId || value.appleTeamId) && (
+        <Switch label="Accept development builds" checked={value.appleDevelopment}
+          description="App Attest keys from builds run from Xcode, besides TestFlight and App Store ones. Turn it off before you enforce in production."
+          onChange={(e) => onChange({ ...value, appleDevelopment: e.currentTarget.checked })} />
+      )}
+
+      <PlatformHeading icon={<IconBrandAndroid size={16} />} title="Android" proof="Play Integrity" />
+      <TextInput label="Android package" placeholder="com.example.clinic"
         value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
       {value.androidPackage && (
         <>
@@ -502,8 +513,10 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
             value={value.androidCertificates} onChange={(v) => onChange({ ...value, androidCertificates: v })} />
         </>
       )}
-      <TextInput label="Turnstile site key (web)" placeholder="0x4AAAAAAA… (optional)" leftSection={<IconWorld size={16} />}
-        description="The browser check: a Cloudflare Turnstile widget (Cloudflare dashboard → Turnstile → Add widget, Invisible)"
+
+      <PlatformHeading icon={<IconWorld size={16} />} title="Web" proof="browser check (Cloudflare Turnstile)" />
+      <TextInput label="Turnstile site key (web)" placeholder="0x4AAAAAAA…"
+        description="A Turnstile widget (Cloudflare dashboard → Turnstile → Add widget, Invisible)"
         styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
         value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
       {value.webSiteKey && (
@@ -515,18 +528,18 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
             value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
         </>
       )}
-      <Group grow wrap="wrap" align="flex-start">
-        <TextInput label="Apple bundle id" placeholder="com.example.clinic (optional)" leftSection={<IconBrandApple size={16} />}
-          description="iOS and macOS, for App Attest"
-          value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
-        <TextInput label="Apple team id" placeholder="ABCDE12345 (optional)" description="In your Apple developer account"
-          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-          value={value.appleTeamId ?? ""} onChange={(e) => onChange({ ...value, appleTeamId: e.currentTarget.value.toUpperCase() || null })} />
-      </Group>
-      <Switch label="Accept development builds" checked={value.appleDevelopment}
-        description="App Attest keys from builds run from Xcode, besides TestFlight and App Store ones. Turn it off before you enforce in production."
-        onChange={(e) => onChange({ ...value, appleDevelopment: e.currentTarget.checked })} />
     </Stack>
+  );
+}
+
+/** A platform's part of the app form: its name and the proof it gives. */
+function PlatformHeading({ icon, title, proof }: { icon: ReactNode; title: string; proof: string }) {
+  return (
+    <Group gap={8} mt="xs" pt="sm" style={{ borderTop: `1px solid ${surface.subtle}` }}>
+      <span style={{ display: "inline-flex", color: "var(--w-accent)" }}>{icon}</span>
+      <Text fw={600} size="sm">{title}</Text>
+      <Text size="xs" c={surface.faint}>· {proof}</Text>
+    </Group>
   );
 }
 
@@ -536,7 +549,7 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
-  const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId,
+  const v = value ?? (app ? { name: app.name, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId,
     appleDevelopment: app.appleDevelopment, androidCloudProjectNumber: app.androidCloudProjectNumber, androidSideloaded: app.androidSideloaded,
     androidDeviceIntegrity: app.androidDeviceIntegrity, androidCertificates: app.androidCertificates, webSiteKey: app.webSiteKey, webHostnames: app.webHostnames } : EMPTY);
   const close = () => { setValue(null); setSecret(""); setError(null); onClose(); };
@@ -551,7 +564,7 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
   return (
-    <Modal opened={!!app} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
+    <Modal opened={!!app} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
       <Stack gap="md">
         <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} secret={secret} onSecret={setSecret} secretSet={!!app?.turnstileSecret} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
@@ -586,29 +599,31 @@ function Command({ value }: { value: string }) {
   );
 }
 
-/** Picks the SDK (Flutter today; the others greyed out until they exist). */
-export function SdkPicker({ onPick }: { onPick: (sdk: string) => void }) {
+/** How to connect the app, one guide per SDK (Flutter today; the rest greyed out until they exist). Nothing is stored. */
+export function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
+  const [guide, setGuide] = useState("flutter");
   return (
-    <SimpleGrid cols={{ base: 2, sm: 4 }} spacing="sm">
-      {SDKS.map((x) => {
-        const Icon = x.icon;
-        const tile = (
-          <UnstyledButton key={x.id} disabled={!x.ready} onClick={() => onPick(x.id)}
-            aria-label={x.ready ? x.label : `${x.label}: not available yet`}
-            style={{ border: `1px solid ${surface.border}`, borderRadius: 12, padding: "16px 8px", display: "flex", flexDirection: "column",
-              alignItems: "center", gap: 8, opacity: x.ready ? 1 : 0.45, cursor: x.ready ? "pointer" : "not-allowed",
-              background: x.ready ? surface.card : surface.page }}>
-            <Icon size={26} stroke={1.6} color={x.ready ? "var(--w-accent)" : surface.faint} />
-            <Text size="sm" fw={600}>{x.label}</Text>
-          </UnstyledButton>
-        );
-        return x.ready ? tile : <Tooltip key={x.id} label="Not available yet" withArrow>{tile}</Tooltip>;
-      })}
-    </SimpleGrid>
+    <Stack gap="md">
+      {appId && (
+        <Group gap={6}>
+          <Text size="sm" c={surface.muted}>App id</Text>
+          <Text size="sm" ff="monospace" fw={500}>{appId}</Text>
+          <Copy value={appId} label="app id" />
+        </Group>
+      )}
+      <Tabs value={guide} onChange={(v) => setGuide(v ?? "flutter")}>
+        <Tabs.List>
+          {GUIDES.map((g) => g.ready
+            ? <Tabs.Tab key={g.id} value={g.id}>{g.label}</Tabs.Tab>
+            : <Tooltip key={g.id} label="Not available yet" withArrow><Tabs.Tab value={g.id} disabled>{g.label}</Tabs.Tab></Tooltip>)}
+        </Tabs.List>
+        <Tabs.Panel value="flutter" pt="lg"><FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={appId} /></Tabs.Panel>
+      </Tabs>
+    </Stack>
   );
 }
 
-/** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main(). */
+/** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main() with Integrity. */
 export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
   const [busy, setBusy] = useState(false);
   const download = async () => {
@@ -628,7 +643,7 @@ export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; sni
   return (
     <Stack gap="xl">
       <Step n={1} title="Add the packages">
-        <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions" />
+        <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions winche_integrity" />
       </Step>
       <Step n={2} title="Add lib/winche_options.dart">
         <Command value={`winche configure --url ${baseUrl}${appId ? ` --app ${appId}` : ""}`} />
@@ -637,30 +652,31 @@ export function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; sni
           <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
         </Group>
       </Step>
-      <Step n={3} title="Start Winche in main()">
+      <Step n={3} title="Start Winche in main(), with Integrity">
         <Command value={snippet} />
+        <Command value="app.useIntegrity(WinchePlatformIntegrity(debugToken: kDebugMode ? const String.fromEnvironment('WINCHE_DEBUG_TOKEN') : null));" />
+        <Text size="xs" c={surface.muted}>App Attest on iOS and macOS, Play Integrity on Android, the browser check on the web; a debug token from below where there's none (simulators, desktop).</Text>
       </Step>
     </Stack>
   );
 }
 
 /**
- * Adding an app: pick its SDK, name it (and its package, bundle and team id), then the steps to connect it with its
- * own options file. Used from Integrity and the setup wizard.
+ * Adding an app: its name and its platforms' ids, then how to connect it with its own options file. Used from
+ * Integrity and the setup wizard.
  */
 export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
   const qc = useQueryClient();
-  const [sdk, setSdk] = useState<string | null>(null);
   const [fields, setFields] = useState<AppFields>(EMPTY);
   const [appId, setAppId] = useState<string | null>(null);
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const close = () => { setSdk(null); setFields(EMPTY); setAppId(null); setSecret(""); setError(null); onClose(); };
+  const close = () => { setFields(EMPTY); setAppId(null); setSecret(""); setError(null); onClose(); };
   const add = async () => {
     setBusy(true); setError(null);
     try {
-      const { id } = await api.addApp({ ...fields, id: fields.id?.trim() || undefined, sdk: sdk ?? "flutter" });
+      const { id } = await api.addApp({ ...fields, id: fields.id?.trim() || undefined });
       if (fields.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
       setAppId(id);
       await qc.invalidateQueries({ queryKey: INTEGRITY });
@@ -670,33 +686,20 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
       setBusy(false);
     }
   };
-  const title = appId ? `Connect ${fields.name.trim()}` : sdk ? "Add a Flutter app" : "Add an app";
   return (
-    <Modal opened={opened} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>{title}</Text>}>
-      {!sdk && (
-        <Stack gap="md">
-          <Text size="sm" c={surface.muted}>What's your app built with?</Text>
-          <SdkPicker onPick={setSdk} />
-        </Stack>
-      )}
-      {sdk && !appId && (
+    <Modal opened={opened} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>{appId ? `Connect ${fields.name.trim()}` : "Add an app"}</Text>}>
+      {!appId ? (
         <Stack gap="md">
           <AppFieldsForm value={fields} onChange={setFields} secret={secret} onSecret={setSecret} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
-          <Group justify="space-between">
-            <Button variant="subtle" color="gray" onClick={() => setSdk(null)}>← Back</Button>
+          <Group justify="flex-end" gap="xs">
+            <Button variant="default" onClick={close}>Cancel</Button>
             <Button onClick={add} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>Add app</Button>
           </Group>
         </Stack>
-      )}
-      {appId && (
-        <Stack gap="xl" pt="xs">
-          <Group gap={6}>
-            <Text size="sm" c={surface.muted}>App id</Text>
-            <Text size="sm" ff="monospace" fw={500}>{appId}</Text>
-            <Copy value={appId} label="app id" />
-          </Group>
-          <FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={appId} />
+      ) : (
+        <Stack gap="lg" pt="xs">
+          <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={appId} />
           <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
         </Stack>
       )}
