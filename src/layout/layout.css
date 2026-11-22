@@ -138,3 +138,8 @@
 .winche-row-link { transition: background 120ms; }
 .winche-row-link:hover { background: var(--w-hover); }
 .winche-row-link:focus-visible { outline: 2px solid var(--w-accent); outline-offset: -2px; }
+
+/* A secret in its list: name, where it's kept, who uses it, when it changed, actions; stacked on a phone. */
+.w-secret-row { display: grid; grid-template-columns: minmax(180px, 1.3fr) 150px minmax(0, 1.6fr) 190px auto; gap: 12px; align-items: center; padding: 10px 16px; }
+.w-secret-row + .w-secret-row { border-top: 1px solid var(--w-border); }
+@media (max-width: 760px) { .w-secret-row { grid-template-columns: 1fr auto; } .w-secret-row > :nth-child(3), .w-secret-row > :nth-child(4) { grid-column: 1 / -1; } }

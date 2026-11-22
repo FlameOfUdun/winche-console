@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionIcon, Alert, Anchor, Badge, Button, Code, Group, Loader, Menu, Modal, Paper, SimpleGrid, Stack, Text, TextInput, ThemeIcon, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Group, Loader, Menu, Modal, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconArrowRight, IconCloudLock, IconDots, IconFolder, IconKey, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
@@ -13,11 +13,12 @@ import { PageBand } from "../../components/NavPageHeader";
 import { EmptyState } from "../../components/EmptyState";
 import { SecretInput, sourceTitle, useSecretSources } from "../../components/SecretInput";
 import { SourceKeyDialog } from "./SecretSources";
+import { ConfirmModal } from "../../components/ConfirmModal";
 
 const SECRET_NAME = /^[A-Z][A-Z0-9_]{0,63}$/;
 
 /**
- * Secrets: every API key and password of the project in one table — the ones functions read (added, replaced, tested
+ * Secrets: every API key and password of the project in two lists — the ones functions read (added, replaced, tested
  * and removed here) and those the products keep (the SMTP password, a sync's client secret, a bucket's key: changed
  * where they're used). Each is a value kept here, encrypted, or read from AWS by reference, with the project's own key.
  */
@@ -30,16 +31,12 @@ export function SecretsPage() {
   const sources = useSecretSources();
   const [editing, setEditing] = useState<FunctionSecret | "new" | null>(null);
   const [keyOpen, setKeyOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [tested, setTested] = useState<{ name: string; ok: boolean; problem: string | null } | null>(null);
+  const [removing, setRemoving] = useState<string | null>(null);
   const key = sources.data?.keys[0];
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["function-secrets"] });
-  const remove = async (name: string) => {
-    if (!window.confirm(`Remove the secret ${name}? Functions that read it fail until it's set again.`)) return;
-    setError(null);
-    try { await api.removeFunctionSecret(name); await refresh(); } catch (e) { setError(errorMessage(e)); }
-  };
+  const remove = async (name: string) => { await api.removeFunctionSecret(name); await refresh(); };
   const test = async (name: string) => {
     setTested(null);
     try { setTested({ name, ...(await api.testFunctionSecret(name)) }); }
@@ -48,7 +45,8 @@ export function SecretsPage() {
 
   const loading = (functions && fn.isLoading) || kept.isLoading;
   const failed = (functions && fn.isError) || kept.isError;
-  const own = fn.data?.secrets ?? [];
+  // The ones a function needs but can't read first.
+  const own = [...(fn.data?.secrets ?? [])].sort((a, b) => Number(a.isSet) - Number(b.isSet) || a.name.localeCompare(b.name));
   const products = kept.data?.secrets ?? [];
   const available = (functions ? fn.data?.available : kept.data?.available) ?? true;
 
@@ -58,17 +56,15 @@ export function SecretsPage() {
         actions={functions && <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing("new")} disabled={!available}>Add a secret</Button>} />
       <Stack gap="xl" pb={28}>
         {!available && <Alert color="yellow">Secrets need the server's master key.</Alert>}
-        {error && <Alert color="red">{error}</Alert>}
         {loading ? <Loader size="sm" /> : failed ? <Alert color="red">Couldn't load the secrets: {errorMessage(fn.error ?? kept.error)}</Alert> : (
           <>
             {functions && (
-              <SecretGroup title="Read by functions" count={own.length}
-                hint={<>Read with <Code>ctx.secrets.get("NAME")</Code> by the functions that declare them.</>}>
+              <SecretGroup title="Read by functions" count={own.length}>
                 {own.length === 0 ? (
                   <EmptyState icon={IconKey} title="No secrets yet" description="Add the API keys and passwords your functions read." />
                 ) : own.map((s) => (
                   <SecretRow key={s.name} testId="function-secret" icon={s.reference ? IconCloudLock : IconKey} name={s.name} mono
-                    meta={[s.usedBy.length ? `Used by ${s.usedBy.join(", ")}` : "No function declares it", s.isSet ? updated(s.setAt!, s.setBy) : null]}
+                    used={s.usedBy.length ? `Used by ${s.usedBy.join(", ")}` : "Not used by a function"} changed={s.isSet ? updated(s.setAt!, s.setBy) : null}
                     status={<Kept s={s} isSet={s.isSet} />}
                     note={tested?.name === s.name ? <Text size="xs" c={tested.ok ? "teal" : "red"}>{tested.ok ? "Read just now: it works." : tested.problem}</Text> : null}
                     actions={<>
@@ -78,7 +74,7 @@ export function SecretsPage() {
                           <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`More for ${s.name}`}><IconDots size={16} /></ActionIcon></Menu.Target>
                           <Menu.Dropdown>
                             {s.reference && <Menu.Item onClick={() => test(s.name)}>Test</Menu.Item>}
-                            <Menu.Item color="red" onClick={() => remove(s.name)}>Remove</Menu.Item>
+                            <Menu.Item color="red" onClick={() => setRemoving(s.name)}>Remove</Menu.Item>
                           </Menu.Dropdown>
                         </Menu>
                       )}
@@ -86,12 +82,12 @@ export function SecretsPage() {
                 ))}
               </SecretGroup>
             )}
-            <SecretGroup title="Kept by the products" count={products.length} hint="Each is changed where it's used: Open takes you there.">
+            <SecretGroup title="Kept by the products" count={products.length}>
               {products.length === 0 ? (
-                <Text size="sm" c="dimmed">None set: the SMTP password, a sign-in provider's sync secret and a bucket's key appear here once set.</Text>
+                <Text size="sm" c="dimmed">None yet.</Text>
               ) : products.map((s) => (
                 <SecretRow key={s.name} testId="kept-secret" icon={PRODUCT_ICON[s.product] ?? IconKey} name={s.title}
-                  meta={[s.product, updated(s.setAt, s.setBy)]} status={<Kept s={s} isSet />}
+                  used={s.product} changed={updated(s.setAt, s.setBy)} status={<Kept s={s} isSet />}
                   actions={s.link && <Button size="xs" variant="subtle" component={Link} to={s.link} rightSection={<IconArrowRight size={14} />}>Open</Button>} />
               ))}
             </SecretGroup>
@@ -108,6 +104,8 @@ export function SecretsPage() {
       <SecretDialog opened={editing !== null} name={editing === "new" ? undefined : editing?.name}
         savedReference={editing && editing !== "new" ? editing.reference : null} isSet={editing !== "new" && !!editing?.isSet}
         onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />
+      <ConfirmModal opened={removing !== null} title={`Remove ${removing ?? ""}?`} confirmLabel="Remove"
+        message="Functions that read it fail until it's set again." action={() => remove(removing!)} onCancel={() => setRemoving(null)} />
       {key && <SourceKeyDialog k={key} appCredentials={!!sources.data?.appCredentials} opened={keyOpen} onClose={() => setKeyOpen(false)} />}
     </>
   );
@@ -117,35 +115,35 @@ const PRODUCT_ICON: Record<string, React.ElementType> = { Authentication: IconUs
 
 const updated = (at: string, by: string | null) => `Updated ${when(at)}${by ? ` by ${by}` : ""}`;
 
-/** A titled group of secrets: a heading with a count and a line, then its cards in a grid. */
-function SecretGroup({ title, count, hint, children }: { title: string; count: number; hint: React.ReactNode; children: React.ReactNode }) {
+/** A titled group of secrets: a heading with a count, then its rows in one bordered list. */
+function SecretGroup({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <Stack gap="sm">
-      <div>
-        <Group gap={8}><Text fw={600}>{title}</Text>{count > 0 && <Badge size="sm" variant="light" color="gray" circle={count < 10}>{count}</Badge>}</Group>
-        <Text size="sm" c="dimmed">{hint}</Text>
-      </div>
-      {count === 0 ? children : <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">{children}</SimpleGrid>}
+      <Group gap={8}><Text fw={600}>{title}</Text>{count > 0 && <Badge size="sm" variant="light" color="gray" circle={count < 10}>{count}</Badge>}</Group>
+      {count === 0 ? children : <Paper withBorder radius="md" style={{ overflow: "hidden" }}>{children}</Paper>}
     </Stack>
   );
 }
 
-/** One secret as a card: an icon and where it's kept, its name, who uses it and when it changed, then what can be done. */
-function SecretRow({ icon: Icon, name, mono, meta, status, actions, note, testId }: {
-  icon: React.ElementType; name: string; mono?: boolean; meta: (string | null)[]; status: React.ReactNode; actions?: React.ReactNode;
+/** One secret as a row: its name, where it's kept, who uses it, when it changed, then what can be done (wraps on a phone). */
+function SecretRow({ icon: Icon, name, mono, used, changed, status, actions, note, testId }: {
+  icon: React.ElementType; name: string; mono?: boolean; used: string; changed: string | null; status: React.ReactNode; actions?: React.ReactNode;
   note?: React.ReactNode; testId: string;
 }) {
   return (
-    <Paper withBorder p="lg" radius="md" data-testid={testId} h="100%" style={{ display: "flex", flexDirection: "column" }}>
-      <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
-        <ThemeIcon variant="light" color="gray" size={40} radius="md"><Icon size={20} /></ThemeIcon>
-        {status}
+    <div className="w-secret-row" data-testid={testId}>
+      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+        <Icon size={18} color="var(--w-muted)" style={{ flexShrink: 0 }} />
+        <Text fw={600} size="sm" ff={mono ? "monospace" : undefined} style={{ wordBreak: "break-word" }}>{name}</Text>
       </Group>
-      <Text fw={600} fz={15} mt="md" ff={mono ? "monospace" : undefined} style={{ wordBreak: "break-word" }}>{name}</Text>
-      {meta.filter(Boolean).map((m) => <Text key={m} size="xs" c="dimmed" mt={4} lineClamp={2}>{m}</Text>)}
-      {note && <div style={{ marginTop: 6 }}>{note}</div>}
-      {actions && <Group justify="flex-end" gap="xs" wrap="nowrap" style={{ marginTop: "auto", paddingTop: 16 }}>{actions}</Group>}
-    </Paper>
+      <div>{status}</div>
+      <div style={{ minWidth: 0 }}>
+        <Text size="xs" c="dimmed" lineClamp={2}>{used}</Text>
+        {note}
+      </div>
+      <Text size="xs" c="dimmed">{changed ?? "—"}</Text>
+      <Group justify="flex-end" gap="xs" wrap="nowrap">{actions}</Group>
+    </div>
   );
 }
 
@@ -181,11 +179,10 @@ function SecretDialog({ opened, name: fixed, isSet, savedReference, onDone }: {
       <Stack gap="md" data-testid="secret-dialog">
         {!fixed && (
           <TextInput label="Name" placeholder="MAIL_API_KEY" ff="monospace" data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value.toUpperCase())}
-            description={<>Functions read it with <Code>ctx.secrets.get("{name || "NAME"}")</Code>.</>}
             error={badName ? "Capitals, digits and underscores, starting with a letter" : undefined} />
         )}
         <SecretInput label={fixed ? `New value of ${fixed}` : "Value"} value={value} onChange={setValue} autoComplete="off" savedReference={savedReference}
-          description="Kept encrypted and never shown again." />
+          description="Never shown again." />
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">
           <Button variant="default" onClick={() => finish(false)}>Cancel</Button>

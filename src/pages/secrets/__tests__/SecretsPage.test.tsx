@@ -66,17 +66,16 @@ test("without functions there are no secrets of its own to list", async () => {
 
 test("secrets: listed without values, added and set in a dialog, and removed", async () => {
   mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
-    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
     { name: "OLD_TOKEN", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: "admin@example.com", usedBy: [] },
+    { name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: ["sendReport"] },
   ] });
   mock(api.setFunctionSecret).mockResolvedValue(undefined);
   mock(api.removeFunctionSecret).mockResolvedValue(undefined);
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   renderPage();
   const rows = await screen.findAllByTestId("function-secret");
-  expect(rows[0]).toHaveTextContent("Not set");
+  expect(rows[0]).toHaveTextContent("Not set");   // the ones a function can't read come first
   expect(rows[0]).toHaveTextContent("sendReport");
-  expect(rows[1]).toHaveTextContent("No function declares it");
+  expect(rows[1]).toHaveTextContent("Not used by a function");
 
   await userEvent.click(within(rows[0]).getByRole("button", { name: "Set" }));
   let dialog = await screen.findByRole("dialog");
@@ -86,7 +85,11 @@ test("secrets: listed without values, added and set in a dialog, and removed", a
 
   await userEvent.click(within(rows[1]).getByRole("button", { name: "More for OLD_TOKEN" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
+  // Asked first, in the console's own dialog.
+  const confirm = await screen.findByRole("dialog", { name: "Remove OLD_TOKEN?" });
+  await userEvent.click(within(confirm).getByRole("button", { name: "Remove" }));
   await waitFor(() => expect(mock(api.removeFunctionSecret)).toHaveBeenCalledWith("OLD_TOKEN"));
+  await waitFor(() => expect(screen.queryByRole("dialog", { name: "Remove OLD_TOKEN?" })).toBeNull());
 
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
   dialog = await screen.findByRole("dialog");
