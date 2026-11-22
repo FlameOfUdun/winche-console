@@ -250,6 +250,9 @@ export const api = {
   makeDebugToken: (app: string, name: string) => http<{ id: string; app: string; name: string; token: string }>("POST", "integrity/debug-tokens", { app, name }),
   /** The Google service account's key file (JSON), or a reference to where it's kept. */
   setPlayServiceAccount: (value: string | null, reference: string | null) => http<unknown>("PUT", "integrity/play-service-account", { value, reference }),
+  /** An app's Turnstile secret key (the browser check), or a reference to where it's kept. */
+  setTurnstileSecret: (app: string, value: string | null, reference: string | null) =>
+    http<void>("PUT", `integrity/apps/${encodeURIComponent(app)}/turnstile-secret`, { value, reference }),
   removePlayServiceAccount: () => http<void>("DELETE", "integrity/play-service-account"),
   removeDebugToken: (id: string) => http<void>("DELETE", `integrity/debug-tokens/${encodeURIComponent(id)}`),
   functions: () => http<FunctionsPageData>("GET", "functions"),

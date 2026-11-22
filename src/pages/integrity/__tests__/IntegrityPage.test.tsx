@@ -11,7 +11,8 @@ import type { AppsPageData, IntegrityApp, IntegrityData } from "../../../api/app
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return { ...actual, api: { ...actual.api, apps: vi.fn(), integrity: vi.fn(), addApp: vi.fn(), updateApp: vi.fn(), removeApp: vi.fn(),
-    setIntegrityEnforcement: vi.fn(), makeDebugToken: vi.fn(), removeDebugToken: vi.fn(), setPlayServiceAccount: vi.fn(), removePlayServiceAccount: vi.fn() } };
+    setIntegrityEnforcement: vi.fn(), makeDebugToken: vi.fn(), removeDebugToken: vi.fn(), setPlayServiceAccount: vi.fn(), removePlayServiceAccount: vi.fn(),
+    setTurnstileSecret: vi.fn() } };
 });
 
 const mock = (f: unknown) => f as ReturnType<typeof vi.fn>;
@@ -25,6 +26,7 @@ const PRODUCTS = ["database", "storage", "authentication", "functions", "assets"
 const clinic: IntegrityApp = {
   id: "app-abc234def567", name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345",
   androidCloudProjectNumber: 123456789012, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [],
+  webSiteKey: "0x4AAAAAAAsitekey123", webHostnames: ["app.example.com"], turnstileSecret: null,
   createdAt: "2026-11-14T10:00:00Z", appleDevelopment: true, devices: { count: 3, development: 1, lastUsed: new Date().toISOString() },
   usage: { database: { today: 10, last7Days: 70, lastSeen: new Date().toISOString() }, authentication: { today: 2, last7Days: 10, lastSeen: null } },
 };
@@ -63,6 +65,9 @@ test("no apps: an empty state; Add app asks for the SDK (only Flutter), adds it 
   await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
   await userEvent.type(within(dialog).getByLabelText("Google Cloud project number"), "123456789012");
   await userEvent.type(within(dialog).getByLabelText("Apple bundle id"), "com.example.clinic");
+  await userEvent.type(within(dialog).getByLabelText("Turnstile site key (web)"), "0x4AAAAAAAsitekey123");
+  await userEvent.type(within(dialog).getByLabelText("Turnstile secret key"), "0x4AAAAAAAsecret12345");
+  await userEvent.type(within(dialog).getByRole("textbox", { name: "Sites the app runs on" }), "App.Example.com{enter}");
   await userEvent.type(within(dialog).getByLabelText("Apple team id"), "abcde12345");
   expect(within(dialog).getByLabelText("App id")).toHaveValue("clinic-app");   // follows the name until edited
   await userEvent.clear(within(dialog).getByLabelText("App id"));
@@ -71,7 +76,8 @@ test("no apps: an empty state; Add app asks for the SDK (only Flutter), adds it 
   await userEvent.click(within(dialog).getByRole("button", { name: "Add app" }));
   await waitFor(() => expect(api.addApp).toHaveBeenCalledWith({ name: "Clinic app", sdk: "flutter", androidPackage: "com.example.clinic",
     appleBundleId: "com.example.clinic", appleTeamId: "ABCDE12345", appleDevelopment: false, androidCloudProjectNumber: 123456789012,
-    androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], id: "clinic-ios" }));
+    androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: "0x4AAAAAAAsitekey123", webHostnames: ["app.example.com"], id: "clinic-ios" }));
+  expect(api.setTurnstileSecret).toHaveBeenCalledWith("app-abc234def567", "0x4AAAAAAAsecret12345", null);
   expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
@@ -86,6 +92,7 @@ test("with apps: each with its identifiers and verified requests; enforcement pe
   expect(within(row).getByText("com.example.clinic")).toBeInTheDocument();
   expect(within(row).getByText("ABCDE12345.com.example.clinic")).toBeInTheDocument();
   expect(within(row).getByText(/12 verified requests today · 80 this week · last seen just now/)).toBeInTheDocument();
+  expect(within(row).getByTestId("browser-check-setup")).toHaveTextContent("Browser check: app.example.com · no secret key yet");
   expect(within(row).getByTestId("play-integrity-setup")).toHaveTextContent("Play Integrity: Cloud project 123456789012 · device integrity");
   expect(within(row).getByTestId("app-attest-devices")).toHaveTextContent("App Attest: 3 devices (1 development) · last proof just now · development builds accepted");
 

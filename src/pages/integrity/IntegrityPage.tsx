@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import {
-  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
+  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, SimpleGrid, Stack, Switch, Table,
   TagsInput, Text, Textarea, TextInput, Title, Tooltip, UnstyledButton,
 } from "@mantine/core";
 import {
@@ -147,6 +147,12 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
                       Play Integrity: {a.androidCloudProjectNumber ? `Cloud project ${a.androidCloudProjectNumber}` : "no Cloud project number yet"} · {DEVICE_LEVEL[a.androidDeviceIntegrity]}
                       {a.androidSideloaded ? " · builds from outside Google Play accepted" : ""}
                       {a.androidCertificates.length ? ` · ${a.androidCertificates.length} signing certificate${a.androidCertificates.length === 1 ? "" : "s"}` : ""}
+                    </Text>
+                  )}
+                  {a.webSiteKey && (
+                    <Text size="xs" c={a.turnstileSecret ? surface.muted : "red"} data-testid="browser-check-setup">
+                      Browser check: {a.webHostnames.length ? a.webHostnames.join(", ") : "any site"}
+                      {a.turnstileSecret ? "" : " · no secret key yet"}
                     </Text>
                   )}
                   {a.appleBundleId && a.appleTeamId && (
@@ -354,7 +360,7 @@ function DebugTokens({ data }: { data: IntegrityData }) {
 }
 
 const EMPTY: AppFields = { name: "", sdk: "flutter", androidPackage: null, appleBundleId: null, appleTeamId: null, appleDevelopment: false,
-  androidCloudProjectNumber: null, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [] };
+  androidCloudProjectNumber: null, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [] };
 
 const DEVICE_LEVEL: Record<AndroidDeviceLevel, string> = {
   basic: "basic integrity (rooted devices may pass)", device: "device integrity", strong: "strong integrity (hardware-backed, recent security update)",
@@ -416,7 +422,11 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
  * Name, id and identifiers of an app. The id is chosen when adding (filled in from the name until edited) and shown
  * locked when editing: it's in the app's options file.
  */
-function AppFieldsForm({ value, onChange, fixedId }: { value: AppFields; onChange: (v: AppFields) => void; fixedId?: string }) {
+function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }: {
+  value: AppFields; onChange: (v: AppFields) => void; fixedId?: string;
+  /** The Turnstile secret key typed (write-only), and whether one is kept. */
+  secret: string; onSecret: (s: string) => void; secretSet?: boolean;
+}) {
   const [idEdited, setIdEdited] = useState(false);
   const id = value.id ?? "";
   return (
@@ -456,6 +466,19 @@ function AppFieldsForm({ value, onChange, fixedId }: { value: AppFields; onChang
             value={value.androidCertificates} onChange={(v) => onChange({ ...value, androidCertificates: v })} />
         </>
       )}
+      <TextInput label="Turnstile site key (web)" placeholder="0x4AAAAAAA… (optional)" leftSection={<IconWorld size={16} />}
+        description="The browser check: a Cloudflare Turnstile widget (Cloudflare dashboard → Turnstile → Add widget, Invisible)"
+        styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+        value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
+      {value.webSiteKey && (
+        <>
+          <PasswordInput label="Turnstile secret key" placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…, or aws-sm:…"}
+            description="Kept encrypted, never shown again" value={secret} onChange={(e) => onSecret(e.currentTarget.value)} />
+          <TagsInput label="Sites the app runs on" placeholder="app.example.com, then Enter (empty: any)"
+            description="A browser check made on another site is refused. Add the same hostnames to the widget in Cloudflare."
+            value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
+        </>
+      )}
       <Group grow wrap="wrap" align="flex-start">
         <TextInput label="Apple bundle id" placeholder="com.example.clinic (optional)" leftSection={<IconBrandApple size={16} />}
           description="iOS and macOS, for App Attest"
@@ -476,20 +499,25 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   const [value, setValue] = useState<AppFields | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
   const v = value ?? (app ? { name: app.name, sdk: app.sdk, androidPackage: app.androidPackage, appleBundleId: app.appleBundleId, appleTeamId: app.appleTeamId,
     appleDevelopment: app.appleDevelopment, androidCloudProjectNumber: app.androidCloudProjectNumber, androidSideloaded: app.androidSideloaded,
-    androidDeviceIntegrity: app.androidDeviceIntegrity, androidCertificates: app.androidCertificates } : EMPTY);
-  const close = () => { setValue(null); setError(null); onClose(); };
+    androidDeviceIntegrity: app.androidDeviceIntegrity, androidCertificates: app.androidCertificates, webSiteKey: app.webSiteKey, webHostnames: app.webHostnames } : EMPTY);
+  const close = () => { setValue(null); setSecret(""); setError(null); onClose(); };
   const save = async () => {
     if (!app) return;
     setBusy(true); setError(null);
-    try { await api.updateApp(app.id, v); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }
+    try {
+      await api.updateApp(app.id, v);
+      if (v.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(app.id, b.value ?? null, b.reference ?? null); }
+      await qc.invalidateQueries({ queryKey: INTEGRITY }); close();
+    }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
   return (
     <Modal opened={!!app} onClose={close} radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
       <Stack gap="md">
-        <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} />
+        <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} secret={secret} onSecret={setSecret} secretSet={!!app?.turnstileSecret} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
         <Group justify="flex-end" gap="xs">
           <Button variant="default" onClick={close}>Cancel</Button>
@@ -589,13 +617,15 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
   const [sdk, setSdk] = useState<string | null>(null);
   const [fields, setFields] = useState<AppFields>(EMPTY);
   const [appId, setAppId] = useState<string | null>(null);
+  const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const close = () => { setSdk(null); setFields(EMPTY); setAppId(null); setError(null); onClose(); };
+  const close = () => { setSdk(null); setFields(EMPTY); setAppId(null); setSecret(""); setError(null); onClose(); };
   const add = async () => {
     setBusy(true); setError(null);
     try {
       const { id } = await api.addApp({ ...fields, id: fields.id?.trim() || undefined, sdk: sdk ?? "flutter" });
+      if (fields.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
       setAppId(id);
       await qc.invalidateQueries({ queryKey: INTEGRITY });
     } catch (e) {
@@ -615,7 +645,7 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
       )}
       {sdk && !appId && (
         <Stack gap="md">
-          <AppFieldsForm value={fields} onChange={setFields} />
+          <AppFieldsForm value={fields} onChange={setFields} secret={secret} onSecret={setSecret} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
           <Group justify="space-between">
             <Button variant="subtle" color="gray" onClick={() => setSdk(null)}>← Back</Button>

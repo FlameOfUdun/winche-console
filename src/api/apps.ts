@@ -33,6 +33,8 @@ export interface IntegrityApp {
   appleDevelopment: boolean;
   /** Play Integrity: the Google Cloud project number, builds from outside Google Play accepted, the device level, signing certificates. */
   androidCloudProjectNumber: number | null; androidSideloaded: boolean; androidDeviceIntegrity: AndroidDeviceLevel; androidCertificates: string[];
+  /** The browser check (Cloudflare Turnstile): the widget's site key, the sites the app runs on, and when its secret key was set. */
+  webSiteKey: string | null; webHostnames: string[]; turnstileSecret: { setAt: string; setBy: string | null; reference: string | null } | null;
   createdAt: string; usage: Record<string, Usage>;
   /** Devices that attested a key (App Attest): how many, development builds among them, the last proof. */
   devices: { count: number; development: number; lastUsed: string | null } | null;
@@ -62,6 +64,7 @@ export interface AppFields {
   name: string; sdk: string; androidPackage: string | null; appleBundleId: string | null; appleTeamId: string | null;
   appleDevelopment: boolean;
   androidCloudProjectNumber: number | null; androidSideloaded: boolean; androidDeviceIntegrity: AndroidDeviceLevel; androidCertificates: string[];
+  webSiteKey: string | null; webHostnames: string[];
   /** Chosen when adding (blank: one is made); fixed after. */
   id?: string;
 }
