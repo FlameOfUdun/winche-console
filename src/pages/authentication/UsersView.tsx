@@ -62,7 +62,7 @@ export function UsersView() {
           {list.isLoading ? <Loader m="md" size="sm" /> : users.length === 0 ? (q
             ? <EmptyState compact bordered={false} icon={IconSearch} title="No users match" description={<>Nothing for “{q}”. Search by email, name or uid.</>} />
             : <EmptyState bordered={false} icon={IconUsers} title="No users yet"
-                description="Your apps' users appear here when they sign up. You can also add one yourself."
+                description="They appear here when they sign up."
                 action={(config.data?.directory?.capabilities.create ?? true) && <Button onClick={() => setAdding(true)}>Add user</Button>} />
           ) : (
             <Table highlightOnHover verticalSpacing={8} fz="sm" miw={640}>
@@ -315,7 +315,7 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
           <Stack gap="xs" style={{ flex: 1 }}>
             <TextInput label="Display name" disabled={!canProfile} value={displayName} onChange={(e) => setDisplayName(e.currentTarget.value)} maxLength={100} />
             <TextInput label="Photo URL" placeholder="https://…" disabled={!canProfile} value={photoUrl} onChange={(e) => setPhotoUrl(e.currentTarget.value)}
-              description="Or a link to a photo elsewhere (replaces an uploaded one)" />
+              description="Or a link to a photo elsewhere" />
           </Stack>
         </Group>
         {canProfile && (
@@ -335,12 +335,12 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
                 data={[{ value: "now", label: "Change it now" }, { value: "confirm", label: "Send a link to confirm" }]} />
               {emailMode === "now" ? (
                 <>
-                  <Text size="xs" c="dimmed">Changed at once; their sign-ins end and they sign in with the new address.</Text>
+                  <Text size="xs" c="dimmed">Changed at once; their sign-ins end.</Text>
                   <Switch size="sm" label="It's verified (I know it's theirs)" checked={verified} onChange={(e) => setVerified(e.currentTarget.checked)} />
                   {!verified && <Switch size="sm" label="Send a verify link to the new address" checked={sendVerification} onChange={(e) => setSendVerification(e.currentTarget.checked)} />}
                 </>
               ) : (
-                <Text size="xs" c="dimmed">The new address gets a link; the email changes only when they open it, and the old address is told (with an undo link).</Text>
+                <Text size="xs" c="dimmed">It changes once they open the link sent to the new address.</Text>
               )}
             </Stack>
           )}
@@ -371,7 +371,7 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
         <Stack gap={8} data-testid="console-account">
           <Title order={6}>Console account</Title>
           <Switch label="Server admin" checked={u.customClaims.role === "Admin"} disabled={busy}
-            description="Admin of every project and of Server settings. Others reach a project as its members."
+            description="Admin of every project and of Server settings"
             onChange={(e) => {
               const admin = e.currentTarget.checked;
               void run(() => api.updateUser(uid, { role: admin ? "Admin" : "Member" }), admin ? "Now a server admin." : "No longer a server admin.");
@@ -480,8 +480,7 @@ function AccessTab({ user: u, uid, busy, run, fromKeycloak }: TabProps & { fromK
   return (
     <Stack gap="lg">
       <Stack gap={6}>
-        <Group justify="space-between"><Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
-          <Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
+        <Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
         <Textarea autosize minRows={4} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "editor" }'
           value={claims} onChange={(e) => { setClaims(e.currentTarget.value); setClaimsError(null); }} error={claimsError} />
         <Text size="xs" c="dimmed">In the user's next token: when they next refresh or sign in.</Text>
@@ -535,7 +534,7 @@ function AddUserModal({ opened, onClose, onAdded }: { opened: boolean; onClose: 
     <Modal opened={opened} onClose={onClose} title="Add user">
       <Stack gap="sm">
         <TextInput label="Email" value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
-        <PasswordInput label="Password" description="Optional: without one, they can't sign in with a password yet." value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
+        <PasswordInput label="Password" description="Optional" value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
         <TextInput label="Display name" value={displayName} onChange={(e) => setDisplayName(e.currentTarget.value)} />
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">

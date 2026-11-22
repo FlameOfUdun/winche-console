@@ -97,7 +97,7 @@ export function Access({ manifest, curated, compact = false }: { manifest: Plugi
       )}
       {!compact && (
         <Text size="xs" c="dimmed" mt={8}>
-          Its functions run with the server's rights, like the project's own: they can read and change the project's data. This list is what the plugin says; it isn't enforced.
+          Its functions can read and change the project's data; this list isn't enforced.
         </Text>
       )}
       {!curated && (

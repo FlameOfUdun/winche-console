@@ -147,7 +147,7 @@ function FilesView() {
           ? <EmptyState bordered={false} icon={IconFolder} title="This folder is empty"
               action={canWrite && <Button leftSection={<IconUpload size={16} />} onClick={() => setUploadOpen(true)}>Upload files</Button>} />
           : <EmptyState bordered={false} icon={IconFolder} title="No files yet"
-              description="Upload files here, or let your apps do it. Folders appear as soon as they hold a file."
+              description="Upload files here, or let your apps do it."
               action={canWrite && (<>
                 <Button leftSection={<IconUpload size={16} />} onClick={() => setUploadOpen(true)}>Upload files</Button>
                 <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={() => setNewFolderOpen(true)}>New folder</Button>
@@ -298,7 +298,7 @@ function UploadModal({ opened, dir, onClose, onUploaded }: {
         </Dropzone>
         {file && <Text size="sm">Selected: <b>{file.name}</b> ({humanSize(file.size)}, {file.type || "unknown type"})</Text>}
         <TextInput label="Destination folder" placeholder="(root)" value={folder}
-          description="Slash-separated path; created automatically if it doesn't exist."
+          description="Slash-separated"
           onChange={(e) => setFolder(e.currentTarget.value)} styles={{ input: { fontFamily: "monospace" } }} />
         <Textarea label="Metadata (JSON)" autosize minRows={3} value={metaText}
           onChange={(e) => setMetaText(e.currentTarget.value)} styles={{ input: { fontFamily: "monospace" } }} />
@@ -326,8 +326,7 @@ function NewFolderModal({ opened, parent, onClose, onCreate }: {
     <Modal opened={opened} onClose={onClose} title="New folder">
       <Stack>
         <Text size="xs" c="dimmed">
-          Object storage has no empty folders, so the folder is kept in memory and saved automatically when
-          you upload the first file into it. Create subfolders by opening a folder and adding another.
+          It's saved when you upload its first file.
         </Text>
         <TextInput label="Folder name" placeholder="reports" value={name} data-autofocus
           onChange={(e) => setName(e.currentTarget.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} />

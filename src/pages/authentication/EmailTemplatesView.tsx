@@ -64,7 +64,7 @@ export function EmailTemplatesView() {
   return (
     <Stack gap="sm">
       {config.data.email.logLinksOnly && (
-        <Alert color="yellow">Messages aren't sent yet: their links are only written to the server's log. To send them, choose an SMTP server in Settings → Emails to users.</Alert>
+        <Alert color="yellow">Messages aren't sent yet: their links go to the server's log until sending is set up in Settings.</Alert>
       )}
       <Group align="flex-start" gap="md" wrap="wrap">
         <Paper withBorder p={6} style={{ flex: "1 1 200px", maxWidth: 260 }}>

@@ -127,16 +127,16 @@ function ProviderFields({ value, onChange, sync }: {
         <TextInput label="Address" placeholder="https://login.example.com" value={value.authority ?? ""}
           onChange={(e) => set({ authority: e.currentTarget.value || null })} />
       )}
-      <TextInput label="Client ids" description="The app's ids at the provider, separated by commas. Tokens must be for one of them."
+      <TextInput label="Client ids" description="Separated by commas"
         value={value.audiences.join(", ")} onChange={(e) => set({ audiences: list(e.currentTarget.value) })} />
-      <TextInput label="Claims copied to the user" description="From the provider's token into custom claims at each sign-in, e.g. role, org."
+      <TextInput label="Claims copied to the user" description="Separated by commas, e.g. role, org"
         value={value.copiedClaims.join(", ")} onChange={(e) => set({ copiedClaims: list(e.currentTarget.value) })} />
       <Switch label="Require a second step" checked={!!value.requireSecondStep}
-        description="Sign-ins without one (the provider's one-time code, or Winche's) are refused. Off: only users who turned on two-step are asked."
+        description="Off: only users who turned on two-step are asked."
         onChange={(e) => set({ requireSecondStep: e.currentTarget.checked })} />
       {value.kind === "oidc" && (
         <TextInput label="acr values that mean a second step" placeholder="e.g. 2"
-          description="What the provider puts in acr after a one-time code, separated by commas. An amr of otp or mfa counts anyway."
+          description="Separated by commas"
           value={(value.secondStepAcrValues ?? []).join(", ")} onChange={(e) => set({ secondStepAcrValues: list(e.currentTarget.value) })} />
       )}
       <Switch label="Use the provider's user id as the Winche id" checked={value.useSubjectAsUid}
@@ -210,7 +210,7 @@ export function SignInMethodView() {
         <Group justify="space-between" align="flex-start" px={24} py={18} wrap="wrap" gap="md">
           <div>
             <Text fw={600} fz={16}>Sign-in providers</Text>
-            <Text size="sm" c="var(--w-faint)" mt={4}>How your apps' users sign in. Each becomes a Winche Auth user. Select one to set it up.</Text>
+            <Text size="sm" c="var(--w-faint)" mt={4}>How your apps' users sign in.</Text>
           </div>
           {sc.editable && sc.editing === null && (
             <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add new provider</Button>
@@ -223,7 +223,7 @@ export function SignInMethodView() {
           on={s.emailPassword.enabled} onToggle={toggle("emailPassword")} {...row("emailPassword")}
           form={ep && tw && (
             <>
-              <Switch label="Enable" description="Users sign up and sign in with an email address and a password." checked={ep.enabled}
+              <Switch label="Enable" checked={ep.enabled}
                 onChange={(e) => sc.set({ emailPassword: { ...ep, enabled: e.currentTarget.checked } })} />
               <Group align="flex-end" wrap="wrap">
                 <NumberInput label="Shortest password" w={180} min={6} max={128} disabled={!ep.enabled} value={ep.minLength}
@@ -232,7 +232,7 @@ export function SignInMethodView() {
                   onChange={(e) => sc.set({ emailPassword: { ...ep, requireVerifiedEmail: e.currentTarget.checked } })} />
               </Group>
               <Switch label="Users can turn on two-step sign-in" checked={tw.enabled} onChange={(e) => sc.set({ twoStep: { ...tw, enabled: e.currentTarget.checked } })}
-                description="An authenticator app. Every sign-in to their account then needs a second step: its code, or a provider's own (Google or Keycloak asking for a code counts, so nobody is asked twice). Tokens carry mfa: true." />
+                description="With an authenticator app" />
               {tw.enabled ? (
                 <Group wrap="wrap">
                   <TextInput label="Name in authenticator apps" placeholder="The app's name" value={tw.issuer ?? ""}
@@ -250,7 +250,7 @@ export function SignInMethodView() {
             <>
               <Switch label="Enable" description="Needs email (Settings → Emails to users)." checked={d.emailLink.enabled}
                 onChange={(e) => sc.set({ emailLink: { ...d.emailLink, enabled: e.currentTarget.checked } })} />
-              <TextInput label="Link address" description="The app's page or deep link that finishes the sign-in." placeholder="https://app.example.com/finish-sign-in"
+              <TextInput label="Link address" placeholder="https://app.example.com/finish-sign-in"
                 disabled={!d.emailLink.enabled} value={d.emailLink.linkUrl} onChange={(e) => sc.set({ emailLink: { ...d.emailLink, linkUrl: e.currentTarget.value } })} />
             </>
           )} />
@@ -299,7 +299,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
   const authApi = useAuthApi();
   const config = useQuery({ queryKey: ["app-auth-config", "server-email"], queryFn: authApi.appAuthConfig, staleTime: 60_000, enabled: wincheAuth });
   const serverEmail = config.data?.serverEmail ?? null;
-  if (!wincheAuth) return <CardsPage><Alert color="gray">Winche Auth isn't in this app: its users are those of the providers it trusts (Trusted issuers).</Alert></CardsPage>;
+  if (!wincheAuth) return <CardsPage><Alert color="gray">Winche Auth isn't on for this project.</Alert></CardsPage>;
   if (sc.saved.isLoading) return <Loader size="sm" />;
   if (sc.saved.isError || !sc.saved.data) return <Alert color="red">Couldn't load the sign-in settings: {errorMessage(sc.saved.error)}</Alert>;
   if (!sc.data) return <CardsPage><Alert color="gray">{(sc.saved.data as { whyReadOnly: string }).whyReadOnly}</Alert></CardsPage>;
@@ -309,7 +309,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
   return (
     <CardsPage intro={versionLine(sc.data)} history={<HistoryButton subtitle="Authentication settings"><HistorySection /></HistoryButton>}>
       {!sc.editable && <Alert color="gray">Read-only. {sc.data.whyReadOnly}</Alert>}
-      <EditCard title="Sessions" description="How long a sign-in lasts. Shorter access tokens pick up changes (disabled users, new claims) sooner." {...sc.card("sessions")}
+      <EditCard title="Sessions" {...sc.card("sessions")}
         rows={[{ label: "Access tokens last", value: `${s.sessions.accessTokenMinutes} minutes` }, { label: "Users stay signed in", value: `${s.sessions.refreshTokenDays} days` }]}
         form={d && (
           <>
@@ -324,7 +324,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
           </>
         )} />
 
-      <EditCard title="Account protection" description="After too many wrong passwords or codes, the account waits before trying again." {...sc.card("lockout")}
+      <EditCard title="Account protection" description="After too many wrong passwords or codes" {...sc.card("lockout")}
         rows={[{ label: "Lock an account after", value: `${s.lockout.maxFailedSignIns} failed sign-ins` }, { label: "Locked for", value: `${s.lockout.lockoutMinutes} minutes` }]}
         form={d && (
           <>
@@ -339,7 +339,7 @@ export function AuthSettingsCards({ wincheAuth }: { wincheAuth: boolean }) {
           </>
         )} />
 
-      <EditCard title="Emails to users" description="Verification, password reset and sign-in link emails: who they're from and how they're sent." {...sc.card("email")}
+      <EditCard title="Emails to users" {...sc.card("email")}
         rows={e.enabled ? [
           { label: "App name", value: e.appName || "—" },
           { label: "Sent", value: e.sender === "smtp" && e.smtp ? <code>{e.smtp.host}:{e.smtp.port}</code> : e.sender === "logLinks" ? "Only logged (development)" : serverEmail ? `Through the server's email (${serverEmail})` : "By the app" },
@@ -407,13 +407,12 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
           <>
             <FieldRow>
               <TextInput label="App name" description="In subjects and messages" disabled={!editable} value={e.appName} onChange={(ev) => setE({ appName: ev.currentTarget.value })} />
-              <TextInput label="Action page (optional)" description="Where links open; Winche Auth's built-in page when empty" placeholder="https://app.example.com/auth-action"
+              <TextInput label="Action page (optional)" description="Empty: the built-in page" placeholder="https://app.example.com/auth-action"
                 disabled={!editable} value={e.actionUrl ?? ""} onChange={(ev) => setE({ actionUrl: ev.currentTarget.value || null })} />
             </FieldRow>
             <Switch label="Send a verify link when someone signs up" disabled={!editable} checked={e.sendVerificationOnSignUp}
               onChange={(ev) => setE({ sendVerificationOnSignUp: ev.currentTarget.checked })} />
             <Switch label="Send sign-in link and password reset emails after answering" disabled={!editable} checked={e.sendInBackground !== false}
-              description="The answer doesn't wait for the email server, so how long it takes doesn't tell whether an address has an account. Off: sent before answering, so a failure to send shows in the answer."
               onChange={(ev) => setE({ sendInBackground: ev.currentTarget.checked })} />
             <Group wrap="wrap">
               <NumberInput label="Emails per address per hour" w={200} min={1} max={100} disabled={!editable} value={e.maxPerAddressPerHour}
@@ -437,7 +436,6 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
           {e.sender === "logLinks" && <Alert color="yellow">Nothing is sent: links go to the server's log. For local development only.</Alert>}
           {e.sender === "smtp" && (
             <Stack gap="sm">
-              <Text size="xs" c="dimmed">Any email service with SMTP works: Amazon SES, Postmark, SendGrid, Microsoft 365, Gmail…</Text>
               <FieldRow>
                 <TextInput label="Server" placeholder="email-smtp.eu-west-2.amazonaws.com" disabled={!editable} value={smtp.host} onChange={(ev) => setSmtp({ host: ev.currentTarget.value })} />
                 <NumberInput label="Port" min={1} max={65535} disabled={!editable} value={smtp.port} onChange={(v) => setSmtp({ port: num(v) })} />

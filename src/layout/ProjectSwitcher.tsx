@@ -91,7 +91,7 @@ export function CreateProjectDialog({ opened, onClose }: { opened: boolean; onCl
     <Modal opened={opened} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Add a project</Text>}>
       <Stack gap="md">
         <TextInput label="Project name" placeholder="My app staging" data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
-        <TextInput label="Project id" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id} description={id && isProjectId(id) ? `Its address: …/p/${id}` : undefined}
+        <TextInput label="Project id" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id}
           error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
           onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
         <ProjectDatabaseFields state={dbs} />

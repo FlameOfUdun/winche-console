@@ -87,8 +87,8 @@ export function LogLevelsPanel({ scope, categories }: { scope: LogScope; categor
       <Stack gap="xs">
         <Text size="xs" c="dimmed">
           {data.source === "code"
-            ? `The defaults (${data.codeDefaultLevel} and up). Saving applies on every server within seconds.`
-            : `Changed${data.updatedBy ? ` by ${data.updatedBy}` : ""}${data.updatedAt ? `, ${new Date(data.updatedAt).toLocaleString()}` : ""}. Applies on every server within seconds.`}
+            ? `The defaults (${data.codeDefaultLevel} and up).`
+            : `Changed${data.updatedBy ? ` by ${data.updatedBy}` : ""}${data.updatedAt ? `, ${new Date(data.updatedAt).toLocaleString()}` : ""}.`}
         </Text>
         <Group gap="sm" align="flex-end">
           <Select label="Keep, by default" w={170} data={LEVELS} value={defaultLevel} allowDeselect={false}

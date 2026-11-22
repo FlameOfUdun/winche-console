@@ -37,7 +37,7 @@ export function ProjectMembersPanel() {
         </Group>
         {data.isLoading && <Loader size="sm" />}
         {data.data && members.length === 0 && (
-          <EmptyState icon={IconUsers} title="No members yet" description="Server admins can use every project. Add the people who should use this one."
+          <EmptyState icon={IconUsers} title="No members yet" description="Add the people who should use this project."
             action={<Button leftSection={<IconUserPlus size={16} />} onClick={() => setAdding(true)}>Add member</Button>} />
         )}
         {members.map((m) => (
@@ -65,7 +65,7 @@ export function ProjectMembersPanel() {
       {data.data && data.data.serverAdmins.length > 0 && (
         <Paper withBorder p="lg">
           <Title order={2} fz={16}>Server admins</Title>
-          <Text size="sm" c="dimmed" mt={2} mb="sm">Admins of every project on this server, and the ones who create projects.</Text>
+          <Text size="sm" c="dimmed" mt={2} mb="sm">Admins of every project on this server.</Text>
           {data.data.serverAdmins.map((a) => (
             <Group key={a.userId} justify="space-between" py={8} style={{ borderTop: `1px solid ${surface.subtle}` }}>
               <div>
@@ -118,7 +118,7 @@ function AddMemberDialog({ opened, onClose, onAdded }: { opened: boolean; onClos
         <Stack gap="md">
           <TextInput label="Email" placeholder="ann@example.com" data-autofocus value={email} onChange={(e) => setEmail(e.currentTarget.value)} />
           <Select label="Role" data={ROLES} value={role} allowDeselect={false} onChange={(v) => v && setRole(v as ConsoleRole)} />
-          <Text size="sm" c={surface.muted}>Someone without an account gets one, with access to this project only, and a link to set their password.</Text>
+          <Text size="sm" c={surface.muted}>Someone without an account gets one, for this project only.</Text>
           {error && <Alert color="red" p="xs">{error}</Alert>}
           <Group justify="flex-end" gap="xs">
             <Button variant="default" onClick={close}>Cancel</Button>

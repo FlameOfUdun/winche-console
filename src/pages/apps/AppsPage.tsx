@@ -53,7 +53,7 @@ function YourProject({ fallbackName, fallbackId }: { fallbackName: string; fallb
   };
 
   return (
-    <EditCard title="Your project" description="Apps find it by its id, which never changes. Its name and image are just for people."
+    <EditCard title="Your project" description="Its id never changes."
       actions={canEdit && <Button variant="subtle" leftSection={<IconPencil size={15} />} onClick={() => setRenaming(true)}>Rename</Button>}
       rows={[
         { label: "Name", value: <Text span size="sm" data-testid="project-name">{name}</Text> },
@@ -90,7 +90,7 @@ function ArchiveProject() {
   const current = data?.projects.find((p) => p.id === data.current);
   if (!user?.serverAdmin || !data?.available || !current) return null;
   return (
-    <EditCard danger title="Archive this project" description="It stops, and its apps and console are refused until a server admin restores it. Nothing is deleted."
+    <EditCard danger title="Archive this project" description="It stops until a server admin restores it. Nothing is deleted."
       actions={<Button color="red" variant="light" onClick={() => setOpen(true)}>Archive project</Button>}>
       <ConfirmByIdDialog opened={open} id={current.id} title={`Archive ${current.name}?`} action="Archive project" onClose={() => setOpen(false)}
         body="Its apps get errors until it's restored. Its data, users and files are kept: restore or delete it on the server's Projects page, under Archived."

@@ -72,7 +72,7 @@ export function IntegrityPage() {
       {integrity.isLoading && <Loader size="sm" />}
       {integrity.error && <Alert color="red">Couldn't load Integrity: {errorMessage(integrity.error)}</Alert>}
       {d && !d.available && <Alert color="gray">Integrity is set up once this console runs project setup.</Alert>}
-      {d?.available && !d.canSign && <Alert color="yellow">This server has no master key, so it can't make Integrity tokens: set one to use Integrity.</Alert>}
+      {d?.available && !d.canSign && <Alert color="yellow">This server has no master key, so it can't make Integrity tokens.</Alert>}
       {d?.available && (
         <>
           <Apps data={d} />

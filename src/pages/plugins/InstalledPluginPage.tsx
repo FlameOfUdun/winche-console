@@ -54,7 +54,7 @@ export function InstalledPluginPage() {
         <Group gap="md" mt="sm" wrap="wrap">
           {back}
           <Anchor component={Link} to={packagePath(p.package, p.version)} size="sm" ff="monospace">{p.package} {p.version}</Anchor>
-          {p.source === "deploy" && <Badge color="gray" variant="light" tt="none">From winche.json</Badge>}
+          {p.source === "deploy" && <Badge color="gray" variant="light" tt="none">From a deploy</Badge>}
           {!p.curated && <Badge color="yellow" variant="light" tt="none">Not in the catalog</Badge>}
         </Group>
       </PageBand>

@@ -210,7 +210,7 @@ export function InvitesTab() {
 
       {invites.data && invites.data.length === 0 ? (
         <EmptyState compact icon={IconMail} title="No pending invites"
-          description="Invite someone by email: they choose a password and join with the role you pick."
+          description="Invite someone by email."
           action={<Button size="xs" leftSection={<IconPlus size={15} />} onClick={() => setCreateOpen(true)}>Invite</Button>} />
       ) : (
       <Box style={{ maxHeight: "60vh", border: "1px solid var(--w-border)", borderRadius: 8, background: "var(--w-card)", overflow: "auto" }}>

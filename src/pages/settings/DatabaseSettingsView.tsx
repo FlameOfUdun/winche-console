@@ -31,7 +31,7 @@ export function DatabaseSettingsView() {
       history={<HistoryButton subtitle="Database settings"><DatabaseChanges editable={db.editable} hasLive={hasLive} /></HistoryButton>}>
       {!db.editable && <Alert color="gray">Read-only. {db.saved.data?.whyReadOnly}</Alert>}
 
-      <EditCard title="Document history" description="Earlier versions of every document, to see who changed what and restore it." {...db.card("history")}
+      <EditCard title="Document history" description="Earlier versions of every document." {...db.card("history")}
         rows={[{ label: "Keep document history", value: <OnOff on={s.history.enabled} /> },
           ...(s.history.enabled ? [{ label: "Keep it for", value: `${s.history.retentionDays} days` }] : [])]}
         form={d && (
@@ -47,7 +47,7 @@ export function DatabaseSettingsView() {
           </>
         )} />
 
-      <EditCard title="Limits" description="What one document and one response may hold. Writes over a limit are refused." {...db.card("limits")}
+      <EditCard title="Limits" description="Writes over a limit are refused." {...db.card("limits")}
         rows={[{ label: "Largest document", value: kb(s.writeLimits.maxDocumentKb) }, { label: "Deepest nesting", value: `${s.writeLimits.maxDepth} levels` },
           { label: "Expanded references per response", value: s.expandLimit.toLocaleString() }]}
         form={d && (
@@ -67,7 +67,7 @@ export function DatabaseSettingsView() {
           </>
         )} />
 
-      <EditCard title="Logging" description="Which reads and writes show in Logs, and slow queries that need an index. Failures are always logged." {...db.card("logging")}
+      <EditCard title="Logging" description="Failures are always logged." {...db.card("logging")}
         rows={[{ label: "Log requests", value: <OnOff on={s.requestLog.enabled} /> },
           ...(s.requestLog.enabled ? [{ label: "Successful reads logged", value: `${Math.round(s.requestLog.sampleRate * 100)}%` },
             { label: "Slow after", value: `${s.requestLog.slowMs.toLocaleString()} ms` }] : []),
@@ -107,7 +107,7 @@ function LiveConnectionsCard({ live }: { live: ReturnType<typeof useAreaCards<Li
   const d = live.draft;
   const set = (patch: Partial<LiveConnectionSettings>) => live.setDraft({ ...d, ...patch });
   return (
-    <EditCard title="Live connections" description="Limits on apps listening for changes as they happen." {...live.card("live")}
+    <EditCard title="Live connections" {...live.card("live")}
       rows={[{ label: "Connections per user", value: limit(s.maxConnectionsPerUser) }, { label: "Listeners per connection", value: limit(s.maxSubscriptionsPerConnection) },
         { label: "Requests per second, per connection", value: `${s.requestsPerSecond} (bursts of ${s.requestBurst})` }, { label: "Largest message", value: kb(s.maxMessageKb) }]}
       form={d && (
@@ -143,7 +143,7 @@ function DatabaseChanges({ editable, hasLive }: { editable: boolean; hasLive: bo
   return (
     <Stack gap="md">
       {!dbHistory.isLoading && !hasDb && !hasLiveChanges && (
-        <EmptyState compact bordered={false} icon={IconClockHour4} title="No changes yet" description="Saved changes show up here: who made them, when and why." />
+        <EmptyState compact bordered={false} icon={IconClockHour4} title="No changes yet" description="Saved changes show up here." />
       )}
       {hasDb && <AreaHistory area="database" editable={editable} empty={false} />}
       {hasLiveChanges && (
@@ -208,8 +208,8 @@ export function DatabaseIndexesView() {
       )}
       <Text size="sm" c="var(--w-muted)">
         {view === "indexes"
-          ? "Queries that filter or sort on more than one field need an index. Single fields are indexed already."
-          : "Documents are deleted once the time in a field has passed, within about an hour."}
+          ? "Needed by queries on more than one field."
+          : "Deleted within about an hour of the time passing."}
       </Text>
       <Paper withBorder radius="lg" style={{ overflowX: "auto" }}>
         {view === "indexes" ? (s.indexes.length === 0
@@ -230,7 +230,7 @@ export function DatabaseIndexesView() {
               </Table.Tbody>
             </Table>
           )) : (s.ttl.length === 0
-          ? <EmptyState compact bordered={false} icon={IconClockHour4} title="No expiry yet" description="Delete documents once a time in them has passed, like sessions." />
+          ? <EmptyState compact bordered={false} icon={IconClockHour4} title="No expiry yet" description="Delete documents once a time in them has passed." />
           : (
             <Table verticalSpacing={12} horizontalSpacing="lg" miw={520}>
               <Table.Thead><Table.Tr><Table.Th>Collection</Table.Th><Table.Th>Field</Table.Th><Table.Th w={48} /></Table.Tr></Table.Thead>
@@ -288,7 +288,7 @@ function AddIndexDialog({ opened, expiry, onClose, onAdd }: {
         <TextInput label="Collection" placeholder="orders" data-autofocus value={collection} onChange={(e) => setCollection(e.currentTarget.value)}
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} />
         <TextInput label={expiry ? "Field with the time" : contains ? "List field" : "Fields"} placeholder={expiry ? "expiresAt" : contains ? "tags" : "status, createdAt desc"}
-          description={expiry ? undefined : contains ? "Queries asking whether the list contains a value." : "In order, separated by commas; add desc to sort newest first."}
+          description={expiry ? undefined : contains ? "Queries asking whether the list contains a value." : "In order, separated by commas; add desc for newest first."}
           value={fields} onChange={(e) => setFields(e.currentTarget.value)} styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} />
         {!expiry && (
           <Group gap="lg">

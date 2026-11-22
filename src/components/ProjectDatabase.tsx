@@ -34,7 +34,7 @@ export function ProjectDatabaseFields({ state: s }: { state: ProjectDatabaseStat
         <Text size="sm" fw={500}>Its database</Text>
         <SegmentedControl fullWidth value={s.where} onChange={(v) => s.setWhere(v as typeof s.where)}
           data={[{ value: "here", label: "This server's PostgreSQL" }, { value: "elsewhere", label: "Another PostgreSQL server" }]} />
-        {s.where === "here" && <Text size="xs" c={surface.muted}>A database of its own, made next to the server's. You can move it later in its Project settings → Data.</Text>}
+        {s.where === "here" && <Text size="xs" c={surface.muted}>A database of its own, next to the server's.</Text>}
       </Stack>
       {s.where === "elsewhere" && (
         <>
@@ -47,7 +47,7 @@ export function ProjectDatabaseFields({ state: s }: { state: ProjectDatabaseStat
             <PasswordInput label="Password" autoComplete="new-password" value={s.db.password} onChange={(e) => s.set({ password: e.currentTarget.value })} />
             <Select label="SSL" allowDeselect={false} data={["Disable", "Prefer", "Require", "VerifyFull"]} value={s.db.sslMode} onChange={(v) => v && s.set({ sslMode: v })} />
           </FieldRow>
-          <TextInput label="Database" description="New (if this user may create databases), or an empty one. Empty: named after the project." styles={mono}
+          <TextInput label="Database" description="New, or an empty one. Empty: named after the project." styles={mono}
             value={s.db.database} onChange={(e) => s.set({ database: e.currentTarget.value })} />
           {s.check && (s.check.ok
             ? <Alert color="teal" p="xs" data-testid="project-db-check">Ready{s.check.version ? `: PostgreSQL ${s.check.version}` : ""}. {s.check.exists ? "The database is there and empty." : "The database will be created."}</Alert>

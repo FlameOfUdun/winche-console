@@ -82,7 +82,7 @@ export function DataLocationTab() {
             </div>
             <div>
               <Title order={4}>Where data is kept</Title>
-              <Text size="sm" c={surface.muted}>Documents, files' records, app users, hook deliveries and logs: one database for the project.</Text>
+              <Text size="sm" c={surface.muted}>One database for the project.</Text>
             </div>
           </Group>
           <Button leftSection={<IconArrowsExchange size={16} />} variant="default" onClick={() => setOpen(true)} disabled={!!d.previous}>Move…</Button>
@@ -121,7 +121,7 @@ function MovingView({ progress }: { progress: MoveProgress | null }) {
         <Text size="sm">{progress ? STAGES[progress.stage] ?? progress.stage : "Getting ready…"}{progress?.table ? `: ${progress.table}` : ""}</Text>
         {pct !== null && <Progress value={pct} animated />}
         {progress && progress.tablesTotal > 0 && <Text size="xs" c={surface.muted}>{progress.tablesDone} of {progress.tablesTotal} tables</Text>}
-        <Text size="xs" c={surface.muted}>The project is paused while it copies: its apps are told to try again in a moment.</Text>
+        <Text size="xs" c={surface.muted}>The project is paused while it copies.</Text>
       </Stack>
     </Paper>
   );
@@ -196,7 +196,7 @@ function MoveDialog({ opened, onClose, info, onStarted }: { opened: boolean; onC
           : <Alert color="red" p="sm" data-testid="move-check">{check.problem}</Alert>)}
         {error && <Alert color="red" p="sm">{error}</Alert>}
         <Text size="xs" c={surface.muted}>
-          The project pauses while its tables are copied and counted (its apps are told to try again), then carries on in the new database. The old one stays until you finish the move.
+          The project pauses while it copies. The old database stays until you finish the move.
         </Text>
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>Cancel</Button>

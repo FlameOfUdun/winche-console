@@ -34,7 +34,7 @@ export function AuthSettingsView() {
   };
 
   return (
-    <EditCard title="Tokens and signing keys" description={`What your apps' tokens say, and the keys that sign them: a new key every ${tokens.keyRotationDays} days; a retiring key still checks the tokens it signed.`}
+    <EditCard title="Tokens and signing keys" description={`A new signing key every ${tokens.keyRotationDays} days`}
       actions={<Button variant="subtle" loading={rotating} onClick={rotate}>Rotate now</Button>}
       rows={[
         { label: "Issuer", value: <Text span ff="monospace" fz="sm">{tokens.issuer}</Text> },

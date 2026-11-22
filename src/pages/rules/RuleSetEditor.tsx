@@ -153,7 +153,7 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
   return (
     <Stack gap={6}>
       <Group justify="space-between">
-        <Text size="xs" c="dimmed">Ctrl+Space for suggestions — field names come from documents each match covers. Checked when you leave the editor or save.</Text>
+        <Text size="xs" c="dimmed">Ctrl+Space for suggestions.</Text>
         <Group gap={4}>
           <Tooltip label={`Undo (${mac ? "⌘Z" : "Ctrl+Z"})`}>
             <ActionIcon variant="default" size="md" aria-label="Undo" disabled={!canUndo} onClick={() => code.current?.undo()}>

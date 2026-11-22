@@ -34,8 +34,7 @@ export function ForgotPasswordPage() {
       <AuthCard title="Reset your password" icon={<Circle tone="red"><IconMail size={24} /></Circle>}>
         <Stack gap="md">
           <Text size="sm" ta="center" c="dimmed">
-            This server can't send email yet, so the reset link can't reach you. Ask a server admin to set a new password
-            for you: they do it in Server settings → Authentication → Users.
+            This server can't send email yet. Ask a server admin to set a new password for you.
           </Text>
           <Button size="md" variant="default" component={Link} to="/">Back to sign in</Button>
         </Stack>

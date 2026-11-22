@@ -60,7 +60,7 @@ function Installed({ query }: { query: ReturnType<typeof useQuery<Awaited<Return
   const list = query.data.plugins;
   if (list.length === 0) return (
     <EmptyState icon={IconPuzzle} title="No plugins yet"
-      description="Browse the plugins this server offers, or any on npm, and install one in a few steps."
+      description="Browse to install one."
       action={<Button component={Link} to="/plugins/browse" leftSection={<IconSearch size={16} />}>Browse plugins</Button>} />
   );
   return (
@@ -91,7 +91,7 @@ function InstalledCard({ p }: { p: InstalledPlugin }) {
         <Group gap={6} mt={10}>
           {p.secretsNeeded.length > 0 && <Badge color="orange" variant="light" tt="none" leftSection={<IconKey size={12} />}>Needs {p.secretsNeeded.length === 1 ? "a secret" : `${p.secretsNeeded.length} secrets`}</Badge>}
           {p.update && <Badge color="blue" variant="light" tt="none" leftSection={<IconArrowUp size={12} />}>{p.latest} is out</Badge>}
-          {p.source === "deploy" && <Badge color="gray" variant="light" tt="none">From winche.json</Badge>}
+          {p.source === "deploy" && <Badge color="gray" variant="light" tt="none">From a deploy</Badge>}
           {!p.curated && <Badge color="yellow" variant="light" tt="none">Not in the catalog</Badge>}
         </Group>
         <Group justify="space-between" align="flex-end" gap="xs" wrap="nowrap" style={{ marginTop: "auto", paddingTop: 16 }}>
@@ -192,7 +192,7 @@ function Browse({ installed }: { installed: InstalledPlugin[] }) {
           <Stack gap="sm">
             <div>
               <Text fw={600}>Popular on npm</Text>
-              <Text size="sm" c="dimmed">The most downloaded packages with the keyword winche-plugin, and this server's plugin folder. Nobody here has vouched for them.</Text>
+              <Text size="sm" c="dimmed">Nobody here has vouched for these.</Text>
             </div>
             {search.isLoading ? <Loader size="sm" /> : results.filter((r) => !isOffered(r.package)).length === 0
               ? <Text size="sm" c="dimmed">Nothing else found.</Text>

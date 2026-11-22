@@ -43,7 +43,7 @@ function UsersAndPermissions({ manageUsers }: { manageUsers: boolean }) {
     <Stack gap="lg">
       <Paper withBorder p="lg">
         <Title order={2} fz={16}>Members</Title>
-        <Text size="sm" c="dimmed" mt={2} mb="md">Who can use this project's console, and with which role. Your apps' users are under Authentication.</Text>
+        <Text size="sm" c="dimmed" mt={2} mb="md">Who can use this project's console, and with which role.</Text>
         <UsersTab />
       </Paper>
       <Paper withBorder p="lg">

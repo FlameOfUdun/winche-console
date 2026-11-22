@@ -21,7 +21,7 @@ export function StorageSettingsView() {
       {!st.editable && <Alert color="gray">Read-only. {st.saved.data?.whyReadOnly}</Alert>}
       <LocationSection />
 
-      <EditCard title="Uploads" description="What apps may upload. Your rules can be stricter." {...st.card("size")}
+      <EditCard title="Uploads" {...st.card("size")}
         rows={[{ label: "Largest file", value: s.maxFileSizeMb != null ? `${s.maxFileSizeMb} MB` : <OnOff on={false} offLabel="No limit" /> }]}
         form={d && (
           <>
@@ -35,7 +35,7 @@ export function StorageSettingsView() {
           </>
         )} />
 
-      <EditCard title="Logging" description="Which uploads and downloads show in Logs. Failures are always logged." {...st.card("logging")}
+      <EditCard title="Logging" description="Failures are always logged." {...st.card("logging")}
         rows={[{ label: "Log requests", value: <OnOff on={s.requestLog.enabled} /> },
           ...(s.requestLog.enabled ? [{ label: "Successful reads logged", value: `${Math.round(s.requestLog.sampleRate * 100)}%` },
             { label: "Slow after", value: `${s.requestLog.slowMs.toLocaleString()} ms` }] : [])]}
@@ -54,7 +54,7 @@ export function StorageSettingsView() {
           </>
         )} />
 
-      <EditCard title="Clean-up" description="Stored files no record points to any more: an upload that never finished, a deleted record." {...st.card("cleanup")}
+      <EditCard title="Clean-up" description="Stored files no record points to any more." {...st.card("cleanup")}
         rows={[{ label: "Delete them", value: <OnOff on={s.orphanSweep.enabled} /> },
           ...(s.orphanSweep.enabled ? [{ label: "Check every", value: `${s.orphanSweep.intervalHours} hours` },
             { label: "Once older than", value: `${s.orphanSweep.graceHours} hours` },

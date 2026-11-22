@@ -84,8 +84,7 @@ export function KeycloakSyncView() {
     <Stack gap="sm" mt="md">
       <Title order={4}>Keycloak sync</Title>
       <Text size="sm" c="dimmed">
-        Users who sign in with these providers follow Keycloak, one way: changes there (profile, roles, claims, disabled,
-        deleted) reach Winche; nothing is written to Keycloak.
+        One way: nothing is written to Keycloak.
       </Text>
       <SimpleGrid cols={{ base: 1, md: 2 }}>{list.map((s) => <SyncCard key={s.provider} s={s} />)}</SimpleGrid>
     </Stack>

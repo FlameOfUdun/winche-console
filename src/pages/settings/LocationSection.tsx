@@ -39,7 +39,7 @@ export function LocationSection() {
 
   const busy = !!s.move || choosing;
   return (
-    <EditCard title="Where files are kept" description="The files themselves. Their records stay in the project's database." testId="location-card"
+    <EditCard title="Where files are kept" testId="location-card"
       rows={[{ label: "Kept in", value: <span data-testid="location-active">{s.activeLabel}</span> }]}
       actions={!busy && (
         <Button variant="subtle" disabled={!s.editable || (s.kinds.length === 0 && !s.active)} onClick={() => setChoosing(true)}>Move files…</Button>
@@ -48,7 +48,7 @@ export function LocationSection() {
         <div style={{ padding: "16px 24px", borderTop: "1px solid var(--w-subtle)" }}>
           {s.move ? <MoveSteps s={s} onChange={refresh} />
             : choosing ? <ChooseLocation s={s} onDone={async () => { setChoosing(false); await refresh(); }} onCancel={() => setChoosing(false)} />
-            : <Text size="xs" c="dimmed">This app can't move files yet: it needs the Winche.Storage.S3 package (AllowS3Locations()).</Text>}
+            : <Text size="xs" c="dimmed">This server can't move files yet.</Text>}
         </div>
       )}
     </EditCard>
@@ -132,12 +132,12 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
             value={serverRole ? "" : secret} onChange={(v) => { setSecret(v); setTest(null); }} />
           {serverRole && (
             <Text size="xs" c="dimmed" data-testid="server-role-note">
-              No access key: the server's own AWS permissions are used (its task role or environment). Only server admins can choose this.
+              No access key: the server's own AWS permissions are used. Only server admins can choose this.
             </Text>
           )}
           {preset === "other" && <Switch label="Path-style addresses (MinIO and most self-hosted services)" checked={b.forcePathStyle} onChange={(e) => set({ forcePathStyle: e.currentTarget.checked })} />}
           {!s.secretsAvailable && <Alert color="yellow">Secrets can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
-          <Text size="xs" c="dimmed">The bucket needs CORS allowing PUT and GET from your apps, as uploads and downloads go to it directly.</Text>
+          <Text size="xs" c="dimmed">The bucket needs CORS allowing PUT and GET from your apps.</Text>
         </>
       )}
       <Group gap="xs">

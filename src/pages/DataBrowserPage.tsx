@@ -343,7 +343,7 @@ function DataView() {
           <Box p="lg" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
             {!collectionsQuery.isLoading && roots.length === 0
               ? <EmptyState bordered={false} icon={IconDatabase} title="Start your first collection"
-                  description="Collections hold documents, like a folder of records. Add one in the Collections column, or let your apps write the first document." />
+                  description="Add one, or let your apps write the first document." />
               : <EmptyState bordered={false} compact icon={IconFolderOpen} title="Pick a collection" description="Its documents show here." />}
           </Box>
         )}

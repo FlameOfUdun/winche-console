@@ -107,7 +107,7 @@ export function AreaHistory({ area, editable, empty = true }: { area: DataArea; 
   if (history.isLoading) return <Loader size="sm" />;
   if (versions.length === 0) {
     return empty
-      ? <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here: who made them, when and why." />
+      ? <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here." />
       : null;
   }
 

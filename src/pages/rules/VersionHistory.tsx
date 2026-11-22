@@ -78,7 +78,7 @@ export function VersionHistory({ subsystem, opened, onClose, versions, onOpenInE
   return (
     <HistoryDrawer opened={opened} onClose={onClose} subtitle="Rules: each saved version, and its changes against the active one" size="85%">
       {!versions && <Loader size="sm" />}
-      {versions?.length === 0 && <EmptyState icon={IconHistory} title="No versions yet" description="Each time rules are published, from here or with winche rules deploy, a version is kept." />}
+      {versions?.length === 0 && <EmptyState icon={IconHistory} title="No versions yet" description="Each publish is kept here." />}
       {versions && versions.length > 0 && selected && (
         <Group align="stretch" wrap="nowrap" gap="md" h="70vh">
           <ScrollArea w={280} style={{ flexShrink: 0, borderRight: "1px solid var(--w-border)" }}>

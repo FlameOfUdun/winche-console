@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { Alert, Anchor, Badge, Button, Checkbox, Code, Group, Loader, Paper, Stack, Stepper, Table, Text, TextInput } from "@mantine/core";
+import { Alert, Anchor, Badge, Button, Checkbox, Group, Loader, Paper, Stack, Stepper, Table, Text, TextInput } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { IconArrowLeft, IconArrowRight, IconCheck, IconDownload } from "@tabler/icons-react";
 import { api } from "../../api/client";
@@ -89,7 +89,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
             <Stack gap="lg" mt="lg">
               <TextInput label="Install as" withAsterisk value={id} onChange={(e) => setId(e.currentTarget.value.trim())} error={id && idProblem}
                 styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-                description={<>Its functions are called <Code>{id || "id"}.name</Code>; install it again under another id for a second copy.</>} />
+                description="For a second copy, use another id." />
               <SettingsFields settings={m.settings} values={values} onChange={setValues} />
             </Stack>
             {nav(!idProblem && missing.length === 0)}
@@ -98,7 +98,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
             <Stack gap="md" mt="lg">
               {asked.length === 0 ? <Text size="sm" c="dimmed">It needs no secrets with these settings.</Text> : (
                 <>
-                  <Text size="sm" c="dimmed">Kept encrypted and never shown again. You can also set them later, on its page.</Text>
+                  <Text size="sm" c="dimmed">You can also set them later.</Text>
                   {asked.map((s) => (
                     <SecretInput key={s.name} label={`${s.label}${s.required ? "" : " (optional)"} · ${secretFor(id, s.name)}`} description={s.description ?? undefined}
                       value={secrets[s.name] ?? ""} onChange={(v) => setSecrets((x) => ({ ...x, [s.name]: v }))} />
@@ -123,7 +123,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
                 </Table>
               </Paper>
               {unset.length > 0 && <Alert color="orange" variant="light">Its functions that need {unset.map((s) => s.label).join(", ")} fail until {unset.length === 1 ? "it's" : "they're"} set.</Alert>}
-              <Text size="sm" c="dimmed">Installing makes a new functions version: it's in the change history, and rolling back the version removes it again.</Text>
+              <Text size="sm" c="dimmed">Rolling back the functions version removes it again.</Text>
               {error && <Alert color="red" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
             </Stack>
             <Group justify="space-between" mt="xl">
