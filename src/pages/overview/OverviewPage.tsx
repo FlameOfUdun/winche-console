@@ -1,5 +1,5 @@
 import { Alert, Anchor, Button, Code, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconApps, IconArrowRight, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconApps, IconArrowRight, IconShieldCheck, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -10,6 +10,9 @@ import { PageBand } from "../../components/NavPageHeader";
 import { ProjectAvatar } from "../../components/ProjectAvatar";
 import { when } from "../authentication/UsersView";
 import { surface } from "../../theme";
+import { useSession } from "../../auth/session";
+import type { IntegrityData } from "../../api/apps";
+import { readiness } from "../integrity/IntegrityPage";
 
 const ICONS: Record<string, typeof IconDatabase> = {
   database: IconDatabase, storage: IconFolder, authentication: IconUsers, functions: IconLambda, assets: IconPackage, hooks: IconWebhook,
@@ -19,6 +22,8 @@ const ICONS: Record<string, typeof IconDatabase> = {
 export function OverviewPage() {
   const overview = useQuery({ queryKey: ["overview"], queryFn: api.overview });
   const projectState = useQuery({ queryKey: ["project"], queryFn: api.project, staleTime: 30_000 });
+  const session = useSession();
+  const integrity = useQuery({ queryKey: ["integrity"], queryFn: api.integrity, enabled: !!session?.state?.capabilities?.integrity, staleTime: 30_000 });
   if (overview.isLoading) return <Loader size="sm" />;
   if (overview.isError || !overview.data) return <Alert color="red">Couldn't load the overview: {errorMessage(overview.error)}</Alert>;
   const { project, changes } = overview.data;
@@ -105,15 +110,40 @@ export function OverviewPage() {
             </Group>
           ))}
         </Paper>
-        <Paper withBorder p="lg">
-          <Group gap={10} mb={6}>
-            <IconApps size={18} color="var(--w-accent)" />
-            <Title order={2} fz={15}>Your apps</Title>
-          </Group>
-          <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
-          <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
-        </Paper>
+        {integrity.data?.available ? <IntegritySummary data={integrity.data} /> : (
+          <Paper withBorder p="lg">
+            <Group gap={10} mb={6}>
+              <IconApps size={18} color="var(--w-accent)" />
+              <Title order={2} fz={15}>Your apps</Title>
+            </Group>
+            <Text size="sm" c={surface.muted}>Connect a Flutter or Dart app: run <Code>winche configure</Code> in its folder, or add it here and download its options file.</Text>
+            <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">Manage apps →</Anchor>
+          </Paper>
+        )}
       </SimpleGrid>
     </Stack>
+  );
+}
+
+/** Integrity at a glance: the apps (and any that can't prove themselves), what's enforced, today's verified share. */
+function IntegritySummary({ data }: { data: IntegrityData }) {
+  const enforced = data.products.filter((p) => data.enforcement[p] === "enforce");
+  const ok = data.apps.reduce((n, a) => n + Object.values(a.usage).reduce((m, u) => m + u.today, 0), 0);
+  const no = Object.values(data.unverified).reduce((n, u) => n + u.today, 0);
+  const unready = data.apps.filter((a) => readiness(a, data).some((r) => r.color === "red")).length;
+  const label = (p: string) => p.charAt(0).toUpperCase() + p.slice(1);
+  return (
+    <Paper withBorder p="lg" data-testid="integrity-summary">
+      <Group gap={10} mb={6}>
+        <IconShieldCheck size={18} color="var(--w-accent)" />
+        <Title order={2} fz={15}>Integrity</Title>
+      </Group>
+      <Stack gap={4}>
+        <Text size="sm">{data.apps.length === 0 ? "No apps yet" : `${data.apps.length} app${data.apps.length === 1 ? "" : "s"}`}{unready ? <Text span c="red" size="sm">{` · ${unready} not set up`}</Text> : null}</Text>
+        <Text size="sm" c={surface.muted}>{enforced.length ? `Enforced: ${enforced.map(label).join(", ")}` : "Monitoring: nothing refused yet"}</Text>
+        <Text size="sm" c={surface.muted}>{ok + no === 0 ? "No requests today" : `Today ${Math.round((ok / (ok + no)) * 100)}% verified (${ok.toLocaleString()} of ${(ok + no).toLocaleString()})`}</Text>
+      </Stack>
+      <Anchor component={Link} to="/integrity" fw={600} size="sm" mt="md" display="inline-block">{data.apps.length ? "Integrity →" : "Add an app →"}</Anchor>
+    </Paper>
   );
 }

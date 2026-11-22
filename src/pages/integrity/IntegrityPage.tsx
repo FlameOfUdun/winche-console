@@ -96,6 +96,42 @@ export function IntegrityPage() {
   );
 }
 
+/** One platform's state for an app: ready, or what's missing (shown as a chip, its detail on hover). */
+interface Readiness { platform: "apple" | "android" | "web" | "debug"; label: string; detail: string; color: "teal" | "blue" | "red" | "gray"; icon: ReactNode }
+
+/** Each platform the app is set up for: ready, or exactly what's missing; debug tokens only when none is. */
+export function readiness(a: IntegrityApp, data: Pick<IntegrityData, "playServiceAccount" | "debugTokens">): Readiness[] {
+  const out: Readiness[] = [];
+  if (a.appleBundleId || a.appleTeamId) {
+    const icon = <IconBrandApple size={12} />;
+    const id = a.appleTeamId && a.appleBundleId ? `${a.appleTeamId}.${a.appleBundleId}` : a.appleBundleId ?? "";
+    const dev = a.appleDevelopment ? " Development builds are accepted: turn that off before you enforce in production." : "";
+    if (!a.appleTeamId || !a.appleBundleId) out.push({ platform: "apple", icon, color: "red", label: `Apple: needs its ${a.appleTeamId ? "bundle id" : "team id"}`, detail: "App Attest checks the app's Apple team id and bundle id: set both." });
+    else if (!a.devices) out.push({ platform: "apple", icon, color: "blue", label: "Apple: ready, no devices yet", detail: `App Attest for ${id}. No device has attested a key yet.${dev}` });
+    else out.push({ platform: "apple", icon, color: "teal", label: `Apple: ${a.devices.count.toLocaleString()} device${a.devices.count === 1 ? "" : "s"}`,
+      detail: `App Attest for ${id}: ${a.devices.count} device${a.devices.count === 1 ? "" : "s"}${a.devices.development ? ` (${a.devices.development} development)` : ""}, last proof ${ago(a.devices.lastUsed)}.${dev}` });
+  }
+  if (a.androidPackage) {
+    const icon = <IconBrandAndroid size={12} />;
+    const what = `Play Integrity for ${a.androidPackage}: ${DEVICE_LEVEL[a.androidDeviceIntegrity]}${a.androidSideloaded ? ", builds from outside Google Play accepted" : ""}${a.androidCertificates.length ? `, ${a.androidCertificates.length} signing certificate${a.androidCertificates.length === 1 ? "" : "s"}` : ""}.`;
+    if (!a.androidCloudProjectNumber) out.push({ platform: "android", icon, color: "red", label: "Android: needs its Cloud project number", detail: `${what} The app asks Play Integrity under the Google Cloud project: set its number.` });
+    else if (!data.playServiceAccount) out.push({ platform: "android", icon, color: "red", label: "Android: needs the service account", detail: `${what} The server reads verdicts as the project's Google service account: set it under Google Play Integrity.` });
+    else out.push({ platform: "android", icon, color: "teal", label: "Android: ready", detail: `${what} Cloud project ${a.androidCloudProjectNumber}.` });
+  }
+  if (a.webSiteKey) {
+    const icon = <IconWorld size={12} />;
+    const where = a.webHostnames.length ? a.webHostnames.join(", ") : "any site";
+    if (!a.turnstileSecret) out.push({ platform: "web", icon, color: "red", label: "Web: needs its secret key", detail: `The browser check (Turnstile) on ${where}: set the widget's secret key.` });
+    else out.push({ platform: "web", icon, color: "teal", label: "Web: ready", detail: `The browser check (Turnstile) on ${where}.` });
+  }
+  if (out.length === 0) {
+    const tokens = data.debugTokens.filter((t) => t.app === a.id).length;
+    out.push({ platform: "debug", icon: <IconKey size={12} />, color: "gray", label: tokens ? `Debug tokens only (${tokens})` : "No way to prove itself yet",
+      detail: "Set its Apple, Android or web details for it to prove itself on devices and in browsers; debug tokens are for simulators, desktop builds and CI." });
+  }
+  return out;
+}
+
 /** The project's apps: an empty state until the first is added, then the list with each one's verified requests. */
 function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string; snippet: string }) {
   const qc = useQueryClient();
@@ -115,6 +151,11 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
         {editable && list.length > 0 && <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add app</Button>}
       </Group>
 
+      {enforced && list.some((a) => readiness(a, data).some((r) => r.color === "red")) && (
+        <Alert color="yellow" p="xs" mb="sm" data-testid="enforced-not-ready">
+          Some products are enforced, and not every app can prove itself yet: their requests are refused until what's marked in red is set.
+        </Alert>
+      )}
       {list.length === 0 && (
         <EmptyState icon={IconApps} title="No apps yet"
           description="Add your app to get its winche_options.dart. Once it sends Integrity tokens, its requests show here."
@@ -136,31 +177,14 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
                     <Text size="xs" ff="monospace" c={surface.faint}>{a.id}</Text>
                     <Copy value={a.id} label="app id" />
                   </Group>
-                  <Group gap={6}>
-                    {a.androidPackage && <Badge variant="light" color="gray" tt="none" leftSection={<IconBrandAndroid size={12} />}>{a.androidPackage}</Badge>}
-                    {a.appleBundleId && <Badge variant="light" color="gray" tt="none" leftSection={<IconBrandApple size={12} />}>
-                      {a.appleTeamId ? `${a.appleTeamId}.${a.appleBundleId}` : a.appleBundleId}</Badge>}
-                  </Group>
                   <Text size="xs" c={surface.muted}>{usageLine(total(a.usage))}</Text>
-                  {a.androidPackage && (
-                    <Text size="xs" c={surface.muted} data-testid="play-integrity-setup">
-                      Play Integrity: {a.androidCloudProjectNumber ? `Cloud project ${a.androidCloudProjectNumber}` : "no Cloud project number yet"} · {DEVICE_LEVEL[a.androidDeviceIntegrity]}
-                      {a.androidSideloaded ? " · builds from outside Google Play accepted" : ""}
-                      {a.androidCertificates.length ? ` · ${a.androidCertificates.length} signing certificate${a.androidCertificates.length === 1 ? "" : "s"}` : ""}
-                    </Text>
-                  )}
-                  {a.webSiteKey && (
-                    <Text size="xs" c={a.turnstileSecret ? surface.muted : "red"} data-testid="browser-check-setup">
-                      Browser check: {a.webHostnames.length ? a.webHostnames.join(", ") : "any site"}
-                      {a.turnstileSecret ? "" : " · no secret key yet"}
-                    </Text>
-                  )}
-                  {a.appleBundleId && a.appleTeamId && (
-                    <Text size="xs" c={surface.muted} data-testid="app-attest-devices">
-                      App Attest: {a.devices ? `${a.devices.count.toLocaleString()} device${a.devices.count === 1 ? "" : "s"}${a.devices.development ? ` (${a.devices.development} development)` : ""} · last proof ${ago(a.devices.lastUsed)}` : "no devices yet"}
-                      {a.appleDevelopment ? " · development builds accepted" : ""}
-                    </Text>
-                  )}
+                  <Group gap={6} mt={4} data-testid="app-readiness">
+                    {readiness(a, data).map((r) => (
+                      <Tooltip key={r.platform} label={r.detail} multiline w={320} withArrow>
+                        <Badge variant="light" color={r.color} tt="none" leftSection={r.icon} data-testid={`ready-${r.platform}`}>{r.label}</Badge>
+                      </Tooltip>
+                    ))}
+                  </Group>
                 </Stack>
               </Group>
               <Group gap={6} wrap="nowrap">
@@ -215,6 +239,10 @@ function Enforcement({ data }: { data: IntegrityData }) {
   const verified = (product: string) => data.apps.reduce((n, a) => n + (a.usage[product]?.today ?? 0), 0);
   const unverified = (product: string) => data.unverified[product]?.today ?? 0;
   const counts = (p: string) => data.enforcement[p] === "off" ? "Not counted" : `${verified(p).toLocaleString()} verified · ${unverified(p).toLocaleString()} without a token`;
+  const week = (p: string) => {
+    const ok = data.apps.reduce((n, a) => n + (a.usage[p]?.last7Days ?? 0), 0), no = data.unverified[p]?.last7Days ?? 0;
+    return { ok, no, share: ok + no === 0 ? null : Math.round((ok / (ok + no)) * 100) };
+  };
   const m = modes ?? data.enforcement;
   return (
     <EditCard title="Enforcement" testId="integrity-enforcement"
@@ -235,6 +263,9 @@ function Enforcement({ data }: { data: IntegrityData }) {
               <Badge variant="light" color={data.enforcement[p] === "enforce" ? "teal" : data.enforcement[p] === "off" ? "gray" : "blue"}>
                 {MODES.find((x) => x.value === data.enforcement[p])?.label}</Badge>
               <Text span size="xs" c={surface.muted}>Today: {counts(p)}</Text>
+              {data.enforcement[p] !== "off" && week(p).share !== null && (
+                <Text span size="xs" c={week(p).share! < 95 ? "orange" : surface.muted} data-testid={`week-${p}`}>· last 7 days {week(p).share}% verified</Text>
+              )}
             </Group>
           ),
         })),
@@ -243,6 +274,11 @@ function Enforcement({ data }: { data: IntegrityData }) {
       form={
         <Stack gap="md" style={{ padding: "0 24px 16px" }}>
           {data.apps.length === 0 && <Alert color="gray" p="xs">Add an app before enforcing: nothing could call.</Alert>}
+          {data.products.filter((p) => m[p] === "enforce" && data.enforcement[p] !== "enforce" && week(p).no > 0).map((p) => (
+            <Alert key={p} color="yellow" p="xs" data-testid={`enforce-warning-${p}`}>
+              {PRODUCT_LABEL[p] ?? p}: {week(p).no.toLocaleString()} request{week(p).no === 1 ? "" : "s"} in the last 7 days had no valid token. Enforced, they'd have been refused.
+            </Alert>
+          ))}
           <Table withRowBorders={false} verticalSpacing={6}>
             <Table.Tbody>
               {data.products.map((p) => (

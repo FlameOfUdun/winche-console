@@ -89,18 +89,20 @@ test("with apps: each with its identifiers and verified requests; enforcement pe
   renderPage();
   const row = await screen.findByTestId("integrity-app");
   expect(within(row).getByText("Clinic app")).toBeInTheDocument();
-  expect(within(row).getByText("com.example.clinic")).toBeInTheDocument();
-  expect(within(row).getByText("ABCDE12345.com.example.clinic")).toBeInTheDocument();
   expect(within(row).getByText(/12 verified requests today · 80 this week · last seen just now/)).toBeInTheDocument();
-  expect(within(row).getByTestId("browser-check-setup")).toHaveTextContent("Browser check: app.example.com · no secret key yet");
-  expect(within(row).getByTestId("play-integrity-setup")).toHaveTextContent("Play Integrity: Cloud project 123456789012 · device integrity");
-  expect(within(row).getByTestId("app-attest-devices")).toHaveTextContent("App Attest: 3 devices (1 development) · last proof just now · development builds accepted");
+  // Each platform's readiness: what's missing, in red.
+  expect(within(row).getByTestId("ready-apple")).toHaveTextContent("Apple: 3 devices");
+  expect(within(row).getByTestId("ready-android")).toHaveTextContent("Android: needs the service account");
+  expect(within(row).getByTestId("ready-web")).toHaveTextContent("Web: needs its secret key");
 
   const card = screen.getByTestId("integrity-enforcement");
   expect(within(card).getByText("Today: 10 verified · 3 without a token")).toBeInTheDocument();
+  expect(within(card).getByTestId("week-database")).toHaveTextContent("last 7 days 93% verified");   // 70 of 75
   expect(within(card).getByText("60 minutes")).toBeInTheDocument();
   await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
+  expect(within(card).queryByTestId("enforce-warning-database")).toBeNull();
   await userEvent.click(within(within(card).getByRole("radiogroup", { name: "Database mode" })).getByLabelText("Enforce"));
+  expect(within(card).getByTestId("enforce-warning-database")).toHaveTextContent("Database: 5 requests in the last 7 days had no valid token. Enforced, they'd have been refused.");
   await userEvent.click(within(within(card).getByRole("radiogroup", { name: "Assets mode" })).getByLabelText("Off"));
   const minutes = within(card).getByLabelText("Tokens last (minutes)");
   await userEvent.clear(minutes);
@@ -160,4 +162,21 @@ test("Play Integrity: an Android app needs the service account; its key file is 
   mock(api.integrity).mockResolvedValue(integrity({ apps: [clinic], playServiceAccount: { setAt: "2026-11-21T10:00:00Z", setBy: "admin@example.com", reference: null, email: "x@y.iam.gserviceaccount.com" } }));
   renderPage();
   expect(await screen.findByText("x@y.iam.gserviceaccount.com")).toBeInTheDocument();
+});
+
+test("readiness: ready once everything is set; an app with nothing set has debug tokens only; enforcing with an app not ready warns", async () => {
+  const { readiness } = await import("../IntegrityPage");
+  const account = { setAt: "2026-11-21T10:00:00Z", setBy: null, reference: null, email: "x@y.iam.gserviceaccount.com" };
+  const ready = { ...clinic, turnstileSecret: { setAt: "2026-11-21T10:00:00Z", setBy: null, reference: null } };
+  expect(readiness(ready, { playServiceAccount: account, debugTokens: [] }).map((r) => [r.platform, r.color])).toEqual([["apple", "teal"], ["android", "teal"], ["web", "teal"]]);
+  expect(readiness({ ...ready, appleTeamId: null, androidCloudProjectNumber: null }, { playServiceAccount: account, debugTokens: [] }).map((r) => r.label))
+    .toEqual(["Apple: needs its team id", "Android: needs its Cloud project number", "Web: ready"]);
+  expect(readiness({ ...ready, devices: null }, { playServiceAccount: account, debugTokens: [] })[0].label).toBe("Apple: ready, no devices yet");
+  const bare = { ...clinic, appleBundleId: null, appleTeamId: null, androidPackage: null, webSiteKey: null };
+  expect(readiness(bare, { playServiceAccount: null, debugTokens: [] })[0].label).toBe("No way to prove itself yet");
+  expect(readiness(bare, { playServiceAccount: null, debugTokens: [{ id: "dt-1", app: clinic.id, name: "CI", createdAt: "", createdBy: null }] })[0].label).toBe("Debug tokens only (1)");
+
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [clinic], enforcement: { ...integrity().enforcement, database: "enforce" } }));
+  renderPage();
+  expect(await screen.findByTestId("enforced-not-ready")).toHaveTextContent("not every app can prove itself yet");
 });

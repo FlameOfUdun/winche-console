@@ -4,11 +4,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import { vi, expect, test } from "vitest";
 import { OverviewPage } from "../OverviewPage";
+import { useSession } from "../../../auth/session";
 import { api } from "../../../api/client";
 
 vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
-  return { ...actual, api: { ...actual.api, overview: vi.fn() } };
+  return { ...actual, api: { ...actual.api, overview: vi.fn(), integrity: vi.fn() } };
+});
+vi.mock("../../../auth/session", async (orig) => {
+  const actual = await orig<typeof import("../../../auth/session")>();
+  return { ...actual, useSession: vi.fn(() => ({ state: { capabilities: {} }, user: { role: "Admin" } })) };
 });
 
 test("shows each product with its status and numbers, and recent changes", async () => {
@@ -33,4 +38,30 @@ test("shows each product with its status and numbers, and recent changes", async
   expect(within(db).getByText("v6")).toBeInTheDocument();
   expect(within(fn).getByText("Not set up")).toBeInTheDocument();
   expect(within(screen.getByTestId("change")).getByText("Database rules v6: Nurses read their ward")).toBeInTheDocument();
+});
+
+test("with Integrity: its apps, what's enforced, and today's verified share", async () => {
+  (api.overview as ReturnType<typeof vi.fn>).mockResolvedValue({ project: { id: "clinic-records", name: "Clinic records" }, products: [], changes: [] });
+  (useSession as ReturnType<typeof vi.fn>).mockReturnValue({ state: { capabilities: { integrity: true } }, user: { role: "Viewer" } });
+  const products = ["database", "storage", "authentication", "functions", "assets"];
+  (api.integrity as ReturnType<typeof vi.fn>).mockResolvedValue({
+    available: true, canSign: true, editable: false, products, tokenMinutes: 60, debugTokens: [], playServiceAccount: null,
+    enforcement: { database: "enforce", storage: "monitor", authentication: "enforce", functions: "monitor", assets: "off" },
+    apps: [{ id: "a", name: "Clinic", sdk: "flutter", androidPackage: "com.example.clinic", appleBundleId: null, appleTeamId: null, appleDevelopment: false,
+      androidCloudProjectNumber: 1, androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: null, webHostnames: [],
+      turnstileSecret: null, createdAt: "", devices: null, usage: { database: { today: 9, last7Days: 9, lastSeen: null } } }],
+    unverified: { database: { today: 1, last7Days: 1, lastSeen: null } },
+  });
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter><OverviewPage /></MemoryRouter>
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  const card = await screen.findByTestId("integrity-summary");
+  expect(within(card).getByText(/1 app/)).toBeInTheDocument();
+  expect(within(card).getByText(/1 not set up/)).toBeInTheDocument();   // no service account for Play Integrity
+  expect(within(card).getByText("Enforced: Database, Authentication")).toBeInTheDocument();
+  expect(within(card).getByText("Today 90% verified (9 of 10)")).toBeInTheDocument();
 });
