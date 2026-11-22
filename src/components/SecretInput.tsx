@@ -3,7 +3,7 @@ import { Button, Group, PasswordInput, SegmentedControl, Stack, Text, TextInput,
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { errorMessage } from "../api/appAuth";
-import { REFERENCE, isKeep, isReference, keepOf, keepValue, readableSources, referenceOf, writableSources, type SecretTest } from "../api/secrets";
+import { REFERENCE, isKeep, isReference, keepOf, keepValue, readableSources, referenceOf, secretProblem, writableSources, type SecretTest } from "../api/secrets";
 
 /** Where secrets can be read from here (none: only values). Shared by every secret field. */
 export function useSecretSources() {
@@ -75,6 +75,7 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
     onChange(m === "reference" ? REFERENCE : m === "keep" ? keepValue(keptStore ?? writable[0]?.name ?? "", "") : "");
   };
   const typed = isReference(value) ? referenceOf(value) : "";
+  const problem = secretProblem(value);
   const run = async () => {
     setTesting(true); setTest(null);
     try { setTest(await api.testSecretReference(typed)); }
@@ -100,15 +101,15 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
           {multiline
             ? <Textarea aria-label={label} description={description} value={kept?.value ?? ""} disabled={disabled} placeholder={placeholder}
                 onChange={(e) => onChange(keepValue(store, e.currentTarget.value))} autosize minRows={4} maxRows={10}
-                ff="monospace" autoComplete="off" spellCheck={false} />
+                ff="monospace" autoComplete="off" spellCheck={false} error={problem} />
             : <PasswordInput aria-label={label} description={description} value={kept?.value ?? ""} disabled={disabled} placeholder={placeholder}
-                onChange={(e) => onChange(keepValue(store, e.currentTarget.value))} autoComplete={autoComplete} />}
+                onChange={(e) => onChange(keepValue(store, e.currentTarget.value))} autoComplete={autoComplete} error={problem} />}
         </>
       ) : (
         <>
           <Group gap="xs" align="flex-start" wrap="nowrap">
             <TextInput aria-label={`${label} (reference)`} ff="monospace" style={{ flex: 1 }} disabled={disabled}
-              placeholder={savedReference ?? referencePlaceholder(list)} value={typed}
+              placeholder={savedReference ?? referencePlaceholder(list)} value={typed} error={problem}
               onChange={(e) => { setTest(null); onChange(REFERENCE + e.currentTarget.value); }}
               description={savedReference && !typed
                 ? `Read from ${sourceTitle(savedReference, list)}: ${savedReference}`

@@ -282,3 +282,17 @@ test("a mistake in the text is shown and stops formatting until it's fixed", asy
   expect(await screen.findByText(/Line 2: Expected ',' or '\)'/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Format" })).toBeDisabled();
 });
+
+test("moving files: a secret key of only spaces isn't one", async () => {
+  await chooseR2();
+  await userEvent.type(screen.getByLabelText(/Secret access key/), "   ");
+  expect(screen.getByRole("button", { name: "Test" })).toBeDisabled();
+});
+
+test("a secret reference that isn't one is marked at the field", async () => {
+  mock(api.secretSources).mockResolvedValue({ sources: [{ name: "aws-sm", title: "AWS Secrets Manager" }] });
+  await chooseR2();
+  await userEvent.click(await screen.findByText("Reference"));
+  await userEvent.type(screen.getByLabelText("Secret access key (reference)"), "nope");
+  expect(screen.getByText("Not a reference")).toBeInTheDocument();
+});

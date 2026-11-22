@@ -102,10 +102,10 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
   // AWS with no access key: the server's own AWS permissions (its role, its environment), which only server admins may
   // choose (the server says so to others). Any other bucket, or one with a key id, needs its secret key.
   const serverRole = target !== "code" && preset === "aws" && !b.accessKey.trim();
-  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && (serverRole || secretTyped(secret)));
+  const key = serverRole ? null : secret ? trimSecret(secret) : null;
+  const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && (serverRole || secretTyped(key)));
   const set = (patch: Partial<typeof EMPTY>) => { setB({ ...b, ...patch }); setTest(null); };
 
-  const key = serverRole ? null : secret ? trimSecret(secret) : null;
   const problem = target === "code" || serverRole ? null : secretProblem(secret);
 
   const runTest = async () => {

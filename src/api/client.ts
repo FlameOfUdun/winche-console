@@ -2,18 +2,18 @@ import type { AuthState, BrowseResult, ConsoleInvite, ConsoleRole, ConsoleUserIt
 import type { ParseRulesTextResult, RuleOperation, RuleSubsystem, RuleSubsystemStatus, RuleValidationResult, RuleVersionDetail, RuleVersionSummary, SimulateResult } from "./rules";
 import type { Hook, HookDelivery, HooksPageData, HookTestResult } from "./hooks";
 import type { ConsolePageEntry, FunctionsPageData, FunctionRun, FunctionSecret, FunctionVersion } from "./functions";
-import { secretBody, type KeptSecret, type SecretSources, type SecretTest } from "./secrets";
+import { secretToSend, type KeptSecret, type SecretSources, type SecretTest } from "./secrets";
 import { apiPath, projectApi } from "./scope";
 
-/** A bucket's secret key as typed: { secretKey } or { secretKeyReference }. */
 /** What starting a location move answers (nothing, from older servers): a warning when the key couldn't be kept where chosen. */
 export type MoveStarted = { warning?: string } | undefined;
 
-const keyBody = (typed: string | null) => { const b = secretBody(typed); return { secretKey: b.value ?? null, secretKeyReference: b.reference ?? null }; };
+/** A bucket's secret key as typed: { secretKey } or { secretKeyReference }. */
+const keyBody = (typed: string | null) => { const b = secretToSend(typed); return { secretKey: b.value ?? null, secretKeyReference: b.reference ?? null }; };
 
 /** The typed secrets that are values (or references), by name; undefined when there are none. */
 const pick = (typed: Record<string, string> | undefined, kind: "value" | "reference") => {
-  const found = Object.entries(typed ?? {}).flatMap(([k, v]) => { const b = secretBody(v)[kind]; return b ? [[k, b] as const] : []; });
+  const found = Object.entries(typed ?? {}).flatMap(([k, v]) => { const b = secretToSend(v)[kind]; return b ? [[k, b] as const] : []; });
   return found.length ? Object.fromEntries(found) : undefined;
 };
 import type { AppsPageData, AppFields, IntegrityData, IntegrityMode } from "./apps";
@@ -108,15 +108,15 @@ export function authApi(base: string) {
     restoreSettings: (id: number, reason: string) => http<SettingsVersionInfo>("POST", `${base}/settings/history/${id}/restore`, { reason }),
     resetSettings: (area: string, reason: string) => http<SettingsVersionInfo>("POST", `${base}/settings/${encodeURIComponent(area)}/reset`, { reason }),
     signInSettings: () => http<SignInSettingsResponse>("GET", `${base}/settings/signin`),
-    saveSignInSettings: (settings: WincheAuthSettings, smtpPassword: string | null, reason: string, syncSecrets?: Record<string, string>, basedOn?: number) =>
+    saveSignInSettings: async (settings: WincheAuthSettings, smtpPassword: string | null, reason: string, syncSecrets?: Record<string, string>, basedOn?: number) =>
       http<SettingsVersionInfo>("PUT", `${base}/settings/signin`, {
         settings, reason, basedOn,
         // Each secret typed is a value or a reference (aws-ssm:…): they go in their own fields.
-        smtpPassword: secretBody(smtpPassword).value ?? null, smtpPasswordReference: secretBody(smtpPassword).reference ?? null,
+        smtpPassword: secretToSend(smtpPassword).value ?? null, smtpPasswordReference: secretToSend(smtpPassword).reference ?? null,
         syncSecrets: pick(syncSecrets, "value"), syncSecretReferences: pick(syncSecrets, "reference"),
       }),
-    testSignInEmail: (settings: WincheAuthSettings, smtpPassword: string | null, to: string | null) =>
-      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, { settings, smtpPassword: secretBody(smtpPassword).value ?? null, to }),
+    testSignInEmail: async (settings: WincheAuthSettings, smtpPassword: string | null, to: string | null) =>
+      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, { settings, smtpPassword: secretToSend(smtpPassword).value ?? null, to }),
     appAuthConfig: () => http<AppAuthConfig>("GET", `${base}/config`),
     rotateAppAuthKeys: () => http<void>("POST", `${base}/keys/rotate`),
     keycloakSyncs: () => http<{ syncs: import("./appAuth").KeycloakSync[] }>("GET", `${base}/providers/sync`),
@@ -162,15 +162,15 @@ export const api = {
   saveServerSettings: (settings: import("./server").ServerSettings, reason: string, basedOn?: number) => http<unknown>("PUT", "server/settings", { settings, reason, basedOn }),
   serverSettingsHistory: () => http<{ versions: import("./server").ServerSettingsVersion[] }>("GET", "server/settings/history"),
   sendServerTestEmail: (to: string) => http<{ sentTo: string }>("POST", "server/console-email/test", { to }),
-  testConsoleSignIn: (settings: import("./server").ConsoleSignIn, clientSecret: string | null) =>
-    http<{ url: string; callbackUrl: string }>("POST", "server/console-sign-in/test", { settings, clientSecret: secretBody(clientSecret).value ?? null }),
+  testConsoleSignIn: async (settings: import("./server").ConsoleSignIn, clientSecret: string | null) =>
+    http<{ url: string; callbackUrl: string }>("POST", "server/console-sign-in/test", { settings, clientSecret: secretToSend(clientSecret).value ?? null }),
   dataLocation: () => http<import("./dataLocation").DataLocationInfo>("GET", "settings/location/database"),
   checkDataTarget: (t: import("./dataLocation").DataMoveTarget) => http<import("./dataLocation").DataMoveCheck>("POST", "settings/location/database/check", t),
   moveData: (t: import("./dataLocation").DataMoveTarget) => http<void>("POST", "settings/location/database/move", t),
   finishDataMove: (deleteOld: boolean) => http<void>("POST", "settings/location/database/finish", { deleteOld }),
   setDataPool: (maxConnections: number | null, commandTimeoutSeconds: number | null) =>
     http<void>("PUT", "settings/location/database/pool", { maxConnections, commandTimeoutSeconds }),
-  setServerSecret: (name: string, value: string | null) => http<void>("PUT", `server/secrets/${encodeURIComponent(name)}`, value ? secretBody(value) : { value: null }),
+  setServerSecret: async (name: string, value: string | null) => http<void>("PUT", `server/secrets/${encodeURIComponent(name)}`, value ? secretToSend(value) : { value: null }),
   startProduct: (product: string) => http<import("./project").ProductSetupRun>("POST", `project/products/${encodeURIComponent(product)}/start`),
   productSetup: (product: string) => http<import("./project").ProductSetupRun>("GET", `project/products/${encodeURIComponent(product)}/setup`),
   authState: () => http<AuthState>("GET", "session/state"),
@@ -303,7 +303,7 @@ export const api = {
   uninstallPlugin: (id: string, removeSecrets: boolean) =>
     http<{ version: number; note: string }>("DELETE", `functions/plugins/${encodeURIComponent(id)}${removeSecrets ? "?secrets=remove" : ""}`),
   functionSecrets: () => http<{ available: boolean; secrets: FunctionSecret[] }>("GET", "functions/secrets"),
-  setFunctionSecret: (name: string, value: string) => http<void>("PUT", `functions/secrets/${encodeURIComponent(name)}`, secretBody(value)),
+  setFunctionSecret: async (name: string, value: string) => http<void>("PUT", `functions/secrets/${encodeURIComponent(name)}`, secretToSend(value)),
   testFunctionSecret: (name: string) => http<SecretTest>("POST", `functions/secrets/${encodeURIComponent(name)}/test`),
   /** [fresh]: asked of AWS again, not the server's recent answer. */
   secretSources: (fresh?: boolean) => http<SecretSources>("GET", `secrets/sources${fresh ? "?fresh=true" : ""}`),
@@ -340,21 +340,21 @@ export const api = {
   moveAssetChannel: (name: string, release: number) => http<import("./assets").AssetChannel>("POST", `assets/channels/${encodeURIComponent(name)}`, { release }),
   removeAssetChannel: (name: string) => http<void>("DELETE", `assets/channels/${encodeURIComponent(name)}`),
   assetLocation: () => http<import("./assets").AssetLocationState>("GET", "assets/location"),
-  testAssetLocation: (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "assets/location/test", { location, ...keyBody(secretKey) }),
-  startAssetMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
+  testAssetLocation: async (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "assets/location/test", { location, ...keyBody(secretKey) }),
+  startAssetMove: async (location: ArchiveLocation, secretKey: string | null, reason: string) =>
     http<MoveStarted>("POST", "assets/location/move", { location, ...keyBody(secretKey), reason }),
   cancelAssetMove: () => http<void>("POST", "assets/location/move/cancel"),
   assetCdns: () => http<import("./assets").AssetCdnsState>("GET", "assets/cdns"),
-  saveAssetCdn: (id: string, cdn: { kind: string; baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
-    const b = secretBody(privateKey);
+  saveAssetCdn: async (id: string, cdn: { kind: string; baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
+    const b = secretToSend(privateKey);
     return http<void>("PUT", `assets/cdns/${encodeURIComponent(id)}`, { ...cdn, privateKey: b.value ?? null, privateKeyReference: b.reference ?? null, reason });
   },
   removeAssetCdn: (id: string, reason: string) => http<void>("DELETE", `assets/cdns/${encodeURIComponent(id)}?reason=${encodeURIComponent(reason)}`),
   testAssetCdn: (id: string, url: string) => http<import("./assets").AssetCdnTest>("POST", `assets/cdns/${encodeURIComponent(id)}/test`, { url }),
   storageLocation: () => http<StorageLocationState>("GET", "settings/location/files"),
-  testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
+  testStorageLocation: async (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "settings/location/files/test", { location, ...keyBody(secretKey) }),
-  startStorageMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
+  startStorageMove: async (location: ArchiveLocation, secretKey: string | null, reason: string) =>
     http<MoveStarted>("POST", "settings/location/files/move", { location, ...keyBody(secretKey), reason }),
   storageMoveStep: (step: "switch" | "finish" | "cancel", reason: string) =>
     http<void>("POST", `settings/location/files/move/${step}`, { reason }),

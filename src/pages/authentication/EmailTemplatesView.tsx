@@ -4,6 +4,7 @@ import { Alert, Anchor, Badge, Button, Group, Loader, Paper, Stack, Text, TextIn
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, fillTemplate, PLACEHOLDERS, type EmailTemplateInfo } from "../../api/appAuth";
 import { when } from "./UsersView";
+import { surface } from "../../theme";
 
 const BUTTON: Record<string, string> = { verifyEmail: "Verify email", resetPassword: "Choose a new password", signIn: "Sign in", emailChanged: "Undo this change" };
 
@@ -112,7 +113,7 @@ export function EmailTemplatesView() {
               </Stack>
             </Paper>
 
-            <Paper withBorder p="md" bg="gray.0" style={{ flex: "1 1 300px", minWidth: 0, borderStyle: "dashed" }} aria-label="Preview">
+            <Paper withBorder p="md" bg={surface.page} style={{ flex: "1 1 300px", minWidth: 0, borderStyle: "dashed" }} aria-label="Preview">
               <Stack gap="xs">
                 <Text size="xs" c="dimmed">Preview, for anna.k@example.com</Text>
                 <Paper withBorder p="md">

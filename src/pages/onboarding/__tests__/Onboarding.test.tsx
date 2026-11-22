@@ -13,7 +13,8 @@ vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return { ...actual, api: { ...actual.api, setup: vi.fn(), login: vi.fn(), project: vi.fn(), createProject: vi.fn(), projects: vi.fn(), checkProjectDatabase: vi.fn(), startProduct: vi.fn(), productSetup: vi.fn(),
     rulesParseText: vi.fn(), rulesSave: vi.fn(), apps: vi.fn(), twoFactorSetup: vi.fn(), functions: vi.fn(),
-    checkSetupCode: vi.fn(), createUser: vi.fn(), serverSettings: vi.fn(), saveServerSettings: vi.fn(), setServerSecret: vi.fn() } };
+    checkSetupCode: vi.fn(), createUser: vi.fn(), serverSettings: vi.fn(), saveServerSettings: vi.fn(), setServerSecret: vi.fn(),
+    secretSources: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(), storageLocation: vi.fn(), storageMoveStep: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn() } };
 });
 vi.mock("../../../auth/session", async (orig) => {
   const actual = await orig<typeof import("../../../auth/session")>();
@@ -39,6 +40,7 @@ beforeEach(() => {
   mock(api.project).mockResolvedValue({ setup: true, created: false, id: "winche", name: "winche", products: products([]) });
   mock(api.apps).mockResolvedValue({ setup: { projectId: "my-records", name: "My records", baseUrl: "https://api.example.com", services: [], providers: [] }, platforms: [], file: "", snippet: "main()" });
   mock(api.serverSettings).mockRejectedValue(Object.assign(new Error("Not found"), { status: 404 }));   // a console on its own
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, sources: [], keys: [] });
 });
 
 test("first run: the account, then the project (every product off), then a skippable app", async () => {
@@ -226,4 +228,34 @@ test("starting a product follows its setup on the server; a failed step says why
   mock(api.productSetup).mockResolvedValue({ product: "storage", state: "done", steps: [{ title: "Create the file tables", state: "done" }], startedAt: "", finishedAt: "" });
   await userEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(api.startProduct).toHaveBeenCalledTimes(2));
+});
+
+test("storage in a bucket: the secret key can be kept in AWS like everywhere else, and the server's warning is shown", async () => {
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: products([]) });
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [],
+    sources: [{ name: "aws-sm", title: "AWS Secrets Manager", hint: "", key: null, access: { read: true, write: true, delete: true, missing: [], problem: null } }] });
+  mock(api.dataSettings).mockResolvedValue({ settings: { maxFileSizeMb: 25 } });
+  mock(api.saveDataSettings).mockResolvedValue({});
+  mock(api.testStorageLocation).mockResolvedValue({ ok: true, steps: [] });
+  mock(api.startStorageMove).mockResolvedValue({ warning: "The secret key couldn't be kept in AWS, so it's kept on this server." });
+  mock(api.storageLocation).mockResolvedValue({ move: { phase: "ready" } });
+  mock(api.storageMoveStep).mockResolvedValue(undefined);
+  mock(api.startProduct).mockResolvedValue({ product: "storage", state: "done", steps: [{ title: "Create the file tables", state: "done" }], startedAt: "", finishedAt: "" });
+  mock(api.productSetup).mockResolvedValue({ product: "storage", state: "done", steps: [{ title: "Create the file tables", state: "done" }], startedAt: "", finishedAt: "" });
+  renderIt(<ProductGate product="storage"><div>STORAGE PAGE</div></ProductGate>);
+  await userEvent.click(await screen.findByRole("button", { name: "Get started" }));
+  await userEvent.click(await screen.findByText("A bucket"));
+  await userEvent.type(screen.getByLabelText("Bucket"), "my-files");
+  await userEvent.click(await screen.findByText("In AWS"));
+  await userEvent.type(screen.getByLabelText("Secret key"), "  SK  ");
+  await userEvent.click(screen.getByRole("button", { name: "Test the bucket" }));
+  expect(await screen.findByText("It works.")).toBeInTheDocument();
+  const kept = mock(api.testStorageLocation).mock.calls[0][1] as string;
+  expect(kept).toContain("aws-sm");
+  expect(kept.endsWith("\u0000SK")).toBe(true);
+  for (let i = 0; i < 5 && !screen.queryByRole("button", { name: "Start storage" }); i++)
+    await userEvent.click(await screen.findByRole("button", { name: "Continue" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Start storage" }));
+  expect(await screen.findByTestId("move-warning", {}, { timeout: 3000 })).toHaveTextContent("couldn't be kept in AWS");
+  expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
 });

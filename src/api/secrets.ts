@@ -37,12 +37,16 @@ export const keepOf = (s: string) => {
   return at < 0 ? { store: rest, value: "" } : { store: rest.slice(0, at), value: rest.slice(at + 1) };
 };
 
-/** What the API takes for a typed secret: { value }, { reference }, or { value, reference: "keep:<store>" }. Empty: nothing. */
+/**
+ * What the API takes for a typed secret: { value }, { reference }, or { value, reference: "keep:<store>" }, with the spaces
+ * and line breaks around it taken off (inside a PEM key or a JSON key file they stay). Empty, or only spaces: nothing.
+ */
 export const secretBody = (s: string | null | undefined): { value?: string; reference?: string } => {
   if (!s) return {};
   if (isReference(s)) return referenceOf(s) ? { reference: referenceOf(s) } : {};
-  if (isKeep(s)) { const k = keepOf(s); return k.store && k.value ? { value: k.value, reference: `keep:${k.store}` } : {}; }
-  return { value: s };
+  if (isKeep(s)) { const k = keepOf(s); const v = k.value.trim(); return k.store && v ? { value: v, reference: `keep:${k.store}` } : {}; }
+  const v = s.trim();
+  return v ? { value: v } : {};
 };
 
 /** Whether something was typed (a reference with nothing after its source isn't). */
@@ -60,4 +64,11 @@ export const secretProblem = (s: string | null | undefined): string | null => {
   if (isReference(s) && referenceOf(s!) && !/^[a-z0-9-]+:.+/.test(referenceOf(s!))) return "Not a reference";
   if (isKeep(s)) { const k = keepOf(s!); if (k.value.trim() && !k.store) return "Pick a store"; }
   return null;
+};
+
+/** secretBody for sending: throws (with secretProblem's words) when the typed secret can't be sent as it is. */
+export const secretToSend = (s: string | null | undefined) => {
+  const problem = secretProblem(s);
+  if (problem) throw new Error(problem);
+  return secretBody(s);
 };

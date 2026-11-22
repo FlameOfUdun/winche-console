@@ -33,8 +33,7 @@ export const surface = {
 export const wincheTheme = createTheme({
   primaryColor: "winche",
   primaryShade: { light: 6, dark: 5 },
-  // googleBlue: the old name some components still pass as `color`.
-  colors: { winche, googleBlue: winche, gray, dark },
+  colors: { winche, gray, dark },
   fontFamily: font,
   fontFamilyMonospace: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
   headings: { fontFamily: font, fontWeight: "700" },

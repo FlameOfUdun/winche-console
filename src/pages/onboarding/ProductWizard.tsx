@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Alert, Button, Group, Loader, Modal, NumberInput, PasswordInput, SegmentedControl, SimpleGrid, Stack, Stepper, Switch, Text, TextInput,
+  Alert, Button, Group, Loader, Modal, NumberInput, SegmentedControl, SimpleGrid, Stack, Stepper, Switch, Text, TextInput,
   UnstyledButton,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,6 +11,8 @@ import { errorMessage, type WincheAuthSettings } from "../../api/appAuth";
 import type { ArchiveLocation, StorageSettings } from "../../api/dataSettings";
 import { testModeRules, type ProductId, type RulesMode } from "../../api/project";
 import { surface } from "../../theme";
+import { SecretInput } from "../../components/SecretInput";
+import { secretTyped, trimSecret } from "../../api/secrets";
 
 const NAMES: Record<ProductId, string> = {
   database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets",
@@ -45,10 +47,10 @@ async function publishTestRules(sys: "database" | "storage" | "assets") {
   if (parsed.ok && parsed.rulesJson) await api.rulesSave(sys, { rulesJson: parsed.rulesJson, note: "Test mode: open for 30 days" });
 }
 
-/** Moves storage to a bucket on a server that has no files yet: start, wait until copied, switch, finish. */
-async function moveToBucket(location: ArchiveLocation, secret: string) {
+/** Moves storage to a bucket on a server that has no files yet: start, wait until copied, switch, finish. Answers the server's warning, if any. */
+async function moveToBucket(location: ArchiveLocation, secret: string): Promise<string | undefined> {
   const reason = "Setup: files kept in a bucket";
-  await api.startStorageMove(location, secret, reason);
+  const started = await api.startStorageMove(location, secretTyped(secret) ? trimSecret(secret) : null, reason);
   for (let i = 0; i < 60; i++) {
     const s = await api.storageLocation();
     if (s.move?.phase === "ready") break;
@@ -56,6 +58,7 @@ async function moveToBucket(location: ArchiveLocation, secret: string) {
   }
   await api.storageMoveStep("switch", reason);
   await api.storageMoveStep("finish", reason);
+  return started?.warning || undefined;
 }
 
 /**
@@ -67,6 +70,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
   // Database, Storage
   const [rules, setRules] = useState<RulesMode>("locked");
@@ -94,7 +98,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   const testBucket = async () => {
     setBucketTest("testing");
     try {
-      const r = await api.testStorageLocation(location(), bucket.secret || null);
+      const r = await api.testStorageLocation(location(), secretTyped(bucket.secret) ? trimSecret(bucket.secret) : null);
       setBucketTest(r.ok ? "ok" : r.steps.filter((s) => !s.ok).map((s) => `${s.name}: ${s.error}`).join("; "));
     } catch (e) { setBucketTest(errorMessage(e)); }
   };
@@ -123,7 +127,8 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
                     onChange={(e) => { setBucket({ ...bucket, serviceUrl: e.currentTarget.value }); setBucketTest(null); }} />
                   <SimpleGrid cols={2} spacing="xs">
                     <TextInput label="Access key" value={bucket.accessKey} onChange={(e) => { setBucket({ ...bucket, accessKey: e.currentTarget.value }); setBucketTest(null); }} />
-                    <PasswordInput label="Secret key" value={bucket.secret} onChange={(e) => { setBucket({ ...bucket, secret: e.currentTarget.value }); setBucketTest(null); }} />
+                    <SecretInput label="Secret key" description="Saved encrypted; it can't be read back." value={bucket.secret}
+                      onChange={(v) => { setBucket({ ...bucket, secret: v }); setBucketTest(null); }} />
                   </SimpleGrid>
                   <Group gap="xs">
                     <Button variant="default" size="xs" onClick={testBucket} loading={bucketTest === "testing"} disabled={!bucket.bucket.trim()}>Test the bucket</Button>
@@ -177,7 +182,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
                   </SimpleGrid>
                   <SimpleGrid cols={2} spacing="xs">
                     <TextInput label="User" value={auth.email.smtp.username ?? ""} onChange={(e) => setA({ email: { ...auth.email, smtp: { ...auth.email.smtp!, username: e.currentTarget.value || null } } })} />
-                    <PasswordInput label="Password" value={smtpPassword} onChange={(e) => setSmtpPassword(e.currentTarget.value)} />
+                    <SecretInput label="Password" description="Saved encrypted; it can't be read back." value={smtpPassword} onChange={setSmtpPassword} />
                   </SimpleGrid>
                   <TextInput label="From address" placeholder="no-reply@example.com" value={auth.email.smtp.fromAddress}
                     onChange={(e) => setA({ email: { ...auth.email, smtp: { ...auth.email.smtp!, fromAddress: e.currentTarget.value } } })} />
@@ -220,13 +225,13 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   };
   const afterSetup = async () => {
     try {
-      if (product === "storage" && where === "bucket") await moveToBucket(location(), bucket.secret);
+      const moved = product === "storage" && where === "bucket" ? await moveToBucket(location(), bucket.secret) : undefined;
       if ((product === "database" || product === "storage" || product === "assets") && rules === "test") await publishTestRules(product);
       if (product === "storage" && storage.data && typeof maxMb === "number")
         await api.saveDataSettings<StorageSettings>("storage", { ...storage.data.settings, maxFileSizeMb: maxMb }, "Setup: largest file");
-      if (product === "authentication" && auth) await api.saveSignInSettings(auth, smtpPassword || null, "Setup: sign-in methods");
+      if (product === "authentication" && auth) await api.saveSignInSettings(auth, secretTyped(smtpPassword) ? smtpPassword : null, "Setup: sign-in methods");
       await Promise.all(["project", "overview"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
-      onClose();
+      if (moved) setWarning(moved); else onClose();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -241,6 +246,12 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
           <Text size="sm" c={surface.muted}>Setting up {NAMES[product].toLowerCase()} on the server…</Text>
           <SetupProgress product={product} initial={settingUp} onDone={afterSetup} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
+          {warning && (
+            <>
+              <Alert color="yellow" data-testid="move-warning" style={{ whiteSpace: "pre-line" }}>{warning}</Alert>
+              <Group justify="flex-end"><Button onClick={onClose}>Done</Button></Group>
+            </>
+          )}
         </Stack>
       ) : (
       <Stack gap="lg">

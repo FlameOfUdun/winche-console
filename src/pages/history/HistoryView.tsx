@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../../api/client";
 import { valueText, type HistoryEntry } from "../../api/history";
 import { EmptyState } from "../../components/EmptyState";
+import { surface } from "../../theme";
 import { IconHistory, IconSearch } from "@tabler/icons-react";
 
 const PAGE = 50;
@@ -118,7 +119,7 @@ export function HistoryView() {
                 </Table.Tr>
                 {open === e.seq && e.fields && e.fields.length > 0 && (
                   <Table.Tr>
-                    <Table.Td colSpan={4} style={{ background: "var(--mantine-color-gray-0)" }}>
+                    <Table.Td colSpan={4} style={{ background: surface.subtle }}>
                       <Table fz="xs" withRowBorders={false} verticalSpacing={2}>
                         <Table.Thead>
                           <Table.Tr><Table.Th w={180}>Field</Table.Th><Table.Th w={90}></Table.Th><Table.Th>Before</Table.Th><Table.Th>After</Table.Th></Table.Tr>

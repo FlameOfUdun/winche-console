@@ -12,6 +12,7 @@ import { Histogram } from "./Histogram";
 import { LogLevelsPanel } from "./LogLevelsPanel";
 import { RANGES, queryText, rangeFrom, toSpec, withFilter, type ExplorerState, type RangeKey } from "./explorerQuery";
 import { EmptyState } from "../../components/EmptyState";
+import { surface } from "../../theme";
 import { IconSearch } from "@tabler/icons-react";
 
 const PAGE = 100;
@@ -249,7 +250,7 @@ export function LogsExplorer({ scope, state, onChange, onSaved }: {
                     </Table.Tr>
                     {isOpen && (
                       <Table.Tr>
-                        <Table.Td colSpan={5} style={{ background: "var(--mantine-color-gray-0)" }}>
+                        <Table.Td colSpan={5} style={{ background: surface.subtle }}>
                           <Table fz="xs" withRowBorders={false} verticalSpacing={2}>
                             <Table.Tbody>
                               {entryFields(e).map((f) => (

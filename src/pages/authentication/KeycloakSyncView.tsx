@@ -4,12 +4,13 @@ import { Alert, Badge, Button, Group, Paper, SimpleGrid, Stack, Text, Title } fr
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, syncHealth, type KeycloakSync } from "../../api/appAuth";
 import { when } from "./UsersView";
+import { surface } from "../../theme";
 
 const HEALTH_COLOR = { Running: "teal", Behind: "yellow", Failing: "red", "Not run yet": "gray" } as const;
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
-    <Group justify="space-between" gap="xs" wrap="nowrap" style={{ borderTop: "1px solid var(--mantine-color-gray-2)", paddingTop: 6 }}>
+    <Group justify="space-between" gap="xs" wrap="nowrap" style={{ borderTop: `1px solid ${surface.border}`, paddingTop: 6 }}>
       <Text size="sm">{k}</Text>
       <Text size="sm" fw={500} ta="right" style={{ wordBreak: "break-all" }}>{v}</Text>
     </Group>
