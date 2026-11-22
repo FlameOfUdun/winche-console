@@ -187,7 +187,7 @@ export function useAreaCards<T>(area: DataArea, opts: { enabled?: boolean } = {}
 export function versionLine(d: { source: string; version: { number: number; at: string; by: string | null; reason: string | null } | null } | undefined) {
   if (d?.source === "console" && d.version)
     return `Version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`;
-  return "Changes apply on every server within seconds. Each save is kept as a version, with who made it and why.";
+  return "";
 }
 
 /** A group of fields; with no title, just the box. */

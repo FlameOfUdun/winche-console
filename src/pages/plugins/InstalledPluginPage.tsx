@@ -61,7 +61,7 @@ export function InstalledPluginPage() {
       <div style={{ paddingBottom: 28, maxWidth: 960 }}>
         {p.source === "deploy" && tab !== "overview" && tab !== "functions" && tab !== "history" && (
           <Alert color="gray" variant="light" mb="md">
-            Installed by a deploy from winche.json. A change made here is undone by the next deploy unless winche.json says the same; the CLI asks before it does.
+            Installed by a deploy: the next deploy may undo a change made here.
           </Alert>
         )}
         {tab === "overview" && <Overview p={p} functionsUrl={plugins.data?.functionsUrl ?? null} goTo={setTab} />}
@@ -90,7 +90,6 @@ function Overview({ p, functionsUrl, goTo }: { p: InstalledPlugin; functionsUrl:
       {steps.length > 0 && (
         <Paper withBorder radius="md" p="lg">
           <Text fw={600} mb={4}>Set it up</Text>
-          <Text size="sm" c="dimmed" mb="md">What's left to do outside Winche, as the plugin explains it.</Text>
           <Timeline bulletSize={24} lineWidth={2} active={-1}>
             {steps.map((s, i) => (
               <Timeline.Item key={i} bullet={<Text size="xs" fw={700}>{i + 1}</Text>} data-testid="setup-step">
@@ -118,13 +117,12 @@ function Overview({ p, functionsUrl, goTo }: { p: InstalledPlugin; functionsUrl:
       <Paper withBorder radius="md" p="lg">
         <Table withRowBorders={false} verticalSpacing={4}>
           <Table.Tbody>
-            <Table.Tr><Table.Td c="dimmed" w={140}>Installed</Table.Td><Table.Td>{when(p.at)}{p.by ? ` by ${p.by}` : ""}{p.source === "deploy" ? " (from winche.json)" : ""}</Table.Td></Table.Tr>
+            <Table.Tr><Table.Td c="dimmed" w={140}>Installed</Table.Td><Table.Td>{when(p.at)}{p.by ? ` by ${p.by}` : ""}{p.source === "deploy" ? " (by a deploy)" : ""}</Table.Td></Table.Tr>
             <Table.Tr><Table.Td c="dimmed">Functions</Table.Td><Table.Td>
               <Group gap={6}>{p.functions.map((f) => <Badge key={f} variant="light" color="gray" tt="none" ff="monospace" fw={500}>{f}</Badge>)}</Group>
             </Table.Td></Table.Tr>
           </Table.Tbody>
         </Table>
-        {p.functions[0] && <Text size="xs" c="dimmed" mt="sm">Apps call its callables by name, e.g. <Code>functions.call("{p.functions[0]}", …)</Code>.</Text>}
       </Paper>
       <Access manifest={p.manifest} curated={p.curated} />
       <Paper withBorder radius="md" p="lg" style={{ borderColor: "var(--mantine-color-red-3)" }}>
@@ -161,7 +159,7 @@ function RemoveModal({ p, opened, onClose }: { p: InstalledPlugin; opened: boole
           <Checkbox checked={secrets} onChange={(e) => setSecrets(e.currentTarget.checked)}
             label={<>Also remove its secrets: {p.secrets.map((s) => <Code key={s.secret}>{s.secret}</Code>).reduce<React.ReactNode[]>((a, c, i) => i ? [...a, ", ", c] : [c], [])}</>} />
         )}
-        <Text size="xs" c="dimmed">It's a new functions version: rolling back to the one before brings it back{secrets ? ", without its secrets" : ""}.</Text>
+        <Text size="xs" c="dimmed">Rolling back the functions version brings it back{secrets ? ", without its secrets" : ""}.</Text>
         {error && <Alert color="red" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>Cancel</Button>
@@ -193,7 +191,7 @@ function Configuration({ p }: { p: InstalledPlugin }) {
       <SettingsFields settings={p.manifest.settings} values={values} onChange={(v) => { setValues(v); setSaved(null); }} />
       {error && <Alert color="red" mt="md" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
       <Group justify="space-between" mt="lg">
-        <Text size="xs" c={saved ? "teal" : "dimmed"}>{saved ?? "Saving makes a new functions version; its functions use the new settings at once."}</Text>
+        <Text size="xs" c="teal">{saved ?? ""}</Text>
         <Button onClick={save} loading={busy} disabled={!changed || missing.length > 0}>Save</Button>
       </Group>
     </Paper>
@@ -217,7 +215,6 @@ function Secrets({ p }: { p: InstalledPlugin }) {
   };
   return (
     <Stack gap="md">
-      <Text size="sm" c="dimmed">This copy's own secrets, among the project's (the Secrets page lists them too). Values are kept encrypted and never shown again; a change applies from its functions' next run.</Text>
       {asked.map((s) => {
         const secret = secretFor(p.id, s.name);
         const now = info(secret);
@@ -266,7 +263,6 @@ function Functions({ p }: { p: InstalledPlugin }) {
           ))}
         </Table.Tbody>
       </Table>
-      <Text size="xs" c="dimmed" p="md" pt={0}>Run them, see their runs, instances and limits on <Anchor component={Link} to="/functions" size="xs">Functions</Anchor>, with the project's own.</Text>
     </Paper>
   );
 }
@@ -287,7 +283,6 @@ function History({ p }: { p: InstalledPlugin }) {
           </Timeline.Item>
         ))}
       </Timeline>
-      <Text size="xs" c="dimmed" mt="md">Each change is a functions version: roll back to one in Functions → Settings → Change history.</Text>
     </Paper>
   );
 }
@@ -319,8 +314,8 @@ function Version({ p }: { p: InstalledPlugin }) {
   };
   return (
     <Stack gap="md">
-      <Text size="sm">This copy runs <Code>{p.package} {p.version}</Code>, and stays on it until it's upgraded here or by a deploy.</Text>
-      {!p.latest && <Text size="sm" c="dimmed">Its newest version can't be found now (npm can't be reached, or the package is gone).</Text>}
+      <Text size="sm">This copy runs {p.package} {p.version}.</Text>
+      {!p.latest && <Text size="sm" c="dimmed">Its newest version can't be found now.</Text>}
       {p.latest && !p.update && <Text size="sm" c="dimmed">It's the newest version.</Text>}
       {target && next.isLoading && <Loader size="sm" />}
       {next.isError && <Alert color="red">Couldn't read {p.package} {target}: {errorMessage(next.error)}</Alert>}
@@ -347,7 +342,7 @@ function Version({ p }: { p: InstalledPlugin }) {
           )}
           {error && <Alert color="red" mt="sm" style={{ whiteSpace: "pre-line" }}>{error}</Alert>}
           <Group justify="space-between" mt="md">
-            <Text size="xs" c="dimmed">Its other settings are kept. Rolling back the functions version undoes it.</Text>
+            <Text size="xs" c="dimmed">Its other settings are kept.</Text>
             <Button leftSection={<IconArrowUp size={15} />} onClick={upgrade} loading={busy} disabled={missing.length > 0}>Upgrade to {target}</Button>
           </Group>
         </Paper>

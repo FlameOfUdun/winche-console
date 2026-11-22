@@ -30,7 +30,7 @@ export function SavedQueriesView({ onOpen }: { onOpen: (q: SavedQuery) => void }
   return (
     <Stack gap="sm">
       <Group justify="space-between">
-        <Text size="sm" c="dimmed">Shared with every admin of this console. Open one to load it in the explorer.</Text>
+        <Text size="sm" c="dimmed">Shared with every admin of this console.</Text>
         <Text size="xs" c="dimmed">Matches: last 24 hours</Text>
       </Group>
       {list.isLoading && <Loader size="sm" />}
@@ -59,7 +59,7 @@ export function SavedQueriesView({ onOpen }: { onOpen: (q: SavedQuery) => void }
         </Table>
       )}
       {list.data && queries.length === 0 && (
-        <EmptyState icon={IconBookmark} title="No saved queries" description={<>In the explorer, set up your filters and choose “Save this query”.</>} />
+        <EmptyState icon={IconBookmark} title="No saved queries" description="Save one from the explorer." />
       )}
     </Stack>
   );

@@ -42,7 +42,7 @@ function Home({ tab }: { tab: "installed" | "browse" }) {
   const count = plugins.data?.plugins.length;
   return (
     <>
-      <PageBand title="Plugins" description="Ready-made functions, such as an integration with another service: install one, give its settings and keys, and apps call its functions."
+      <PageBand title="Plugins" description="Ready-made functions."
         tabs={[
           { label: count ? `Installed (${count})` : "Installed", to: "/plugins", active: tab === "installed" },
           { label: "Browse", to: "/plugins/browse", active: tab === "browse" },

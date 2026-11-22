@@ -115,26 +115,25 @@ function ProvidersSection({ draft, setDraft, editable, onMapping }: {
 
   return (
     <Stack gap={20}>
-      <EditCard title="Winche Auth" description="Tokens Winche Auth issues to your apps' own users."
+      <EditCard title="Winche Auth"
         actions={
           <Switch label="Accept its tokens" labelPosition="left" aria-label="Accept tokens issued by Winche Auth" checked={draft.trustWincheAuth}
             disabled={!editable} onChange={(e) => setDraft({ ...draft, trustWincheAuth: e.currentTarget.checked })} />
         } />
 
-      <Group justify="space-between" align="center" wrap="wrap">
-        <Text size="sm" c="var(--w-muted)">Other systems your apps sign in to: their tokens are accepted as they are.</Text>
+      <Group justify="flex-end" align="center" wrap="wrap">
         {editable && <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing({ index: null, provider: newProvider() })}>Add issuer</Button>}
       </Group>
 
       {draft.providers.length === 0 && (
-        <EmptyState icon={IconShieldCheck} title="No other issuers" description="Accept tokens from a Keycloak realm, Auth0, Microsoft Entra ID or any OpenID Connect provider your apps sign in to." />
+        <EmptyState icon={IconShieldCheck} title="No other issuers" description="Accept tokens from another OpenID Connect provider." />
       )}
 
       {draft.providers.map((p, i) => {
         const c = checks[p.name];
         return (
           <EditCard key={`${p.name}-${i}`} testId="provider-card" title={p.displayName || p.name}
-            description={<>{kindLabel(p.kind)} · rules see <Code fz="xs">issuer == '{p.name}'</Code></>}
+            description={kindLabel(p.kind)}
             actions={<>
               <Button variant="subtle" onClick={() => check(p)} loading={c === "checking"}>Check</Button>
               <Button variant="subtle" onClick={() => onMapping(p.name)}>Token mapping</Button>
@@ -225,10 +224,10 @@ function ProviderForm({ initial, others, onDone, onCancel }: {
           </Alert>
         )}
         <FieldRow>
-          <TextInput label="Audience" description="The app's client id at the provider (several: separate with commas)." ff="monospace"
+          <TextInput label="Audience" description="The app's client id; separate several with commas" ff="monospace"
             value={p.audiences.join(", ")} disabled={!p.validateAudience}
             onChange={(e) => setP({ ...p, audiences: e.currentTarget.value.split(",").map((a) => a.trim()).filter(Boolean) })} />
-          <TextInput label="Short name" description="Rules see it as request.auth.token.issuer." ff="monospace"
+          <TextInput label="Short name" ff="monospace"
             value={p.name} onChange={(e) => setP({ ...p, name: e.currentTarget.value.trim() })} />
         </FieldRow>
         <Switch label="Check the audience" checked={p.validateAudience} onChange={(e) => setP({ ...p, validateAudience: e.currentTarget.checked })} />
@@ -256,7 +255,7 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
 
-  if (!p) return <Text size="sm" c="dimmed">Add an identity provider first: its tokens are what the mapping applies to.</Text>;
+  if (!p) return <Text size="sm" c="dimmed">Add an identity provider first.</Text>;
 
   const update = (next: Partial<TrustedProvider>) => {
     const providers = [...draft.providers];
@@ -294,10 +293,10 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
         <Paper withBorder p="md" style={{ flex: "1 1 340px", minWidth: 0 }}>
           <Stack gap="sm">
             <TextInput label="The user's id comes from" ff="monospace" value={p.uidClaim} disabled={!editable}
-              description="Rules see it as request.auth.uid. Usually sub; keep it if your data is already stored under it."
+              description="Usually sub"
               onChange={(e) => update({ uidClaim: e.currentTarget.value.trim() })} />
             <Switch label="Pass every field as it is" checked={p.claims === null} disabled={!editable}
-              description="Off: only the fields listed below (plus sub, email and name) reach the rules."
+              description="Off: only the fields below, plus sub, email and name"
               onChange={(e) => update({ claims: e.currentTarget.checked ? null : [] })} />
             {p.claims !== null && (
               <Stack gap={6}>
@@ -319,9 +318,6 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
                 {editable && (
                   <Button size="xs" variant="default" w="fit-content" onClick={() => update({ claims: [...claims, { from: "", to: "" }] })}>Add a field</Button>
                 )}
-                <Text size="xs" c="dimmed">
-                  A dotted path reads a nested field (<Code fz="xs">realm_access.roles</Code>); <Code fz="xs">given_name + family_name</Code> joins two.
-                </Text>
               </Stack>
             )}
           </Stack>
@@ -344,7 +340,7 @@ function MappingSection({ draft, setDraft, editable, selected, onSelect }: {
                 {result.auth && (
                   <>
                     <Text size="xs" c="dimmed" mt={4}>What your rules will see</Text>
-                    <Code block fz="xs" data-testid="token-preview">{`request.auth = ${JSON.stringify(result.auth, null, 2)}`}</Code>
+                    <Code block fz="xs" data-testid="token-preview">{JSON.stringify(result.auth, null, 2)}</Code>
                   </>
                 )}
               </Stack>
@@ -391,7 +387,7 @@ export function HistorySection() {
   return (
     <Stack gap="md">
       {versions.length === 0 ? (
-        <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here: who made them, when and why." />
+        <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here." />
       ) : (
         <Paper withBorder style={{ overflowX: "auto" }}>
           <Table verticalSpacing={8} fz="sm" miw={640}>

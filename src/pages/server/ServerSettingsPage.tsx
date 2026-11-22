@@ -129,15 +129,15 @@ export function ServerSettingsPage() {
   const providersOn = (s.consoleProviders ?? []).some((p) => p.enabled);
   // Like Authentication's pages: the version in force, and Change history beside it.
   const intro = d.version
-    ? `Version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}. Changes apply within seconds; each save is kept as a version, with who made it and why.`
-    : "The deployment's values are in force. Changes apply within seconds; each save is kept as a version, with who made it and why.";
+    ? `Version ${d.version.number}, ${when(d.version.at)}${d.version.by ? ` by ${d.version.by}` : ""}${d.version.reason ? ` — ${d.version.reason}` : ""}.`
+    : "The deployment's values are in force.";
 
   return (
     <>
       {band}
       <CardsPage intro={intro} history={<HistoryButton subtitle="Server settings"><ServerHistory /></HistoryButton>}>
         <ConsoleSignInMethods page={d} />
-        <EditCard title="Changing settings" description="What it takes to change a project's or the server's settings." {...card("sessions")}
+        <EditCard title="Changing settings" {...card("sessions")}
           rows={[{ label: "Two-step sign-in to change settings", hint: <>{source(s.requireTwoFactorForSettings, dep.requireTwoFactorForSettings)}
             {providersOn && <> · a provider's own two-step counts where it's trusted</>}</>,
             value: <OnOff on={s.requireTwoFactorForSettings} onLabel="Required" offLabel="Not required" /> }]}
@@ -152,9 +152,7 @@ export function ServerSettingsPage() {
               </Setting>
             </SettingsCard>
           )} />
-        <EditCard title="Functions" description={<>What a project's functions may use at most on this server; projects choose their defaults and each function's own up to this.
-          {d.functionsMemory && <> Functions' processes may hold {d.functionsMemory.totalMb} MB in all ({d.functionsMemory.source === "set" ? "set by WINCHE_FUNCTIONS_MEMORY_MB"
-            : `60% of the ${d.functionsMemory.source}'s memory`}); {d.functionsMemory.usedMb} MB is taken now.</>}</>} {...card("functions")}
+        <EditCard title="Functions" description={d.functionsMemory ? `${d.functionsMemory.usedMb} of ${d.functionsMemory.totalMb} MB in use` : undefined} {...card("functions")}
           rows={[
             { label: "Longest run", hint: source(s.functionsMaxMinutes, dep.functionsMaxMinutes), value: `${s.functionsMaxMinutes} min` },
             { label: "Most memory a function may ask for", hint: source(s.functionsMaxMemoryMb, dep.functionsMaxMemoryMb), value: `${s.functionsMaxMemoryMb} MB` },
@@ -183,20 +181,16 @@ export function ServerSettingsPage() {
                   </Group>
                 </Setting>
               ))}
-              <Text size="xs" c="dimmed" mt="xs">
-                A run past the shared process's limit stops that process and every run in it; a function asking for more memory runs in a
-                process of its own when the functions memory has room. The shared process's limit applies when it next starts.
-              </Text>
-              <Text size="xs" c="dimmed" mt="xs">A run that long still ends if the server restarts: long work should save its progress as it goes.</Text>
+              <Text size="xs" c="dimmed" mt="xs">The shared process's limit applies when it next starts.</Text>
             </SettingsCard>
           )} />
-        <EditCard title="Plugins" description="The plugin packages (npm) the console offers projects: the ones you trust. A project's admins can still install others, warned first that nobody here vouched for them." {...card("plugins")}
-          rows={[{ label: "Catalog", hint: (s.pluginCatalog ?? []).length === 0 ? "none: projects see only the search for a package" : undefined,
+        <EditCard title="Plugins" {...card("plugins")}
+          rows={[{ label: "Catalog",
             value: (s.pluginCatalog ?? []).length === 0 ? "—" : <Text size="sm" ff="monospace" style={{ whiteSpace: "pre-line" }}>{(s.pluginCatalog ?? []).join("\n")}</Text> }]}
           form={draft && (
             <SettingsCard>
               <div style={{ padding: 16 }}>
-                <Textarea label="Packages" description="One npm package name per line, e.g. @acme/text-messages." autosize minRows={3} maxRows={12} ff="monospace"
+                <Textarea label="Packages" description="One package name per line" autosize minRows={3} maxRows={12} ff="monospace"
                   value={(x.pluginCatalog ?? []).join("\n")}
                   onChange={(e) => set({ pluginCatalog: e.currentTarget.value.split("\n").map((l) => l.trim()).filter((l, i, all) => l.length > 0 || i === all.length - 1) })} />
               </div>
@@ -213,7 +207,7 @@ function ServerHistory() {
   if (history.isLoading) return <Loader size="sm" />;
   const versions = history.data?.versions ?? [];
   if (versions.length === 0)
-    return <EmptyState icon={IconHistory} title="No changes yet" description="The deployment's values are in force. Saved changes show up here: who made them, when and why." />;
+    return <EmptyState icon={IconHistory} title="No changes yet" description="The deployment's values are in force." />;
   return (
     <Paper withBorder radius="md" p="lg">
       <Timeline active={versions.findIndex((v) => v.current)} color="teal" bulletSize={26} lineWidth={2}>

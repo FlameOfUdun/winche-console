@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Alert, Badge, Button, Checkbox, Code, CopyButton, Group, Loader, Modal, Paper, SegmentedControl, Select, Stack, Table, Text, TextInput, Title } from "@mantine/core";
-import { IconCheck, IconCopy, IconPlus, IconRobot, IconTerminal2 } from "@tabler/icons-react";
+import { IconCheck, IconCopy, IconPlus, IconRobot } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
@@ -44,20 +44,12 @@ export function ServiceAccountsTab() {
 
       <Paper withBorder p="lg">
         <Group justify="space-between" align="flex-start" gap="sm" mb="md" wrap="wrap">
-          <div style={{ maxWidth: 680 }}>
-            <Title order={2} fz={16}>Service accounts</Title>
-            <Text size="sm" c="dimmed" mt={2}>
-              What CI and your other servers act as: a role (with <Code>@winche-technologies/winche-admin</Code>'s <Code>initializeAdmin</Code>), or deploy
-              scopes (<Code>winche functions deploy</Code> with <Code>WINCHE_TOKEN</Code>). They sign in with a key or, better, a
-              trusted identity (the CI's own token: no key to keep or rotate), exchanged for an hour's access token. They belong
-              to the project, and every change they make is named for them.
-            </Text>
-          </div>
+          <Title order={2} fz={16}>Service accounts</Title>
           {data.accounts.length > 0 && <Button leftSection={<IconPlus size={16} />} disabled={!data.available} onClick={() => setCreating(true)}>New service account</Button>}
         </Group>
         {data.accounts.length === 0 ? (
           <EmptyState icon={IconRobot} title="No service accounts"
-            description="Make one for each pipeline or server that uses this project: you can see when it was last used, turn it off, or replace its key any time."
+            description="One for each pipeline or server that uses this project."
             action={<Button leftSection={<IconPlus size={16} />} disabled={!data.available} onClick={() => setCreating(true)}>New service account</Button>} />
         ) : (
           <Stack gap="md">
@@ -75,29 +67,12 @@ export function ServiceAccountsTab() {
         )}
       </Paper>
 
-      <Paper withBorder p="lg">
-        <Group gap="sm" wrap="nowrap" align="flex-start">
-          <IconTerminal2 size={20} color="var(--w-muted)" />
-          <div>
-            <Title order={2} fz={16}>Signing in from a computer</Title>
-            <Text size="sm" c="dimmed" mt={2}>
-              <Code>winche login</Code> signs you in through your browser, once per server, for every project you're in. It's a
-              session of your account like any other: <Code>winche logout</Code> ends it, and so does signing out everywhere
-              or your account being turned off.
-            </Text>
-          </div>
-        </Group>
-      </Paper>
-
       <CreateDialog opened={creating} roles={data.roles} scopes={data.scopes} onClose={() => setCreating(false)} onCreated={refresh} />
       <TrustDialog account={trusting} onClose={() => setTrusting(null)} onTrusted={refresh} />
       <Modal opened={!!secret} onClose={() => setSecret(null)} radius="lg" size="md" title={<Text fw={700} fz={18}>Copy the key</Text>}>
         {secret && (
           <Stack gap="md">
-            <Text size="sm" c="dimmed">
-              The key of {secret.account}, shown once. Put it in the secrets of what uses it: <Code>WINCHE_TOKEN</Code> for the CLI,
-              or <Code>initializeAdmin({"{ key }"})</Code>. It's exchanged for access tokens; it's never sent with calls.
-            </Text>
+            <Text size="sm" c="dimmed">The key of {secret.account}, shown once.</Text>
             <Group gap={4} wrap="nowrap" style={{ background: "var(--w-subtle)", borderRadius: 8, padding: "8px 8px 8px 12px" }}>
               <Text size="sm" ff="monospace" data-testid="service-account-secret" style={{ flex: 1, wordBreak: "break-all" }}>{secret.value}</Text>
               <CopyButton value={secret.value}>
@@ -211,7 +186,7 @@ function CreateDialog({ opened, roles, scopes: allScopes, onClose, onCreated }: 
   return (
     <Modal opened={opened} onClose={close} radius="lg" size="md" title={<Text fw={700} fz={18}>New service account</Text>}>
       <Stack gap="md">
-        <TextInput label="Name" description="What uses it, e.g. gitlab-deploy or billing-server" placeholder="gitlab-deploy" data-autofocus
+        <TextInput label="Name" placeholder="gitlab-deploy" data-autofocus
           value={name} onChange={(e) => setName(e.currentTarget.value)} />
         <SegmentedControl value={kind} onChange={(v) => setKind(v as "role" | "deploy")}
           data={[{ value: "deploy", label: "Deploys (CI)" }, { value: "role", label: "Uses the data (a server)" }]} />
@@ -249,14 +224,10 @@ function TrustDialog({ account, onClose, onTrusted }: { account: ServiceAccount 
   return (
     <Modal opened={!!account} onClose={close} radius="lg" size="lg" title={<Text fw={700} fz={18}>Trust an identity for {account?.name}</Text>}>
       <Stack gap="md">
-        <Text size="sm" c="dimmed">
-          A CI system or cloud host that signs a token about each of its jobs (OpenID Connect) can sign in as this account with
-          that token, from <Code>WINCHE_ID_TOKEN</Code>: no key to keep. Only tokens from this issuer, for this subject and audience, count.
-        </Text>
-        <TextInput label="Issuer" description="Its address, as its tokens say (iss)" placeholder="https://gitlab.example.com" value={issuer} onChange={(e) => setIssuer(e.currentTarget.value)} />
-        <TextInput label="Subject" description="Which of its jobs (sub); * matches any run of characters" placeholder="project_path:team/app:ref_type:branch:ref:main"
+        <TextInput label="Issuer" placeholder="https://gitlab.example.com" value={issuer} onChange={(e) => setIssuer(e.currentTarget.value)} />
+        <TextInput label="Subject" description="* matches any run of characters" placeholder="project_path:team/app:ref_type:branch:ref:main"
           value={subject} onChange={(e) => setSubject(e.currentTarget.value)} />
-        <TextInput label="Audience" description="What the job asks its token for (aud), e.g. this project's address" placeholder="https://winche.example.com/projects/app"
+        <TextInput label="Audience" placeholder="https://winche.example.com/projects/app"
           value={audience} onChange={(e) => setAudience(e.currentTarget.value)} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
         <Group justify="flex-end" gap="xs">

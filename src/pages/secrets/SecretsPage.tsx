@@ -61,7 +61,7 @@ export function SecretsPage() {
 
   return (
     <>
-      <PageBand title="Secrets" description="API keys and passwords, encrypted here and never shown again, or read from AWS."
+      <PageBand title="Secrets" description="API keys and passwords."
         actions={functions && <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing("new")} disabled={!available}>Add a secret</Button>} />
       <Stack gap="xl" pb={28}>
         {!available && <Alert color="yellow">Secrets need the server's master key.</Alert>}

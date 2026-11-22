@@ -66,7 +66,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
   const [kind, setKind] = useState<string | null>(null);
   if (version === null) return (
     <EmptyState icon={IconLambda} title="No functions yet"
-      description="Write them in your editor and deploy them from your terminal or CI: they appear here." />
+      description="Deployed functions appear here." />
   );
   const shown = functions.find((f) => f.name === open) ?? null;
   const many = functions.length > 8;
@@ -170,7 +170,6 @@ function Details({ f }: { f: FunctionInfo }) {
             <Anchor component={Link} to="/secrets" size="xs">Manage secrets</Anchor></Group>
         : <Text size="sm" c="dimmed">none</Text>)}
       {(f.input != null || f.output != null) && <Shapes f={f} />}
-      {triggered(f) && <Text size="xs" c="dimmed">Its runs are queued and retried. Everything functions log is in Logs → Functions.</Text>}
     </Stack>
   );
 }
@@ -223,7 +222,7 @@ function Instances({ name }: { name: string }) {
         </Alert>
       )}
       {d.instances.length === 0
-        ? <Text size="sm" c="dimmed">No instances now: the next run loads one.</Text>
+        ? <Text size="sm" c="dimmed">No instances now.</Text>
         : (
           <Table data-testid="instances" verticalSpacing={4}>
             <Table.Thead><Table.Tr><Table.Th>State</Table.Th><Table.Th>Heap after its last run</Table.Th><Table.Th>Runs</Table.Th><Table.Th>Up</Table.Th></Table.Tr></Table.Thead>
@@ -261,11 +260,11 @@ function Instances({ name }: { name: string }) {
 }
 
 type LimitKey = "memoryMb" | "minInstances" | "maxInstances" | "reservedInstances";
-const LIMITS: { key: LimitKey; label: string; suffix?: string; hint: string }[] = [
-  { key: "memoryMb", label: "Memory", suffix: " MB", hint: "The most an instance may hold after a run: past it, the instance is replaced." },
-  { key: "minInstances", label: "Kept loaded", hint: "Instances kept ready even when idle, so a call never waits." },
-  { key: "maxInstances", label: "Most at once", hint: "Runs of it at the same time; more wait their turn." },
-  { key: "reservedInstances", label: "Reserved", hint: "Runs of the project's limit kept for it, so busy functions can't take them all." },
+const LIMITS: { key: LimitKey; label: string; suffix?: string }[] = [
+  { key: "memoryMb", label: "Memory", suffix: " MB" },
+  { key: "minInstances", label: "Kept loaded" },
+  { key: "maxInstances", label: "Most at once" },
+  { key: "reservedInstances", label: "Reserved" },
 ];
 const FROM: Record<string, string> = { setting: "its setting", code: "its code", default: "the default" };
 
@@ -332,12 +331,12 @@ function OwnTime({ f }: { f: FunctionInfo }) {
                 <NumberInput key={x.key} label={x.label} suffix={x.suffix} min={x.key === "memoryMb" ? 64 : 0}
                   max={x.key === "memoryMb" ? page.data?.maxMemoryMb : page.data?.maxConcurrency} disabled={!editable} value={v ?? ""}
                   placeholder={`${l[x.key]}${x.suffix ?? ""} (${FROM[l.from[x.key]] ?? l.from[x.key]})`} data-testid={`limit-${x.key}`}
-                  description={x.hint} onChange={(n) => set(x.key, number(n))} />
+                  onChange={(n) => set(x.key, number(n))} />
               );
             })}
           </SimpleGrid>
           <Select label="Process" w={320} disabled={!editable} data-testid="limit-isolate"
-            description={`In force: ${l.isolate ? "its own" : "shared"} (${FROM[l.from.isolate] ?? l.from.isolate}). Its own: nothing it does can stop other functions' runs.`}
+            description={`In force: ${l.isolate ? "its own" : "shared"} (${FROM[l.from.isolate] ?? l.from.isolate})`}
             data={[{ value: "", label: "As its code says" }, { value: "own", label: "Its own process" }, { value: "shared", label: "The shared process" }]}
             value={valueOf("isolate") === true ? "own" : valueOf("isolate") === false ? "shared" : ""}
             onChange={(v) => set("isolate", v === "own" ? true : v === "shared" ? false : null)} />
@@ -352,7 +351,7 @@ function OwnTime({ f }: { f: FunctionInfo }) {
       )}
       {done && !changed && <Text size="xs" c="teal">Saved: it applies from the next run.</Text>}
       {error && <Alert color="red" style={{ whiteSpace: "pre-wrap" }}>{error}</Alert>}
-      <Text size="xs" c="dimmed">Empty: as its code says, else the project's default. A long run still ends if the server restarts: long work should save its progress as it goes.</Text>
+      <Text size="xs" c="dimmed">Empty: as its code says, else the project's default.</Text>
     </Stack>
   );
 }
@@ -364,7 +363,7 @@ function TriggeredRuns({ name }: { name: string }) {
   if (list.isLoading) return <Loader size="sm" />;
   if (list.isError) return <Alert color="red">Couldn't load its runs: {errorMessage(list.error)}</Alert>;
   const rows = list.data?.deliveries ?? [];
-  if (rows.length === 0) return <Text size="sm" c="dimmed">No runs yet: it runs when its trigger fires.</Text>;
+  if (rows.length === 0) return <Text size="sm" c="dimmed">No runs yet.</Text>;
   const color = { delivered: "teal", pending: "yellow", failed: "red" } as const;
   return (
     <Table fz="xs" verticalSpacing={4} data-testid="function-runs">
@@ -471,7 +470,7 @@ function VersionsTimeline() {
   const [error, setError] = useState<string | null>(null);
   if (list.isLoading) return <Loader size="sm" />;
   const versions = list.data?.versions ?? [];
-  if (versions.length === 0) return <Text size="sm" c="dimmed">No deploys yet: each one becomes a version here, and you can roll back to any of them.</Text>;
+  if (versions.length === 0) return <Text size="sm" c="dimmed">No deploys yet.</Text>;
   const close = () => { setRolling(null); setNote(""); setError(null); };
   const rollBack = async () => {
     if (rolling === null) return;
@@ -573,20 +572,14 @@ function SettingsTab() {
       <Stack gap="md">
         <div>
           <Text fw={600}>Run time</Text>
-          <Text size="sm" c="dimmed">
-            How long a function may run: its own time (open it on the Dashboard), else the one its code sets (<Code>timeoutSeconds</Code>),
-            else this default. This server allows {time(max)} at most.
-          </Text>
+          <Text size="sm" c="dimmed">This server allows {time(max)} at most.</Text>
         </div>
         {!saved.data.editable && <Alert color="gray">{saved.data.whyReadOnly}</Alert>}
         <NumberInput label="Default run time" w={260} min={1} max={max} suffix=" s" disabled={!saved.data.editable}
           value={draft.time ?? s.defaultTimeoutSeconds} onChange={(v) => setDraft({ ...draft, time: typeof v === "number" && v > 0 ? Math.round(v) : 60 })} />
         <div>
           <Text fw={600}>Instances</Text>
-          <Text size="sm" c="dimmed">
-            A function's instances (workers with its code loaded) unless it sets its own: the memory each may hold, and how
-            many may run at once. This server allows {page.data?.maxMemoryMb ?? 1024} MB and {page.data?.maxConcurrency ?? 16} runs at once at most.
-          </Text>
+          <Text size="sm" c="dimmed">This server allows {page.data?.maxMemoryMb ?? 1024} MB and {page.data?.maxConcurrency ?? 16} runs at once at most.</Text>
         </div>
         <Group gap="md" align="flex-start">
           <NumberInput label="Default memory" w={200} min={64} max={page.data?.maxMemoryMb} suffix=" MB" disabled={!saved.data.editable}

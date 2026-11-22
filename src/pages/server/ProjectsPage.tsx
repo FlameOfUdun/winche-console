@@ -23,11 +23,11 @@ export function ProjectsPage() {
 
   return (
     <>
-    <PageBand title="Your projects" description="Each project has its own database, users, files and settings, on this server." actions={d.projects.length > 0 && add} />
+    <PageBand title="Your projects" actions={d.projects.length > 0 && add} />
     <Stack gap="xl" pb={28}>
       {d.projects.length === 0 ? (
         <EmptyState icon={IconStack2} title="No projects yet"
-          description={d.canCreate ? "Add one to get its database, users and files." : "A server admin adds you to projects: they appear here once you're in one."}
+          description={d.canCreate ? "Add one to get its database, users and files." : "A server admin adds you to projects."}
           action={add} />
       ) : (
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">

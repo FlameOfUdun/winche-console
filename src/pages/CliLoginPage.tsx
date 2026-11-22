@@ -61,7 +61,7 @@ function DeviceLogin({ initial }: { initial: string }) {
   if (!found) {
     return (
       <AuthCard title="Sign in the Winche CLI" icon={<CliIcon />} width={460}
-        subtitle={<>Enter the code <Code>winche login --no-browser</Code> shows in your terminal.</>}>
+        subtitle="Enter the code your terminal shows.">
         <Stack gap="md">
           <TextInput label="Code" placeholder="BCDF-GHJK" value={code} onChange={(e) => setCode(e.currentTarget.value.toUpperCase())}
             styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", letterSpacing: 2 } }} />
@@ -74,11 +74,11 @@ function DeviceLogin({ initial }: { initial: string }) {
   return (
     <AuthCard title="Allow the Winche CLI?" icon={<CliIcon />} width={460}
       subtitle={<><b>{found.name}</b> wants to use this server as you.</>}
-      footer="It's one of your sessions: signing out everywhere ends it too.">
+      footer="Signing out everywhere ends it too.">
       <Stack gap="md">
         <Text size="sm">Check that your terminal shows <Code fz="md" fw={700}>{found.userCode}</Code>.</Text>
-        <Text size="sm" c="dimmed">Signed in as {user?.email ?? "you"}. It can do, in every project you're in, what your role there allows.</Text>
-        <Alert color="yellow" p="sm">Only allow this if you just ran <Code>winche login</Code> yourself.</Alert>
+        <Text size="sm" c="dimmed">Signed in as {user?.email ?? "you"}. It gets your role in every project you're in.</Text>
+        <Alert color="yellow" p="sm">Only allow this if you just signed in from the CLI yourself.</Alert>
         {error && <Alert color="red">{error}</Alert>}
         <Group grow>
           <Button size="md" variant="default" onClick={() => setFound(null)} disabled={busy}>Cancel</Button>
@@ -131,7 +131,7 @@ function LoopbackLogin() {
   if (!valid) {
     return (
       <AuthCard title="Allow the Winche CLI?" icon={icon}>
-        <Alert color="red">This sign-in link isn't complete. Run <Code>winche login</Code> again.</Alert>
+        <Alert color="red">This sign-in link isn't complete. Sign in from the CLI again.</Alert>
       </AuthCard>
     );
   }
@@ -146,14 +146,14 @@ function LoopbackLogin() {
   return (
     <AuthCard title="Allow the Winche CLI?" icon={icon} width={460}
       subtitle={<><b>{name}</b> wants to use this server as you.</>}
-      footer="It's one of your sessions: signing out everywhere ends it too.">
+      footer="Signing out everywhere ends it too.">
       <Stack gap="md">
         <div style={{ border: "1px solid var(--w-border)", borderRadius: 12, padding: "0 16px" }}>
           <div style={{ marginTop: -1 }}>{row("Signed in as", user?.email ?? "you")}</div>
           {row("It can", "In every project you're in, what your role there allows")}
-          {row("Until", <><Code>winche logout</Code>, or you sign out everywhere</>)}
+          {row("Until", "You sign out of the CLI, or everywhere")}
         </div>
-        <Alert color="yellow" p="sm">Only allow this if you just ran <Code>winche login</Code> yourself.</Alert>
+        <Alert color="yellow" p="sm">Only allow this if you just signed in from the CLI yourself.</Alert>
         {error && <Alert color="red">{error}</Alert>}
         <Group grow>
           <Button size="md" variant="default" onClick={cancel} disabled={busy}>Cancel</Button>

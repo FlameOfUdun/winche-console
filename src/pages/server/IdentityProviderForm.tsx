@@ -50,10 +50,7 @@ export function IdentityProviderForm({ value, onChange, secretSlot, unsavedSecre
           <TextInput label="Claim with groups or roles" placeholder="groups (or realm_access.roles); empty: server admins are made here" styles={mono}
             value={value.roleClaim ?? ""} onChange={(e) => set({ roleClaim: e.currentTarget.value || null })} />
           {value.roleClaim && (
-            <>
-              <TagsInput label="Server admin" placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
-              <Text size="xs" c={surface.muted}>Checked at every sign-in. What people do in a project is that project's members list.</Text>
-            </>
+            <TagsInput label="Server admin" placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
           )}
         </Stack>
       </Paper>
@@ -125,7 +122,7 @@ export function RegisterAddresses({ callbackUrl, logoutUrl }: { callbackUrl?: st
         <Text size="sm" fw={600}>Register at the provider</Text>
         {callbackUrl && <CopyRow label="Redirect URI" value={callbackUrl} />}
         {logoutUrl && <CopyRow label="Back-channel logout URL" value={logoutUrl}
-          hint="Optional: with it, signing out at the provider signs people out of the console at once (otherwise within minutes)." />}
+          hint="Optional" />}
       </Stack>
     </Paper>
   );
@@ -185,5 +182,5 @@ function TestResult({ result, mapsRoles }: { result: SignInTestResult; mapsRoles
 /** A client secret typed here, saved with the provider (empty: keep the saved one, or none for a public client). */
 export function SecretField({ value, onChange, savedAt, savedReference }: { value: string; onChange: (v: string) => void; savedAt?: string | null; savedReference?: string | null }) {
   return <SecretInput label="Client secret" value={value} onChange={onChange} savedReference={savedReference}
-    description={savedAt ? "One is saved. Type a new one to replace it, or leave it empty to keep it." : "Leave empty for a public client."} />;
+    description={savedAt ? "One is saved: leave empty to keep it." : "Leave empty for a public client."} />;
 }

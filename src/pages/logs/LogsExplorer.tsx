@@ -230,7 +230,6 @@ export function LogsExplorer({ scope, state, onChange, onSaved }: {
         <>
           <Group justify="space-between">
             <Text size="xs" c="dimmed">{plural(entries.length, "entry", "entries")} · {plural(errors, "error")} · {plural(warnings, "warning")} · newest first</Text>
-            <Text size="xs" c="dimmed">Click an entry for details</Text>
           </Group>
           <Table highlightOnHover verticalSpacing={4} fz="sm">
             <Table.Tbody>

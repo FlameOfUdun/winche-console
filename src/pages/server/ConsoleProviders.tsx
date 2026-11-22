@@ -93,7 +93,7 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
       <Group justify="space-between" align="flex-start" px={24} py={18} wrap="wrap" gap="md">
         <div>
           <Text fw={600} fz={16}>Sign-in providers</Text>
-          <Text size="sm" c="var(--w-faint)" mt={4}>How people sign in to this console. Select one to set it up.</Text>
+          <Text size="sm" c="var(--w-faint)" mt={4}>How people sign in to this console.</Text>
         </div>
         {editing === null && (
           <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>
@@ -109,7 +109,7 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
         on onToggle={toggle("passwords")} {...row("passwords")}
         form={draft && (
           <>
-            <Text size="sm" c={surface.muted}>Always on, so a server admin can get in when a provider is down.</Text>
+            <Text size="sm" c={surface.muted}>Always on.</Text>
             <Select label="Who can use a password" allowDeselect={false} w={360} value={draft.consolePasswordsOnlyForAdmins ? "admins" : "everyone"}
               description={providers.some((p) => p.enabled) ? undefined : "Server admins only takes effect once a provider is on."}
               data={[{ value: "everyone", label: "Everyone with an account" }, { value: "admins", label: "Server admins only (others use a provider)" }]}
@@ -119,7 +119,7 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
                 <NumberInput label="Shortest password" w={180} min={8} max={128} value={ownDraft.emailPassword.minLength}
                   onChange={(v) => setOwnDraft({ ...ownDraft, emailPassword: { ...ownDraft.emailPassword, minLength: typeof v === "number" ? v : 8 } })} />
                 <Switch label="People can turn on two-step sign-in" checked={ownDraft.twoStep.enabled}
-                  description="An authenticator app. Trusted providers' own second step counts, so nobody is asked twice."
+                  description="With an authenticator app"
                   onChange={(e) => setOwnDraft({ ...ownDraft, twoStep: { ...ownDraft.twoStep, enabled: e.currentTarget.checked } })} />
                 {ownDraft.twoStep.enabled && (
                   <Group wrap="wrap">
@@ -143,7 +143,7 @@ export function ConsoleSignInMethods({ page }: { page: ServerSettingsPage }) {
             sub={shown.issuer ?? "OpenID Connect"} on={shown.enabled} onToggle={toggle(id)} {...row(id)}
             form={open && draft && (
               <>
-                <Switch label="Enable" description="Shown on the sign-in page. Off: nobody signs in with it, and its sessions end."
+                <Switch label="Enable" description="Off: its sessions end."
                   checked={shown.enabled} onChange={(e) => setProvider(i, { ...shown, enabled: e.currentTarget.checked })} />
                 <ProviderEditor value={shown} onChange={(v) => setProvider(i, v)} secret={secret} onSecret={setSecret} page={page} />
                 <KeycloakSyncFields value={shown.keycloakSync} onChange={(k) => setProvider(i, { ...shown, keycloakSync: k })}
@@ -171,8 +171,8 @@ const KINDS: { value: string; label: string; issuer: string; issuerHint: string;
   { value: "keycloak", label: "Keycloak", issuer: "https://login.example.com/realms/staff", issuerHint: "The realm's address: …/realms/<realm>.", roleClaim: "realm_access.roles" },
   { value: "entra", label: "Microsoft Entra ID", issuer: "https://login.microsoftonline.com/<tenant id>/v2.0", issuerHint: "With your tenant id, ending in /v2.0.", roleClaim: "roles" },
   { value: "google", label: "Google Workspace", issuer: "https://accounts.google.com", issuerHint: "Always https://accounts.google.com.", roleClaim: null },
-  { value: "okta", label: "Okta", issuer: "https://example.okta.com", issuerHint: "Your Okta org's address (or an authorization server's).", roleClaim: "groups" },
-  { value: "oidc", label: "OpenID Connect", issuer: "https://login.example.com", issuerHint: "Its discovery document is under it (/.well-known/openid-configuration).", roleClaim: null },
+  { value: "okta", label: "Okta", issuer: "https://example.okta.com", issuerHint: "", roleClaim: "groups" },
+  { value: "oidc", label: "OpenID Connect", issuer: "https://login.example.com", issuerHint: "", roleClaim: null },
 ];
 
 /**
@@ -210,13 +210,13 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
       <Stack gap="md">
         <FieldRow>
           <Select label="Kind" allowDeselect={false} value={kind.value} data={KINDS.map((k) => ({ value: k.value, label: k.label }))} onChange={choose} />
-          <TextInput label="Shown as" description="The sign-in button" placeholder={`Sign in with ${kind.value === "oidc" ? "your organization" : kind.label}`}
+          <TextInput label="Shown as" placeholder={`Sign in with ${kind.value === "oidc" ? "your organization" : kind.label}`}
             value={value.buttonLabel ?? ""} onChange={(e) => set({ buttonLabel: e.currentTarget.value || null })} />
         </FieldRow>
-        <TextInput label="Issuer" description={kind.issuerHint} placeholder={kind.issuer} styles={mono}
+        <TextInput label="Issuer" description={kind.issuerHint || undefined} placeholder={kind.issuer} styles={mono}
           value={value.issuer ?? ""} onChange={(e) => set({ issuer: e.currentTarget.value || null })} />
         <FieldRow>
-          <TextInput label="Client ID" description="The console's client at the provider" placeholder="winche-console" styles={mono}
+          <TextInput label="Client ID" placeholder="winche-console" styles={mono}
             value={value.clientId ?? ""} onChange={(e) => set({ clientId: e.currentTarget.value || null })} />
           <SecretField value={secret} onChange={setSecret} />
         </FieldRow>
@@ -233,10 +233,10 @@ function AddProviderDialog({ page, onClose }: { page: ServerSettingsPage; onClos
         </UnstyledButton>
         <Collapse in={more}>
           <Stack gap="sm">
-            <TextInput label="Claim with groups or roles" description="Empty: server admins are made in the console." placeholder="groups" styles={mono}
+            <TextInput label="Claim with groups or roles" description="Empty: server admins are made here" placeholder="groups" styles={mono}
               value={value.roleClaim ?? ""} onChange={(e) => set({ roleClaim: e.currentTarget.value || null })} />
             {value.roleClaim && (
-              <TagsInput label="Server admin" description="What people do in a project is that project's members list."
+              <TagsInput label="Server admin"
                 placeholder="e.g. winche-admins" value={value.adminValues} onChange={(v) => set({ adminValues: v })} />
             )}
             <TextInput label="Scopes" styles={mono} value={value.scopes} onChange={(e) => set({ scopes: e.currentTarget.value })} />
