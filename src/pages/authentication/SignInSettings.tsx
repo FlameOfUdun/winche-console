@@ -463,7 +463,7 @@ function EmailPart({ draft, set, editable, passwordSet, secretsAvailable, passwo
                 <TextInput label="From name (optional)" placeholder={e.appName || "The app's name"} disabled={!editable} value={smtp.fromName ?? ""}
                   onChange={(ev) => setSmtp({ fromName: ev.currentTarget.value || null })} />
               </FieldRow>
-              {!secretsAvailable && <Alert color="yellow">Passwords can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
+              {!secretsAvailable && <Alert color="yellow">Passwords can't be saved: they need the server's master key.</Alert>}
               <Group gap="xs" align="flex-end">
                 <TextInput label="Send a test to" placeholder="Your address" value={to} onChange={(ev) => setTo(ev.currentTarget.value)} />
                 <Button variant="default" loading={test === "sending"} disabled={!smtp.host || !smtp.fromAddress} onClick={sendTest}>Send test email</Button>

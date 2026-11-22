@@ -21,16 +21,25 @@ export function sourceTitle(reference: string, sources: { name: string; title: s
   return sources?.find((s) => s.name === name)?.title ?? name;
 }
 
+/** "aws-sm:<secret's ARN or its name> / aws-ssm:<parameter's name>": what a reference looks like in each store. */
+export function referencePlaceholder(sources: { name: string; hint?: string | null }[]) {
+  if (sources.length === 0) return "aws-ssm:…";
+  return sources.map((s) => `${s.name}:${s.hint ? `<${s.hint.replace(/^an?\s+/i, "")}>` : "…"}`).join(" / ");
+}
+
 /**
  * A secret to type in: its value (a password field), or, where the app can read secrets from elsewhere (AWS Secrets
  * Manager, Parameter Store), a reference to it, with a Test that reads it now and says whether it works (never the
  * value), or, where the caller may write there, a value Winche keeps in AWS itself. Holds any of these in one string (see
  * secrets): forms keep it like a password.
  */
-export function SecretInput({ label, description, value, onChange, disabled, placeholder, savedReference, autoComplete = "new-password", style, multiline }: {
+export function SecretInput({ label, description, value, onChange, disabled, placeholder, savedReference, keptIn, autoComplete = "new-password", style, multiline }: {
   label: string; description?: React.ReactNode; value: string; onChange: (v: string) => void; disabled?: boolean; placeholder?: string;
   /** The saved secret's reference, when it is one: shown, and the form starts on Reference. */
-  savedReference?: string | null; autoComplete?: string; style?: React.CSSProperties;
+  savedReference?: string | null;
+  /** The store Winche keeps the saved secret in (aws-sm), when it does: the form starts on In AWS there. */
+  keptIn?: string | null;
+  autoComplete?: string; style?: React.CSSProperties;
   /** A value of several lines (a PEM key): typed in a text box, kept out of the page's autofill. */
   multiline?: boolean;
 }) {
@@ -41,8 +50,12 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
   const [chosen, setChosen] = useState<Mode | null>(null);
   const [test, setTest] = useState<SecretTest | null>(null);
   const [testing, setTesting] = useState(false);
-  const mode: Mode = isReference(value) ? "reference" : isKeep(value) ? "keep"
-    : chosen ?? (savedReference && !value && list.length > 0 ? "reference" : "value");
+  const plain = !!value && !isReference(value) && !isKeep(value);
+  if (plain && chosen && chosen !== "value") setChosen("value");   // a value put in from outside (a file picked)
+  const keptStore = keptIn && writable.some((s) => s.name === keptIn) ? keptIn : null;
+  // A plain value typed (or picked from a file) is a value, whatever was chosen before.
+  const mode: Mode = isReference(value) ? "reference" : isKeep(value) ? "keep" : plain ? "value"
+    : chosen ?? (keptStore ? "keep" : savedReference && list.length > 0 ? "reference" : "value");
   const valueBox = (labelled: boolean) => multiline
     ? <Textarea label={labelled ? label : undefined} aria-label={labelled ? undefined : label} description={description} value={value}
         onChange={(e) => onChange(e.currentTarget.value)} disabled={disabled} placeholder={placeholder} autosize minRows={4} maxRows={10}
@@ -56,10 +69,10 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
   if (list.length > 0 || mode === "reference") modes.push({ label: "Reference", value: "reference" });
   if (writable.length > 0 || mode === "keep") modes.push({ label: "In AWS", value: "keep" });
   const kept = isKeep(value) ? keepOf(value) : null;
-  const store = kept?.store || writable[0]?.name || "";
+  const store = kept?.store || keptStore || writable[0]?.name || "";
   const pick = (m: Mode) => {
     setChosen(m); setTest(null);
-    onChange(m === "reference" ? REFERENCE : m === "keep" ? keepValue(writable[0]?.name ?? "", "") : "");
+    onChange(m === "reference" ? REFERENCE : m === "keep" ? keepValue(keptStore ?? writable[0]?.name ?? "", "") : "");
   };
   const typed = isReference(value) ? referenceOf(value) : "";
   const run = async () => {
@@ -72,7 +85,7 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
     <Stack gap={4} style={style}>
       <Group justify="space-between" gap="xs" wrap="nowrap">
         <Text size="sm" fw={500}>{label}</Text>
-        <SegmentedControl size="xs" value={mode} disabled={disabled} data-testid="secret-mode"
+        <SegmentedControl size="xs" value={mode} disabled={disabled} data-testid="secret-mode" aria-label={`${label} kept as`}
           data={modes} onChange={(m) => pick(m as Mode)} />
       </Group>
       {mode === "value" ? (
@@ -80,7 +93,7 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
           disabled={disabled} placeholder={placeholder} autoComplete={autoComplete} />
       ) : mode === "keep" ? (
         <>
-          <SegmentedControl size="xs" disabled={disabled} data-testid="secret-store" style={{ alignSelf: "flex-start" }}
+          <SegmentedControl size="xs" disabled={disabled} data-testid="secret-store" aria-label={`${label} store`} style={{ alignSelf: "flex-start" }}
             value={store}
             data={(writable.length ? writable : all.filter((s) => s.name === store)).map((s) => ({ label: storeTitle(s.title), value: s.name }))}
             onChange={(store) => onChange(keepValue(store, kept?.value ?? ""))} />
@@ -95,7 +108,7 @@ export function SecretInput({ label, description, value, onChange, disabled, pla
         <>
           <Group gap="xs" align="flex-start" wrap="nowrap">
             <TextInput aria-label={`${label} (reference)`} ff="monospace" style={{ flex: 1 }} disabled={disabled}
-              placeholder={savedReference ?? `${list[0]?.name ?? "aws-ssm"}:…`} value={typed}
+              placeholder={savedReference ?? referencePlaceholder(list)} value={typed}
               onChange={(e) => { setTest(null); onChange(REFERENCE + e.currentTarget.value); }}
               description={savedReference && !typed
                 ? `Read from ${sourceTitle(savedReference, list)}: ${savedReference}`

@@ -12,7 +12,7 @@ vi.mock("../../../api/client", async (orig) => {
   const actual = await orig<typeof import("../../../api/client")>();
   return { ...actual, api: { ...actual.api, apps: vi.fn(), integrity: vi.fn(), addApp: vi.fn(), updateApp: vi.fn(), removeApp: vi.fn(),
     setIntegrityEnforcement: vi.fn(), makeDebugToken: vi.fn(), removeDebugToken: vi.fn(), setPlayServiceAccount: vi.fn(), removePlayServiceAccount: vi.fn(),
-    setTurnstileSecret: vi.fn() } };
+    setTurnstileSecret: vi.fn(), secretSources: vi.fn() } };
 });
 
 const MODE_ENFORCE = "Refused without a valid token";
@@ -41,6 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock(api.apps).mockImplementation(async (platforms: string[]) => page(platforms));
   mock(api.integrity).mockResolvedValue(integrity());
+  mock(api.secretSources).mockResolvedValue({ available: true, appCredentials: false, keys: [], sources: [] });
 });
 
 function renderPage() {
@@ -349,4 +350,70 @@ test("removing the Play service account: Escape leaves its dialog open; a failur
   await userEvent.click(within(confirm).getByRole("button", { name: "Remove it" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(api.removePlayServiceAccount).toHaveBeenCalledTimes(2);
+});
+
+/** A picked file (jsdom's File has no text()). */
+const keyFile = (text: string) => Object.assign(new File([text], "key.json", { type: "application/json" }), { text: async () => text });
+const awsSources = { available: true, appCredentials: false, keys: [], sources: [
+  { name: "aws-sm", title: "AWS Secrets Manager", hint: "a secret's ARN or its name", key: "k", access: { read: true, write: true, delete: true, missing: [], problem: null } },
+  { name: "aws-ssm", title: "AWS Parameter Store", hint: "a parameter's name", key: "k", access: { read: true, write: true, delete: true, missing: [], problem: null } },
+] };
+
+test("Play Integrity: a key file picked while In AWS stays in AWS, sent as its value with keep:<store>", async () => {
+  mock(api.secretSources).mockResolvedValue(awsSources);
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [myApp] }));
+  mock(api.setPlayServiceAccount).mockResolvedValue({});
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("play-service-account")).getByRole("button", { name: "Set service account" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialog).findByText("In AWS"));
+  await userEvent.click(within(within(dialog).getByRole("radiogroup", { name: "Key file (JSON) store" })).getByText("Parameter Store"));
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();   // the mode alone isn't a secret
+  const json = '{"type":"service_account"}';
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, keyFile(json));
+  await waitFor(() => expect(within(dialog).getByLabelText("Key file (JSON)")).toHaveValue(json));
+  expect(within(within(dialog).getByRole("radiogroup", { name: "Key file (JSON) kept as" })).getByRole("radio", { name: "In AWS" })).toBeChecked();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(api.setPlayServiceAccount).toHaveBeenCalledWith(json, "keep:aws-ssm"));
+});
+
+test("Play Integrity: a key file picked while on Reference becomes the value", async () => {
+  mock(api.secretSources).mockResolvedValue(awsSources);
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [myApp] }));
+  mock(api.setPlayServiceAccount).mockResolvedValue({});
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("play-service-account")).getByRole("button", { name: "Set service account" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialog).findByText("Reference"));
+  const json = '{"type":"service_account"}';
+  await userEvent.upload(document.querySelector('input[type="file"]') as HTMLInputElement, keyFile(json));
+  const mode = within(dialog).getByRole("radiogroup", { name: "Key file (JSON) kept as" });
+  await waitFor(() => expect(within(mode).getByRole("radio", { name: "Value" })).toBeChecked());
+  expect(within(dialog).getByLabelText("Key file (JSON)")).toHaveValue(json);
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(api.setPlayServiceAccount).toHaveBeenCalledWith(json, null));
+});
+
+test("Turnstile: a secret kept in AWS is sent as { value, reference }; a reference that isn't one stops the save before the app changes", async () => {
+  mock(api.secretSources).mockResolvedValue(awsSources);
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [myApp] }));
+  mock(api.updateApp).mockResolvedValue({ id: myApp.id });
+  mock(api.setTurnstileSecret).mockResolvedValue({});
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: "More for My app" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: /Edit/ }));
+  const dialog = await screen.findByRole("dialog");
+  const mode = await within(dialog).findByRole("radiogroup", { name: "Turnstile secret key kept as" });
+  await userEvent.click(within(mode).getByText("Reference"));
+  await userEvent.type(within(dialog).getByLabelText("Turnstile secret key (reference)"), "nope");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  expect(await within(dialog).findByText("Turnstile secret key: Not a reference")).toBeInTheDocument();
+  expect(api.updateApp).not.toHaveBeenCalled();
+  expect(api.setTurnstileSecret).not.toHaveBeenCalled();
+
+  await userEvent.click(within(mode).getByText("In AWS"));
+  await userEvent.type(within(dialog).getByLabelText("Turnstile secret key"), " 0x4secret ");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(api.setTurnstileSecret).toHaveBeenCalledWith(myApp.id, "0x4secret", "keep:aws-sm"));
+  expect(api.updateApp).toHaveBeenCalledTimes(1);
 });

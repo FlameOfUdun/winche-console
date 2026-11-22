@@ -239,3 +239,38 @@ test("the AWS key line says what the key may do, or what it lacks, and checks ag
   await waitFor(() => expect(mock(api.secretSources)).toHaveBeenCalledWith(true));
   expect(await screen.findByText("Missing: secretsmanager:CreateSecret")).toBeInTheDocument();
 });
+
+test("replacing a secret Winche keeps in AWS opens on In AWS in its store; the badge's reference can be reached by keyboard", async () => {
+  mock(api.secretSources).mockResolvedValue(withAccess(access(true, true), access(true, true)));
+  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [
+    { name: "SES_SECRET", isSet: true, setAt: "2026-11-12T20:00:00Z", setBy: null, usedBy: [], reference: "aws-ssm:/winche/p1/SES_SECRET", managed: true },
+  ] });
+  mock(api.setFunctionSecret).mockResolvedValue(undefined);
+  renderPage();
+  const row = (await screen.findAllByTestId("function-secret"))[0];
+  expect(within(row).getByRole("button", { name: "In AWS Parameter Store: aws-ssm:/winche/p1/SES_SECRET" })).toBeInTheDocument();
+
+  await userEvent.click(within(row).getByRole("button", { name: "Replace" }));
+  const dialog = await screen.findByRole("dialog");
+  const mode = await within(dialog).findByRole("radiogroup", { name: "New value of SES_SECRET kept as" });
+  expect(within(mode).getByRole("radio", { name: "In AWS" })).toBeChecked();
+  const store = within(dialog).getByRole("radiogroup", { name: "New value of SES_SECRET store" });
+  expect(within(store).getByRole("radio", { name: "Parameter Store" })).toBeChecked();
+  await userEvent.type(within(dialog).getByLabelText("New value of SES_SECRET"), "new-1");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(mock(api.setFunctionSecret)).toHaveBeenCalled());
+  const { secretBody } = await import("../../../api/secrets");
+  expect(secretBody(mock(api.setFunctionSecret).mock.calls[0][1])).toEqual({ value: "new-1", reference: "keep:aws-ssm" });
+});
+
+test("Reference: the placeholder shows what a reference looks like in each store; a bare Reference never saves", async () => {
+  mock(api.secretSources).mockResolvedValue(withAccess(access(true, false), access(true, false)));
+  mock(api.functionSecrets).mockResolvedValue({ available: true, secrets: [{ name: "MAIL_KEY", isSet: false, setAt: null, setBy: null, usedBy: [] }] });
+  renderPage();
+  await userEvent.click(within((await screen.findAllByTestId("function-secret"))[0]).getByRole("button", { name: "Set" }));
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(await within(dialog).findByText("Reference"));
+  expect(within(dialog).getByLabelText("New value of MAIL_KEY (reference)"))
+    .toHaveAttribute("placeholder", "aws-sm:<secret's ARN or its name> / aws-ssm:<parameter's name>");
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
+});

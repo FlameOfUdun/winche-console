@@ -73,6 +73,7 @@ test("a webhook for users' events: tested with a sample, then saved with a reaso
   await userEvent.click(within(editor).getByText("deleted"));
   expect(within(editor).queryByLabelText(/Path/)).toBeNull();   // user events have no path
   await userEvent.type(within(editor).getByLabelText(/^Address/), "https://crm.example.com/winche");
+  expect(within(editor).getByTestId("hook-vars")).toHaveTextContent("Vars{uid}{email}{provider}");
   await userEvent.click(within(editor).getByRole("button", { name: "Send a test" }));
   expect(await within(editor).findByTestId("hook-test")).toHaveTextContent("Delivered (200) in 42 ms");
   await userEvent.click(within(editor).getByRole("button", { name: "Done" }));

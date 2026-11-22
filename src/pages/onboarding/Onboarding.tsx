@@ -165,7 +165,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
       <Box style={{ flex: 1, display: "flex", justifyContent: "center" }} px="md" py={56}>
         <Stack gap={28} w="100%" maw={620}>
           {step === "code" && (
-            <Screen title="Enter the setup code" subtitle="It's in the server's log.">
+            <Screen title="Enter the setup code" subtitle="It's in the server's log: Setup code: …">
               <TextInput label="Setup code" size="lg" placeholder="XXXX-XXXX-XXXX" autoFocus value={codeInput} autoComplete="off"
                 styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", letterSpacing: "0.08em" } }}
                 onChange={(e) => setCodeInput(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && codeInput.trim() && checkCode()} />

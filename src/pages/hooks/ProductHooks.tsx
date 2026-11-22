@@ -5,7 +5,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
-import { type Hook, type HooksPageData, type HookTestResult } from "../../api/hooks";
+import { variablesFor, type Hook, type HooksPageData, type HookTestResult } from "../../api/hooks";
 import { when } from "../authentication/UsersView";
 import { EmptyState } from "../../components/EmptyState";
 import { IconSend, IconWebhook } from "@tabler/icons-react";
@@ -175,6 +175,7 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
   const [h, setH] = useState<Hook>(initial);
   const [test, setTest] = useState<HookTestResult | "testing" | null>(null);
   const source = data.sources.find((s) => s.name === h.when.source);
+  const vars = variablesFor(h, data.sources);
   const set = (patch: Partial<Hook>) => { setH({ ...h, ...patch }); setTest(null); };
   const setWhen = (patch: Partial<Hook["when"]>) => set({ when: { ...h.when, ...patch } });
   const setDo = (patch: Partial<Hook["do"]>) => set({ do: { ...h.do, ...patch } });
@@ -208,6 +209,12 @@ function HookEditor({ initial, data, onDone, onCancel, fixedSource = false }: {
         <Text fw={600} size="sm">Call</Text>
         <TextInput label="Address" placeholder="https://api.example.com/winche-hooks"
           value={h.do.url ?? ""} onChange={(e) => setDo({ url: e.currentTarget.value })} />
+        {vars.length > 0 && (
+          <Group gap={4} data-testid="hook-vars">
+            <Text size="xs" c="dimmed">Vars</Text>
+            {vars.map((v) => <Code key={v} fz="xs">{`{${v}}`}</Code>)}
+          </Group>
+        )}
         <Group gap="xs">
           <Button size="xs" variant="default" disabled={!ready} loading={test === "testing"} onClick={runTest}>Send a test</Button>
           <Button size="xs" disabled={!ready} onClick={() => onDone({ ...h, name: h.name.trim() })}>Done</Button>

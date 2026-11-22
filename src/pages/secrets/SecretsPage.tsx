@@ -115,7 +115,8 @@ export function SecretsPage() {
         )}
       </Stack>
       <SecretDialog opened={editing !== null} name={editing === "new" ? undefined : editing?.name}
-        savedReference={editing && editing !== "new" ? editing.reference : null} isSet={editing !== "new" && !!editing?.isSet}
+        savedReference={editing && editing !== "new" ? editing.reference : null}
+        keptIn={editing && editing !== "new" && editing.managed && editing.reference ? editing.reference.slice(0, editing.reference.indexOf(":")) : null} isSet={editing !== "new" && !!editing?.isSet}
         onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />
       <ConfirmModal opened={removing !== null} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove"
         message={removing?.managed ? "Functions that read it fail until it's set again. It's deleted in AWS too." : "Functions that read it fail until it's set again."}
@@ -169,14 +170,22 @@ function SecretRow({ icon: Icon, name, mono, used, changed, status, actions, not
 function Kept({ s, isSet }: { s: { reference?: string | null; managed?: boolean }; isSet: boolean }) {
   const sources = useSecretSources();
   if (!isSet) return <Badge color="red" variant="light" tt="none">Not set</Badge>;
-  if (s.reference && s.managed) return <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">In {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>;
-  if (s.reference) return <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">From {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>;
+  if (s.reference) {
+    const text = `${s.managed ? "In" : "From"} ${sourceTitle(s.reference, sources.data?.sources)}`;
+    // A button, so the reference shows on focus too (and is read out), not only on hover.
+    return (
+      <Tooltip label={s.reference} events={{ hover: true, focus: true, touch: true }}>
+        <Badge component="button" type="button" aria-label={`${text}: ${s.reference}`} color="blue" variant="light" tt="none"
+          style={{ cursor: "default", border: 0 }}>{text}</Badge>
+      </Tooltip>
+    );
+  }
   return <Badge color="gray" variant="light" tt="none">Encrypted</Badge>;
 }
 
 /** Adding a secret (its name and value), or setting or replacing one (its value): a value, or where it's read from. */
-function SecretDialog({ opened, name: fixed, isSet, savedReference, onDone }: {
-  opened: boolean; name?: string; isSet: boolean; savedReference?: string | null; onDone: (saved: boolean) => void | Promise<void>;
+function SecretDialog({ opened, name: fixed, isSet, savedReference, keptIn, onDone }: {
+  opened: boolean; name?: string; isSet: boolean; savedReference?: string | null; keptIn?: string | null; onDone: (saved: boolean) => void | Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
@@ -200,7 +209,7 @@ function SecretDialog({ opened, name: fixed, isSet, savedReference, onDone }: {
           <TextInput label="Name" placeholder="MAIL_API_KEY" ff="monospace" data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value.toUpperCase())}
             error={badName ? "Capitals, digits and underscores, starting with a letter" : undefined} />
         )}
-        <SecretInput label={fixed ? `New value of ${fixed}` : "Value"} value={value} onChange={setValue} autoComplete="off" savedReference={savedReference}
+        <SecretInput label={fixed ? `New value of ${fixed}` : "Value"} value={value} onChange={setValue} autoComplete="off" savedReference={savedReference} keptIn={keptIn}
           description="Never shown again." />
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">
@@ -256,7 +265,7 @@ function MoveDialog({ name, stores, onDone }: { name: string | null; stores: Sec
   return (
     <Modal opened={name !== null} onClose={() => { if (!busy) finish(false); }} radius="lg" title={<Text fw={700} fz={18}>Move {name} to AWS</Text>}>
       <Stack gap="md" data-testid="move-dialog">
-        <SegmentedControl value={chosen} onChange={setStore} data={stores.map((s) => ({ label: storeTitle(s.title), value: s.name }))} />
+        <SegmentedControl aria-label="Store" value={chosen} onChange={setStore} data={stores.map((s) => ({ label: storeTitle(s.title), value: s.name }))} />
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">
           <Button variant="default" onClick={() => finish(false)} disabled={busy}>Cancel</Button>

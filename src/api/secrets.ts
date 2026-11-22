@@ -47,3 +47,17 @@ export const secretBody = (s: string | null | undefined): { value?: string; refe
 
 /** Whether something was typed (a reference with nothing after its source isn't). */
 export const secretTyped = (s: string | null | undefined) => Object.keys(secretBody(s)).length > 0;
+
+/** The typed secret with the spaces around its value (or reference) taken off, kept as it was typed (a value, a reference, kept in AWS). */
+export const trimSecret = (s: string) => {
+  if (isReference(s)) return REFERENCE + referenceOf(s);
+  if (isKeep(s)) { const k = keepOf(s); return keepValue(k.store, k.value.trim()); }
+  return s.trim();
+};
+
+/** What's wrong with a typed secret before it's sent (a reference without its store, a value kept in AWS without a store), or null. */
+export const secretProblem = (s: string | null | undefined): string | null => {
+  if (isReference(s) && referenceOf(s!) && !/^[a-z0-9-]+:.+/.test(referenceOf(s!))) return "Not a reference";
+  if (isKeep(s)) { const k = keepOf(s!); if (k.value.trim() && !k.store) return "Pick a store"; }
+  return null;
+};

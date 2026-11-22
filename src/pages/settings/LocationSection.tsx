@@ -136,7 +136,7 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
             </Text>
           )}
           {preset === "other" && <Switch label="Path-style addresses (MinIO and most self-hosted services)" checked={b.forcePathStyle} onChange={(e) => set({ forcePathStyle: e.currentTarget.checked })} />}
-          {!s.secretsAvailable && <Alert color="yellow">Secrets can't be saved: the app needs a master key (WincheConfigOptions.MasterKey).</Alert>}
+          {!s.secretsAvailable && <Alert color="yellow">Secrets can't be saved: they need the server's master key.</Alert>}
           <Text size="xs" c="dimmed">The bucket needs CORS allowing PUT and GET from your apps.</Text>
         </>
       )}

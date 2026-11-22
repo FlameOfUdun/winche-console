@@ -12,7 +12,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, IntegrityMode, Usage } from "../../api/apps";
-import { secretBody } from "../../api/secrets";
+import { isKeep, keepOf, keepValue, secretBody, secretProblem, secretTyped, trimSecret } from "../../api/secrets";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { Copy } from "../../components/Copy";
 import { useOnTop } from "../../components/dialogStack";
@@ -447,7 +447,9 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
   if (!needed && !account) return null;
   const close = () => { setOpen(false); setTyped(""); setError(null); };
   const save = async () => {
-    const b = secretBody(typed.trim());
+    const problem = secretProblem(typed);
+    if (problem) { setError(problem); return; }
+    const b = secretBody(trimSecret(typed));
     setBusy(true); setError(null);
     try { await api.setPlayServiceAccount(b.value ?? null, b.reference ?? null); await qc.invalidateQueries({ queryKey: INTEGRITY }); close(); }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -463,7 +465,12 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
         <Stack gap="md">
           <SecretInput label="Key file (JSON)" multiline value={typed} onChange={setTyped} savedReference={account?.reference} />
           <Group justify="space-between">
-            <FileButton accept="application/json,.json" onChange={async (f) => { if (f) setTyped(await f.text()); }}>
+            <FileButton accept="application/json,.json" onChange={async (f) => {
+              if (!f) return;
+              const text = await f.text();
+              // In AWS: kept there, in the store chosen; a reference becomes the value picked.
+              setTyped(isKeep(typed) ? keepValue(keepOf(typed).store, text) : text);
+            }}>
               {(props) => <Button {...props} variant="default" size="xs">Pick the key file</Button>}
             </FileButton>
             {account && data.editable && (
@@ -473,7 +480,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
           {error && <Alert color="red" p="xs">{error}</Alert>}
           <Group justify="flex-end" gap="xs">
             <Button variant="default" onClick={close}>Cancel</Button>
-            <Button onClick={save} loading={busy} disabled={!typed.trim()}>Save</Button>
+            <Button onClick={save} loading={busy} disabled={!secretTyped(typed)}>Save</Button>
           </Group>
         </Stack>
       </Modal>
@@ -592,10 +599,12 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   const close = () => { setValue(null); setSecret(""); setError(null); onClose(); };
   const save = async () => {
     if (!app) return;
+    const problem = v.webSiteKey ? secretProblem(secret) : null;
+    if (problem) { setError(`Turnstile secret key: ${problem}`); return; }
     setBusy(true); setError(null);
     try {
       await api.updateApp(app.id, v);
-      if (v.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(app.id, b.value ?? null, b.reference ?? null); }
+      if (v.webSiteKey && secretTyped(secret)) { const b = secretBody(trimSecret(secret)); await api.setTurnstileSecret(app.id, b.value ?? null, b.reference ?? null); }
       await qc.invalidateQueries({ queryKey: INTEGRITY }); close();
     }
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
@@ -661,6 +670,8 @@ export function AddAppDialog({ opened, onClose }: { opened: boolean; onClose: ()
   const [error, setError] = useState<string | null>(null);
   const close = () => { setFields(EMPTY); setAppId(null); setCreated(null); setSecret(""); setError(null); onClose(); };
   const add = async () => {
+    const problem = fields.webSiteKey ? secretProblem(secret) : null;
+    if (problem) { setError(`Turnstile secret key: ${problem}`); return; }
     setBusy(true); setError(null);
     let id = created?.id ?? null;
     try {
@@ -678,7 +689,7 @@ export function AddAppDialog({ opened, onClose }: { opened: boolean; onClose: ()
       return;
     }
     try {
-      if (fields.webSiteKey && secret.trim()) { const b = secretBody(secret.trim()); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
+      if (fields.webSiteKey && secretTyped(secret)) { const b = secretBody(trimSecret(secret)); await api.setTurnstileSecret(id, b.value ?? null, b.reference ?? null); }
       setAppId(id);
       await qc.invalidateQueries({ queryKey: INTEGRITY });
     } catch (e) {
