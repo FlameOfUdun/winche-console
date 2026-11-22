@@ -133,3 +133,8 @@
 .w-field-row .mantine-InputWrapper-root > :not(.mantine-InputWrapper-label):not(.mantine-InputWrapper-description):not(.mantine-InputWrapper-error) { order: 1; }
 .w-field-row .mantine-InputWrapper-description { order: 2; margin-top: 4px; }
 .w-field-row .mantine-InputWrapper-error { order: 3; margin-top: 4px; }
+
+/* A clickable row in a list. */
+.winche-row-link { transition: background 120ms; }
+.winche-row-link:hover { background: var(--w-hover); }
+.winche-row-link:focus-visible { outline: 2px solid var(--w-accent); outline-offset: -2px; }

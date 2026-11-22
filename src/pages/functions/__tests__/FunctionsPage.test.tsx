@@ -47,7 +47,7 @@ beforeEach(() => {
   mock(api.functionVersions).mockResolvedValue({ versions: [{ ...v1, version: 2, note: "Second" }, v1] });
 });
 
-test("the page shows what's live as cards; there's no editor and no deploy guide", async () => {
+test("the page shows what's live as a list; there's no editor and no deploy guide", async () => {
   mock(api.functions).mockResolvedValue(page({ current: null, files: [] }));
   renderPage();
   expect(await screen.findByText("No functions yet")).toBeInTheDocument();
@@ -214,4 +214,24 @@ test("a function's instances: busy and idle with their heap, its process, and wh
   expect(within(dialog).getByTestId("instance-events")).toHaveTextContent("Over its memoryInstance replaced: holding 312 MB");
   expect(within(dialog).getByText(/On server task-1/)).toBeInTheDocument();
   expect(within(dialog).getByTestId("other-servers")).toHaveTextContent("This is server task-1's view. 2 other servers run this project (task-2, task-3)");
+});
+
+test("many functions: a list searched by name or what they do, and filtered by kind", async () => {
+  const many = Array.from({ length: 9 }, (_, i) => ({ ...v1.functions[i % 2], name: i % 2 ? `onVisit${i}` : `hello${i}` }));
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: many } }));
+  renderPage();
+  expect(await screen.findAllByTestId("function")).toHaveLength(9);
+  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "hello");
+  expect(screen.getAllByTestId("function")).toHaveLength(5);
+  await userEvent.clear(screen.getByRole("textbox", { name: "Search functions" }));
+  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "patients/");
+  expect(screen.getAllByTestId("function")).toHaveLength(4);
+  await userEvent.type(screen.getByRole("textbox", { name: "Search functions" }), "nothing like this");
+  expect(screen.getByText("No functions match.")).toBeInTheDocument();
+});
+
+test("a few functions: no search", async () => {
+  renderPage();
+  expect(await screen.findAllByTestId("function")).toHaveLength(2);
+  expect(screen.queryByRole("textbox", { name: "Search functions" })).toBeNull();
 });

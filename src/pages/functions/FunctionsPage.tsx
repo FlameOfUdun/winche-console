@@ -9,11 +9,11 @@ import type { FunctionInfo, FunctionRun, FunctionVersion } from "../../api/funct
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
+import { ScrollDialog } from "../../components/ScrollDialog";
 import { CardsPage, HistoryButton } from "../../components/EditCard";
 import { AreaHistory } from "../settings/AreaSettings";
-import { surface } from "../../theme";
 import { EmptyState } from "../../components/EmptyState";
-import { IconArrowBackUp, IconArrowRight, IconCheck, IconHistory, IconLambda } from "@tabler/icons-react";
+import { IconArrowBackUp, IconCheck, IconChevronRight, IconHistory, IconLambda, IconSearch } from "@tabler/icons-react";
 
 /**
  * Functions: TypeScript run on the server when data changes, on a schedule, or when apps call them. The code lives in
@@ -58,42 +58,58 @@ const KIND: Record<FunctionInfo["kind"], string> = {
 
 function Deployed({ functions, version }: { functions: FunctionInfo[]; version: number | null }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<string | null>(null);
   if (version === null) return (
     <EmptyState icon={IconLambda} title="No functions yet"
       description="Write them in your editor and deploy them from your terminal or CI: they appear here." />
   );
   const shown = functions.find((f) => f.name === open) ?? null;
+  const many = functions.length > 8;
+  const q = search.trim().toLowerCase();
+  const visible = functions.filter((f) => (!kind || f.kind === kind)
+    && (!q || [f.name, f.about ?? "", f.description].some((t) => t.toLowerCase().includes(q))));
+  const kinds = [...new Set(functions.map((f) => f.kind))];
   return (
     <Stack gap="sm">
-      <Group gap={8}><Text fw={600}>Live</Text><Badge variant="light" color="teal" tt="none">version {version}</Badge>
-        <Text size="sm" c="dimmed">{functions.length} {functions.length === 1 ? "function" : "functions"}</Text></Group>
+      <Group justify="space-between" gap="sm" wrap="wrap">
+        <Group gap={8}><Text fw={600}>Live</Text><Badge variant="light" color="teal" tt="none">version {version}</Badge>
+          <Text size="sm" c="dimmed">{functions.length} {functions.length === 1 ? "function" : "functions"}</Text></Group>
+        {many && (
+          <Group gap="xs" wrap="wrap">
+            <TextInput size="xs" w={220} placeholder="Search functions" aria-label="Search functions" leftSection={<IconSearch size={14} />}
+              value={search} onChange={(e) => setSearch(e.currentTarget.value)} />
+            <Select size="xs" w={150} placeholder="All kinds" aria-label="Kind" clearable value={kind} onChange={setKind}
+              data={kinds.map((k) => ({ value: k, label: KIND[k] ?? k }))} />
+          </Group>
+        )}
+      </Group>
       {functions.length === 0 && <Text size="sm" c="dimmed">No functions exported.</Text>}
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
-        {functions.map((f) => (
-          <UnstyledButton key={f.name} onClick={() => setOpen(f.name)} data-testid="function" aria-label={f.name}>
-            <Paper withBorder p="lg" className="winche-card-link" h="100%" style={{ display: "flex", flexDirection: "column" }}>
-              <Group justify="space-between" align="flex-start" wrap="nowrap" gap="xs">
-                <Text fw={600} fz={16} ff="monospace" truncate>{f.name}</Text>
-                <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>
-                  {f.plugin && <Badge variant="light" color="grape" tt="none" title={`From the plugin installed as ${f.plugin}`}>plugin</Badge>}
-                  {f.integrity && <Badge variant="light" color="teal" tt="none" title="Only apps that prove they're the project's own (Integrity) may call it" data-testid="needs-integrity">own apps only</Badge>}
-                  <Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge>
+      {functions.length > 0 && (
+        <Paper withBorder radius="md" style={{ overflow: "hidden" }}>
+          {visible.length === 0 && <Text size="sm" c="dimmed" p="md">No functions match.</Text>}
+          {visible.map((f, n) => (
+            <UnstyledButton key={f.name} onClick={() => setOpen(f.name)} data-testid="function" aria-label={f.name} w="100%"
+              className="winche-row-link" style={{ display: "block", borderTop: n ? "1px solid var(--w-border)" : undefined }}>
+              <Group wrap="nowrap" gap="md" px="md" py={10} align="center">
+                <Group gap="md" wrap="wrap" style={{ flex: 1, minWidth: 0 }} align="center">
+                  <Group gap={6} wrap="nowrap" style={{ width: 320, maxWidth: "100%", flexShrink: 0 }}>
+                    <Text fw={600} ff="monospace" truncate>{f.name}</Text>
+                    <Badge variant="light" tt="none" style={{ flexShrink: 0 }}>{KIND[f.kind] ?? f.kind}</Badge>
+                    {f.plugin && <Badge variant="light" color="grape" tt="none" style={{ flexShrink: 0 }} title={`From the plugin installed as ${f.plugin}`}>plugin</Badge>}
+                    {f.integrity && <Badge variant="light" color="teal" tt="none" style={{ flexShrink: 0 }} title="Only apps that prove they're the project's own (Integrity) may call it" data-testid="needs-integrity">own apps only</Badge>}
+                  </Group>
+                  <div style={{ flex: 1, minWidth: 200 }}>
+                    <Text size="sm" truncate c={f.about ? undefined : "dimmed"} data-testid={f.about ? "function-about" : undefined}>{f.about ?? f.description}</Text>
+                    {f.about && <Text size="xs" c="dimmed" truncate>{f.description}</Text>}
+                  </div>
                 </Group>
+                <IconChevronRight size={16} color="var(--w-muted)" style={{ flexShrink: 0 }} />
               </Group>
-              <Text size="sm" mt={6} c={f.about ? undefined : "dimmed"} lineClamp={2} data-testid={f.about ? "function-about" : undefined}>
-                {f.about ?? f.description}
-              </Text>
-              <Group justify="space-between" align="flex-end" gap="xs" wrap="nowrap" style={{ marginTop: "auto", paddingTop: 16 }}>
-                <Text size="xs" c="dimmed" lineClamp={1}>{f.about ? f.description : ""}</Text>
-                <Group gap={4} c={surface.accent} wrap="nowrap" style={{ flexShrink: 0 }}>
-                  <Text size="sm" fw={600}>Open</Text>
-                  <IconArrowRight size={15} />
-                </Group>
-              </Group>
-            </Paper>
-          </UnstyledButton>
-        ))}
-      </SimpleGrid>
+            </UnstyledButton>
+          ))}
+        </Paper>
+      )}
       <FunctionDialog f={shown} onClose={() => setOpen(null)} />
     </Stack>
   );
@@ -106,25 +122,29 @@ function FunctionDialog({ f, onClose }: { f: FunctionInfo | null; onClose: () =>
   const canSeeRuns = !!state?.capabilities?.hooks;
   const close = () => { setTab("details"); onClose(); };
   return (
-    <Modal opened={!!f} onClose={close} radius="lg" size="xl"
-      title={f && <Group gap={8}><Text fw={700} fz={18} ff="monospace">{f.name}</Text><Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge></Group>}>
-      {f && (
-        <Tabs value={tab} onChange={setTab} keepMounted={false}>
-          <Tabs.List mb="md">
+    <ScrollDialog opened={!!f} onClose={close} size="xl" height={680}
+      title={f && <Group gap={8}><Text fw={700} fz={18} ff="monospace">{f.name}</Text><Badge variant="light" tt="none">{KIND[f.kind] ?? f.kind}</Badge></Group>}
+      top={f && (
+        <Tabs value={tab} onChange={setTab}>
+          <Tabs.List>
             <Tabs.Tab value="details">Details</Tabs.Tab>
             {f.kind === "callable" && <Tabs.Tab value="run">Run</Tabs.Tab>}
             {triggered(f) && canSeeRuns && <Tabs.Tab value="runs">Runs</Tabs.Tab>}
             {f.kind !== "before" && <Tabs.Tab value="instances">Instances</Tabs.Tab>}
             <Tabs.Tab value="settings">Settings</Tabs.Tab>
           </Tabs.List>
-          <Tabs.Panel value="details"><Details f={f} /></Tabs.Panel>
-          <Tabs.Panel value="run"><RunPanel name={f.name} example={f.example} /></Tabs.Panel>
-          <Tabs.Panel value="runs"><TriggeredRuns name={f.name} /></Tabs.Panel>
-          <Tabs.Panel value="instances"><Instances name={f.name} /></Tabs.Panel>
-          <Tabs.Panel value="settings"><OwnTime f={f} /></Tabs.Panel>
         </Tabs>
+      )}>
+      {f && (
+        <div role="tabpanel">
+          {tab === "details" && <Details f={f} />}
+          {tab === "run" && <RunPanel name={f.name} example={f.example} />}
+          {tab === "runs" && <TriggeredRuns name={f.name} />}
+          {tab === "instances" && <Instances name={f.name} />}
+          {tab === "settings" && <OwnTime f={f} />}
+        </div>
       )}
-    </Modal>
+    </ScrollDialog>
   );
 }
 
