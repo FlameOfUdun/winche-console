@@ -1,17 +1,17 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ActionIcon, Alert, Anchor, Badge, Button, Group, Loader, Menu, Modal, Paper, Stack, Text, TextInput, Tooltip } from "@mantine/core";
+import { ActionIcon, Alert, Anchor, Badge, Button, Group, Loader, Menu, Modal, Paper, SegmentedControl, Stack, Text, TextInput, Tooltip } from "@mantine/core";
 import { IconArrowRight, IconCloudLock, IconDots, IconFolder, IconKey, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
-import { secretTyped } from "../../api/secrets";
+import { secretTyped, writableSources, type SecretSource } from "../../api/secrets";
 import type { FunctionSecret } from "../../api/functions";
 import { when } from "../authentication/UsersView";
 import { useSession } from "../../auth/session";
 import { PageBand } from "../../components/NavPageHeader";
 import { EmptyState } from "../../components/EmptyState";
-import { SecretInput, sourceTitle, useSecretSources } from "../../components/SecretInput";
+import { SecretInput, sourceTitle, storeTitle, useSecretSources } from "../../components/SecretInput";
 import { SourceKeyDialog } from "./SecretSources";
 import { ConfirmModal } from "../../components/ConfirmModal";
 
@@ -32,10 +32,19 @@ export function SecretsPage() {
   const [editing, setEditing] = useState<FunctionSecret | "new" | null>(null);
   const [keyOpen, setKeyOpen] = useState(false);
   const [tested, setTested] = useState<{ name: string; ok: boolean; problem: string | null } | null>(null);
-  const [removing, setRemoving] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<FunctionSecret | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
   const key = sources.data?.keys[0];
+  const writable = writableSources(sources.data?.sources ?? []);
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["function-secrets"] });
+  const checkAgain = async () => {
+    setChecking(true);
+    try { qc.setQueryData(["secret-sources"], await api.secretSources(true)); }
+    catch { /* the line keeps what it said */ }
+    finally { setChecking(false); }
+  };
   const remove = async (name: string) => { await api.removeFunctionSecret(name); await refresh(); };
   const test = async (name: string) => {
     setTested(null);
@@ -74,7 +83,8 @@ export function SecretsPage() {
                           <Menu.Target><ActionIcon variant="subtle" color="gray" aria-label={`More for ${s.name}`}><IconDots size={16} /></ActionIcon></Menu.Target>
                           <Menu.Dropdown>
                             {s.reference && <Menu.Item onClick={() => test(s.name)}>Test</Menu.Item>}
-                            <Menu.Item color="red" onClick={() => setRemoving(s.name)}>Remove</Menu.Item>
+                            {!s.reference && writable.length > 0 && <Menu.Item onClick={() => setMoving(s.name)}>Move to AWS</Menu.Item>}
+                            <Menu.Item color="red" onClick={() => setRemoving(s)}>Remove</Menu.Item>
                           </Menu.Dropdown>
                         </Menu>
                       )}
@@ -94,18 +104,23 @@ export function SecretsPage() {
           </>
         )}
         {key && (
-          <Text size="sm" c="dimmed" data-testid="aws-key-line">
-            <IconCloudLock size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
-            Optional: {key.isSet ? <>the project's own {key.title} reads its AWS references ({when(key.setAt!)}). </> : <>an {key.title} of the project's own, to read secrets from AWS{sources.data?.appCredentials ? " (else the server's own credentials are used)" : ""}. </>}
-            <Anchor component="button" size="sm" onClick={() => setKeyOpen(true)} data-testid="aws-key-button">{key.isSet ? "Change" : "Add one"}</Anchor>
-          </Text>
+          <Stack gap={2}>
+            <Text size="sm" c="dimmed" data-testid="aws-key-line">
+              <IconCloudLock size={14} style={{ verticalAlign: -2, marginRight: 6 }} />
+              Optional: {key.isSet ? <>the project's own {key.title} reads its AWS references ({when(key.setAt!)}). </> : <>an {key.title} of the project's own, to read secrets from AWS{sources.data?.appCredentials ? " (else the server's own credentials are used)" : ""}. </>}
+              <Anchor component="button" size="sm" onClick={() => setKeyOpen(true)} data-testid="aws-key-button">{key.isSet ? "Change" : "Add one"}</Anchor>
+            </Text>
+            <AccessLine sources={sources.data?.sources ?? []} checking={checking} onCheck={checkAgain} />
+          </Stack>
         )}
       </Stack>
       <SecretDialog opened={editing !== null} name={editing === "new" ? undefined : editing?.name}
         savedReference={editing && editing !== "new" ? editing.reference : null} isSet={editing !== "new" && !!editing?.isSet}
         onDone={async (saved) => { setEditing(null); if (saved) await refresh(); }} />
-      <ConfirmModal opened={removing !== null} title={`Remove ${removing ?? ""}?`} confirmLabel="Remove"
-        message="Functions that read it fail until it's set again." action={() => remove(removing!)} onCancel={() => setRemoving(null)} />
+      <ConfirmModal opened={removing !== null} title={`Remove ${removing?.name ?? ""}?`} confirmLabel="Remove"
+        message={removing?.managed ? "Functions that read it fail until it's set again. It's deleted in AWS too." : "Functions that read it fail until it's set again."}
+        action={() => remove(removing!.name)} onCancel={() => setRemoving(null)} />
+      <MoveDialog name={moving} stores={writable} onDone={async (moved) => { setMoving(null); if (moved) await refresh(); }} />
       {key && <SourceKeyDialog k={key} appCredentials={!!sources.data?.appCredentials} opened={keyOpen} onClose={() => setKeyOpen(false)} />}
     </>
   );
@@ -147,10 +162,14 @@ function SecretRow({ icon: Icon, name, mono, used, changed, status, actions, not
   );
 }
 
-/** Where it's kept: "Encrypted" (a value here), "From AWS Parameter Store" (hover: the reference), or "Not set". */
-function Kept({ s, isSet }: { s: { reference?: string | null }; isSet: boolean }) {
+/**
+ * Where it's kept: "Encrypted" (a value here), "In AWS Secrets Manager" (kept there by Winche), "From AWS Parameter
+ * Store" (a reference set by hand; hover: the reference), or "Not set".
+ */
+function Kept({ s, isSet }: { s: { reference?: string | null; managed?: boolean }; isSet: boolean }) {
   const sources = useSecretSources();
   if (!isSet) return <Badge color="red" variant="light" tt="none">Not set</Badge>;
+  if (s.reference && s.managed) return <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">In {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>;
   if (s.reference) return <Tooltip label={s.reference}><Badge color="blue" variant="light" tt="none">From {sourceTitle(s.reference, sources.data?.sources)}</Badge></Tooltip>;
   return <Badge color="gray" variant="light" tt="none">Encrypted</Badge>;
 }
@@ -193,3 +212,57 @@ function SecretDialog({ opened, name: fixed, isSet, savedReference, onDone }: {
   );
 }
 
+
+/** What the AWS key may do, per store ("Read and write in Secrets Manager · read only in Parameter Store"), or what's wrong. */
+export function accessSummary(sources: SecretSource[]): string | null {
+  const known = sources.filter((s) => s.access);
+  if (known.length === 0) return null;
+  const problem = known.find((s) => s.access!.problem)?.access!.problem;
+  if (problem) return problem;
+  const missing = [...new Set(known.flatMap((s) => s.access!.missing))];
+  if (missing.length) return `Missing: ${missing.join(", ")}`;
+  const can = (a: NonNullable<SecretSource["access"]>) =>
+    a.read && a.write ? "read and write" : a.read ? "read only" : a.write ? "write only" : "no access";
+  const text = known.map((s) => `${can(s.access!)} in ${storeTitle(s.title)}`).join(" · ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** One line under the key: what it may do in each store, and a check that asks AWS again. */
+function AccessLine({ sources, checking, onCheck }: { sources: SecretSource[]; checking: boolean; onCheck: () => void }) {
+  const summary = accessSummary(sources);
+  if (!summary) return null;
+  const bad = sources.some((s) => s.access && (s.access.problem || s.access.missing.length));
+  return (
+    <Group gap="xs" wrap="nowrap" pl={20} data-testid="aws-access-line">
+      <Text size="sm" c={bad ? "var(--mantine-color-red-text)" : "dimmed"} truncate="end" style={{ minWidth: 0 }} title={summary}>{summary}</Text>
+      <Anchor component="button" size="sm" onClick={onCheck} disabled={checking} style={{ flexShrink: 0 }}>{checking ? "Checking…" : "Check again"}</Anchor>
+    </Group>
+  );
+}
+
+/** Moving a value kept here into AWS: which store (of those the caller may write in), then moved. */
+function MoveDialog({ name, stores, onDone }: { name: string | null; stores: SecretSource[]; onDone: (moved: boolean) => void | Promise<void> }) {
+  const [store, setStore] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const chosen = store && stores.some((s) => s.name === store) ? store : stores[0]?.name ?? "";
+  const finish = async (moved: boolean) => { setStore(null); setError(null); await onDone(moved); };
+  const move = async () => {
+    setBusy(true); setError(null);
+    try { await api.moveFunctionSecret(name!, chosen); await finish(true); }
+    catch (e) { setError(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Modal opened={name !== null} onClose={() => { if (!busy) finish(false); }} radius="lg" title={<Text fw={700} fz={18}>Move {name} to AWS</Text>}>
+      <Stack gap="md" data-testid="move-dialog">
+        <SegmentedControl value={chosen} onChange={setStore} data={stores.map((s) => ({ label: storeTitle(s.title), value: s.name }))} />
+        {error && <Alert color="red">{error}</Alert>}
+        <Group justify="flex-end">
+          <Button variant="default" onClick={() => finish(false)} disabled={busy}>Cancel</Button>
+          <Button loading={busy} disabled={!chosen} onClick={move}>Move</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}

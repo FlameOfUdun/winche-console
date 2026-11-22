@@ -44,6 +44,8 @@ export interface FunctionSecret {
   name: string; isSet: boolean; setAt: string | null; setBy: string | null; usedBy: string[];
   /** Where it's read from (aws-ssm:…); null for a value kept here. */
   reference?: string | null;
+  /** Kept in AWS by Winche (written there when saved), not a reference set by hand. */
+  managed?: boolean;
 }
 
 export interface FunctionVersion {
