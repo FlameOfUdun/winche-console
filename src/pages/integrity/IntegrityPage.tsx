@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { FieldRow } from "../../components/FieldRow";
 import {
-  ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Table,
-  Tabs, TagsInput, Text, TextInput, Title, Tooltip,
+  ActionIcon, Alert, Badge, Button, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, SegmentedControl, Select, Stack, Switch, Table,
+  TagsInput, Text, TextInput, Title, Tooltip,
 } from "@mantine/core";
 import {
   IconApps, IconBrandAndroid, IconBrandApple, IconDots, IconDownload,
@@ -25,14 +25,6 @@ import { surface } from "../../theme";
 
 const INTEGRITY = ["integrity"];
 
-/** The guides to connect an app, one per SDK: Flutter today; the rest greyed out until they exist. Nothing is stored about it. */
-const GUIDES: { id: string; label: string; ready: boolean }[] = [
-  { id: "flutter", label: "Flutter", ready: true },
-  { id: "android", label: "Android", ready: false },
-  { id: "ios", label: "iOS", ready: false },
-  { id: "web", label: "Web", ready: false },
-  { id: "windows", label: "Windows", ready: false },
-];
 const ALL_PLATFORMS = ["android", "ios", "macos", "web", "windows", "linux"];
 
 const PRODUCT_LABEL: Record<string, string> = {
@@ -71,25 +63,19 @@ const usageLine = (u: Usage | null) =>
  */
 export function IntegrityPage() {
   const integrity = useQuery({ queryKey: INTEGRITY, queryFn: api.integrity });
-  const page = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]) });
   const d = integrity.data;
   return (
     <Stack gap="lg" maw={1100} pb={40}>
       <div>
         <Title order={1} fz={24}>Integrity</Title>
-        <Text size="sm" c={surface.muted} mt={4} maw={720}>
-          Proof that requests come from your own apps, not a copy, a script or someone's curl. Each app proves itself, gets
-          a token that lasts {d ? `${d.tokenMinutes} minutes` : "a while"}, and sends it with every request. Watch the counts
-          in Monitor, then enforce a product once your apps all send tokens.
-        </Text>
       </div>
-      {(integrity.isLoading || page.isLoading) && <Loader size="sm" />}
+      {integrity.isLoading && <Loader size="sm" />}
       {integrity.error && <Alert color="red">Couldn't load Integrity: {errorMessage(integrity.error)}</Alert>}
       {d && !d.available && <Alert color="gray">Integrity is set up once this console runs project setup.</Alert>}
       {d?.available && !d.canSign && <Alert color="yellow">This server has no master key, so it can't make Integrity tokens: set one to use Integrity.</Alert>}
-      {d?.available && page.data && (
+      {d?.available && (
         <>
-          <Apps data={d} baseUrl={page.data.setup.baseUrl} snippet={page.data.snippet} />
+          <Apps data={d} />
           <PlayServiceAccount data={d} />
           <Enforcement data={d} />
           <DebugTokens data={d} />
@@ -136,7 +122,7 @@ export function readiness(a: IntegrityApp, data: Pick<IntegrityData, "playServic
 }
 
 /** The project's apps: an empty state until the first is added, then the list with each one's verified requests. */
-function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string; snippet: string }) {
+function Apps({ data }: { data: IntegrityData }) {
   const qc = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<IntegrityApp | null>(null);
@@ -161,7 +147,6 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
       )}
       {list.length === 0 && (
         <EmptyState icon={IconApps} title="No apps yet"
-          description="Add your app to get its winche_options.dart. Once it sends Integrity tokens, its requests show here."
           action={editable ? <Button leftSection={<IconPlus size={16} />} onClick={() => setAdding(true)}>Add app</Button> : undefined} />
       )}
 
@@ -204,12 +189,12 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
         </Stack>
       )}
 
-      <AddAppDialog opened={adding} baseUrl={baseUrl} snippet={snippet} onClose={() => setAdding(false)} />
+      <AddAppDialog opened={adding} onClose={() => setAdding(false)} />
       <AppFormDialog app={editing} onClose={() => setEditing(null)} />
       <Modal opened={!!connecting} onClose={() => setConnecting(null)} size="lg" radius="lg" title={<Text fw={700} fz={18}>Connect {connecting?.name}</Text>}>
         {connecting && (
           <Stack gap="lg" pt="xs">
-            <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={connecting.id} />
+            <AppConnect appId={connecting.id} />
             <Group justify="flex-end"><Button onClick={() => setConnecting(null)}>Done</Button></Group>
           </Stack>
         )}
@@ -256,7 +241,6 @@ function Enforcement({ data }: { data: IntegrityData }) {
       <Group justify="space-between" align="flex-start" gap="sm" mb="md">
         <div>
           <Title order={2} fz={16}>Enforcement</Title>
-          <Text size="sm" c={surface.muted} mt={2}>How each product treats requests without a valid Integrity token.</Text>
         </div>
         {data.editable && <Button variant="default" onClick={() => setEditing(true)}>Change…</Button>}
       </Group>
@@ -290,7 +274,6 @@ function Enforcement({ data }: { data: IntegrityData }) {
       </Stack>
       <Stack gap={4} pt="sm" style={{ borderTop: `1px solid ${surface.subtle}` }}>
         <Text size="sm">Tokens last {data.tokenMinutes} minutes</Text>
-        <Text size="xs" c={surface.muted}>Never need a token: links opened from emails, users' photos, identity providers' notices, HTTP functions (webhooks) and signed file links.</Text>
       </Stack>
       {data.editable && <EnforcementDialog data={data} opened={editing} onClose={() => setEditing(false)} />}
     </Paper>
@@ -342,10 +325,9 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
             {PRODUCT_LABEL[p] ?? p}: {productCounts(data, p).week.no.toLocaleString()} request{productCounts(data, p).week.no === 1 ? "" : "s"} in the last 7 days had no valid token. Enforced, they'd have been refused.
           </Alert>
         ))}
-        <NumberInput label="Tokens last (minutes)" description="30 minutes to 24 hours. Shorter: a stolen token is good for less time; apps prove themselves more often."
+        <NumberInput label="Tokens last (minutes)" description="30 minutes to 24 hours"
           w={300} min={30} max={1440} allowDecimal={false} allowNegative={false} value={minutes} onChange={setMinutes} />
-        <TextInput label="Reason for the change" placeholder="Our apps all send tokens" value={reason} onChange={(e) => setReason(e.currentTarget.value)}
-          description="Kept in the history with the change" />
+        <TextInput label="Reason for the change" placeholder="Our apps all send tokens" value={reason} onChange={(e) => setReason(e.currentTarget.value)}  />
         {error && <Alert color="red" p="xs">{error}</Alert>}
       </Stack>
     </ScrollDialog>
@@ -382,9 +364,6 @@ function DebugTokens({ data }: { data: IntegrityData }) {
       <Group justify="space-between" align="center" gap="sm" mb="xs">
         <div>
           <Title order={2} fz={16}>Debug tokens</Title>
-          <Text size="sm" c={surface.muted} mt={2}>
-            For simulators, emulators, desktop builds (Windows and Linux can't prove themselves) and CI. Each is for one app and is shown once.
-          </Text>
         </div>
         {data.editable && data.apps.length > 0 && <Button variant="default" leftSection={<IconKey size={16} />} onClick={() => setMaking(true)}>Make debug token</Button>}
       </Group>
@@ -418,7 +397,7 @@ function DebugTokens({ data }: { data: IntegrityData }) {
           <Stack gap="md">
             <Select label="For the app" data={data.apps.map((a) => ({ value: a.id, label: a.name }))} value={app ?? data.apps[0]?.id ?? null}
               onChange={setApp} allowDeselect={false} />
-            <TextInput label="Name" description="Where it's used, so you know which to remove later" placeholder="Ann's simulator, CI"
+            <TextInput label="Name" placeholder="Ann's simulator, CI"
               data-autofocus value={name} onChange={(e) => setName(e.currentTarget.value)} />
             {error && <Alert color="red" p="xs">{error}</Alert>}
             <Group justify="flex-end" gap="xs">
@@ -428,12 +407,11 @@ function DebugTokens({ data }: { data: IntegrityData }) {
           </Stack>
         ) : (
           <Stack gap="md">
-            <Text size="sm" c={surface.muted}>It isn't shown again. Anyone with it can get Integrity tokens for this app: keep it like a password, and never ship it in a release build.</Text>
+            <Text size="sm" c={surface.muted}>It isn't shown again. Never ship it in a release build.</Text>
             <Group gap={4} wrap="nowrap" style={{ background: surface.subtle, borderRadius: 8, padding: "6px 6px 6px 12px" }}>
               <Text size="sm" ff="monospace" data-testid="debug-token-value" style={{ flex: 1, minWidth: 0, overflowX: "auto", whiteSpace: "nowrap" }}>{made.token}</Text>
               <Copy value={made.token} label="debug token" />
             </Group>
-            <Text size="sm" c={surface.muted}>In the app, in debug builds only: <Code>app.useIntegrity(WincheDebugIntegrity('…'))</Code>.</Text>
             <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
           </Stack>
         )}
@@ -476,7 +454,6 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
   };
   return (
     <EditCard title="Google Play Integrity" testId="play-service-account"
-      description="Android apps prove themselves with Play Integrity; the server asks Google what each token says, signed in as this service account. In Google Cloud: enable the Play Integrity API, make a service account with a JSON key, and link the project to the app in Play Console (App integrity)."
       actions={data.editable && <Button variant={account ? "subtle" : "filled"} leftSection={<IconKey size={15} />} onClick={() => setOpen(true)}>{account ? "Replace" : "Set service account"}</Button>}
       rows={[
         { label: "Service account", value: account ? <Text span size="sm" ff="monospace">{account.email ?? "set"}</Text> : <Text span size="sm" c="red">Not set: Android apps can't prove themselves</Text> },
@@ -484,8 +461,7 @@ function PlayServiceAccount({ data }: { data: IntegrityData }) {
       ]}>
       <Modal opened={open} onClose={close} closeOnEscape={onTop} size="lg" radius="lg" title={<Text fw={700} fz={18}>Google service account</Text>}>
         <Stack gap="md">
-          <SecretInput label="Key file (JSON)" multiline value={typed} onChange={setTyped} savedReference={account?.reference}
-            description="Pasted here or picked below. Kept in Winche Secrets, encrypted, never shown again." />
+          <SecretInput label="Key file (JSON)" multiline value={typed} onChange={setTyped} savedReference={account?.reference} />
           <Group justify="space-between">
             <FileButton accept="application/json,.json" onChange={async (f) => { if (f) setTyped(await f.text()); }}>
               {(props) => <Button {...props} variant="default" size="xs">Pick the key file</Button>}
@@ -539,19 +515,17 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
           onChange={(e) => { setIdEdited(true); onChange({ ...value, id: e.currentTarget.value.toLowerCase() }); }} />
       )}
       </FieldRow>
-      <Text size="xs" c={surface.muted}>Set the platforms the app runs on; the rest stay empty.</Text>
 
       <PlatformHeading icon={<IconBrandApple size={16} />} title="Apple (iOS, macOS)" proof="App Attest" />
       <FieldRow>
         <TextInput label="Apple bundle id" placeholder="com.example.myapp"
           value={value.appleBundleId ?? ""} onChange={(e) => onChange({ ...value, appleBundleId: e.currentTarget.value || null })} />
-        <TextInput label="Apple team id" placeholder="ABCDE12345" description="In your Apple developer account"
+        <TextInput label="Apple team id" placeholder="ABCDE12345"
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={value.appleTeamId ?? ""} onChange={(e) => onChange({ ...value, appleTeamId: e.currentTarget.value.toUpperCase() || null })} />
       </FieldRow>
       {(value.appleBundleId || value.appleTeamId) && (
         <Switch label="Accept development builds" checked={value.appleDevelopment}
-          description="App Attest keys from builds run from Xcode, besides TestFlight and App Store ones. Turn it off before you enforce in production."
           onChange={(e) => onChange({ ...value, appleDevelopment: e.currentTarget.checked })} />
       )}
 
@@ -559,7 +533,7 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
       <FieldRow>
         <TextInput label="Android package" placeholder="com.example.myapp"
           value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
-        <NumberInput label="Google Cloud project number" description="Linked to the app in Play Console" placeholder="123456789012"
+        <NumberInput label="Google Cloud project number" placeholder="123456789012"
           disabled={!value.androidPackage}
           allowDecimal={false} allowNegative={false} hideControls value={value.androidCloudProjectNumber ?? ""}
           onChange={(v) => onChange({ ...value, androidCloudProjectNumber: typeof v === "number" ? v : v ? Number(v) : null })} />
@@ -572,10 +546,8 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
               onChange={(v) => onChange({ ...value, androidDeviceIntegrity: (v ?? "device") as AndroidDeviceLevel })} />
           </FieldRow>
           <Switch label="Accept builds from outside Google Play" checked={value.androidSideloaded}
-            description="Debug and internal builds Google Play doesn't know. With signing certificates set below, only builds signed with them."
             onChange={(e) => onChange({ ...value, androidSideloaded: e.currentTarget.checked })} />
           <TagsInput label="Signing certificates (optional)" placeholder="SHA-256, base64url, then Enter"
-            description="Play Console → App integrity → App signing. When set, builds must be signed with one of them."
             value={value.androidCertificates} onChange={(v) => onChange({ ...value, androidCertificates: v })} />
         </>
       )}
@@ -583,17 +555,15 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet, 
       <PlatformHeading icon={<IconWorld size={16} />} title="Web" proof="browser check (Cloudflare Turnstile)" />
       <FieldRow>
         <TextInput label="Turnstile site key" placeholder="0x4AAAAAAA…"
-          description="Cloudflare → Turnstile → Add widget (Invisible)"
           styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
           value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
         <TagsInput label="Sites the app runs on" placeholder="app.example.com, then Enter" disabled={!value.webSiteKey}
-          description="Empty: any. Add the same ones to the widget."
+          description="Empty: any"
           value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
       </FieldRow>
       {value.webSiteKey && (
         <SecretInput label="Turnstile secret key" value={secret} onChange={onSecret}
-          placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…"} savedReference={savedSecretReference}
-          description="Kept in Winche Secrets, encrypted, never shown again" />
+          placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…"} savedReference={savedSecretReference} />
       )}
     </Stack>
   );
@@ -641,54 +611,8 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
   );
 }
 
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
-  return (
-    <Group align="flex-start" gap="md" wrap="nowrap">
-      <div style={{ width: 28, height: 28, borderRadius: 999, background: "var(--w-accent-soft)", color: "var(--w-accent)",
-        display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{n}</div>
-      <Stack gap={8} style={{ flex: 1, minWidth: 0 }}>
-        <Text fw={600}>{title}</Text>
-        {children}
-      </Stack>
-    </Group>
-  );
-}
-
-function Command({ value }: { value: string }) {
-  return (
-    <Group gap={4} wrap="nowrap" style={{ background: surface.subtle, borderRadius: 8, padding: "6px 6px 6px 12px" }}>
-      <Text size="sm" ff="monospace" style={{ flex: 1, minWidth: 0, overflowX: "auto", whiteSpace: "nowrap" }}>{value}</Text>
-      <Copy value={value} label="command" />
-    </Group>
-  );
-}
-
-/** How to connect the app, one guide per SDK (Flutter today; the rest greyed out until they exist). Nothing is stored. */
-function ConnectGuide({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
-  const [guide, setGuide] = useState("flutter");
-  return (
-    <Stack gap="md">
-      {appId && (
-        <Group gap={6}>
-          <Text size="sm" c={surface.muted}>App id</Text>
-          <Text size="sm" ff="monospace" fw={500}>{appId}</Text>
-          <Copy value={appId} label="app id" />
-        </Group>
-      )}
-      <Tabs value={guide} onChange={(v) => setGuide(v ?? "flutter")}>
-        <Tabs.List>
-          {GUIDES.map((g) => g.ready
-            ? <Tabs.Tab key={g.id} value={g.id}>{g.label}</Tabs.Tab>
-            : <Tooltip key={g.id} label="Not available yet" withArrow><span style={{ display: "inline-flex" }}><Tabs.Tab value={g.id} disabled>{g.label}</Tabs.Tab></span></Tooltip>)}
-        </Tabs.List>
-        <Tabs.Panel value="flutter" pt="lg"><FlutterSteps baseUrl={baseUrl} snippet={snippet} appId={appId} /></Tabs.Panel>
-      </Tabs>
-    </Stack>
-  );
-}
-
-/** The steps to connect a Flutter app: packages, the options file (by the CLI, or downloaded), main() with Integrity. */
-function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: string; appId?: string }) {
+/** The app's id and its options file to download. */
+function AppConnect({ appId }: { appId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const download = async () => {
@@ -708,32 +632,25 @@ function FlutterSteps({ baseUrl, snippet, appId }: { baseUrl: string; snippet: s
     }
   };
   return (
-    <Stack gap="xl">
-      <Step n={1} title="Add the packages">
-        <Command value="flutter pub add winche_flutter winche_database winche_storage winche_auth winche_functions winche_integrity" />
-      </Step>
-      <Step n={2} title="Add lib/winche_options.dart">
-        <Command value={`winche configure --url ${baseUrl}${appId ? ` --app ${appId}` : ""}`} />
-        <Group gap="xs">
-          <Text size="sm" c={surface.faint}>or</Text>
-          <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
-        </Group>
-        {error && <Alert color="red" p="xs">{error}</Alert>}
-      </Step>
-      <Step n={3} title="Start Winche in main(), with Integrity">
-        <Command value={snippet} />
-        <Command value="app.useIntegrity(WinchePlatformIntegrity(debugToken: kDebugMode ? const String.fromEnvironment('WINCHE_DEBUG_TOKEN') : null));" />
-        <Text size="xs" c={surface.muted}>App Attest on iOS and macOS, Play Integrity on Android, the browser check on the web; a debug token from below where there's none (simulators, desktop).</Text>
-      </Step>
+    <Stack gap="md">
+      <Group gap={6}>
+        <Text size="sm" c={surface.muted}>App id</Text>
+        <Text size="sm" ff="monospace" fw={500}>{appId}</Text>
+        <Copy value={appId} label="app id" />
+      </Group>
+      <Group>
+        <Button variant="default" size="xs" leftSection={<IconDownload size={14} />} loading={busy} onClick={download}>Download winche_options.dart</Button>
+      </Group>
+      {error && <Alert color="red" p="xs">{error}</Alert>}
     </Stack>
   );
 }
 
 /**
- * Adding an app: its name and its platforms' ids, then how to connect it with its own options file. Used from
+ * Adding an app: its name and its platforms' ids, then its id and options file. Used from
  * Integrity and the setup wizard.
  */
-export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: boolean; baseUrl: string; snippet: string; onClose: () => void }) {
+export function AddAppDialog({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [fields, setFields] = useState<AppFields>(EMPTY);
   const [appId, setAppId] = useState<string | null>(null);
@@ -783,7 +700,7 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
           <AppFieldsForm value={fields} onChange={setFields} fixedId={created?.id} secret={secret} onSecret={setSecret} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
         </Stack>
-      ) : <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={appId} />}
+      ) : <AppConnect appId={appId} />}
     </ScrollDialog>
   );
 }

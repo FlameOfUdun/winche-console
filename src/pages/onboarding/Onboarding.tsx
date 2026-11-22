@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  Alert, Anchor, Box, Button, Group, Loader, Paper, PasswordInput, Stack, Text, TextInput, Title,
+  Alert, Anchor, Box, Button, Group, Loader, PasswordInput, Stack, Text, TextInput, Title,
 } from "@mantine/core";
 import { IconCheck } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -73,7 +73,6 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const apps = useQuery({ queryKey: ["apps", "android,ios,web"], queryFn: () => api.apps(["android", "ios", "web"]), enabled: step === "app" });
   const project = useQuery({ queryKey: ["project"], queryFn: api.project, enabled: !serverConsole && !["code", "account"].includes(step) });
   const server = useQuery({ queryKey: ["server-settings"], queryFn: api.serverSettings, enabled: step === "providers", retry: false });
   const afterSecure = () => setStep("providers");
@@ -166,10 +165,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
       <Box style={{ flex: 1, display: "flex", justifyContent: "center" }} px="md" py={56}>
         <Stack gap={28} w="100%" maw={620}>
           {step === "code" && (
-            <Screen title="Enter the setup code" subtitle="So only someone who runs this server can set it up. It's in the server's log, as “Setup code: …”.">
-              <Paper withBorder radius="md" p="sm" bg={surface.subtle}>
-                <Text size="sm" ff="monospace">docker logs &lt;container&gt; 2&gt;&amp;1 | grep "Setup code"</Text>
-              </Paper>
+            <Screen title="Enter the setup code" subtitle="It's in the server's log.">
               <TextInput label="Setup code" size="lg" placeholder="XXXX-XXXX-XXXX" autoFocus value={codeInput} autoComplete="off"
                 styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)", letterSpacing: "0.08em" } }}
                 onChange={(e) => setCodeInput(e.currentTarget.value)} onKeyDown={(e) => e.key === "Enter" && codeInput.trim() && checkCode()} />
@@ -179,7 +175,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "account" && (
-            <Screen title="Create your admin account" subtitle="A server admin with a password: your way in, even on a day your company sign-in is down. You can invite your team, or add their sign-in, next.">
+            <Screen title="Create your admin account" subtitle="A server admin with a password.">
               <Group grow>
                 <TextInput label="First name" size="md" value={account.firstName} onChange={(e) => setAccount({ ...account, firstName: e.currentTarget.value })} />
                 <TextInput label="Last name" size="md" value={account.lastName} onChange={(e) => setAccount({ ...account, lastName: e.currentTarget.value })} />
@@ -193,7 +189,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "secure" && (
-            <Screen title="Protect your account" subtitle="This console can change who reads your data, so it asks for a code from your phone too.">
+            <Screen title="Protect your account" subtitle="Add a code from your phone.">
               <TwoFactorSetup forced onDone={async () => { await refresh(); afterSecure(); }} />
               <Group justify="flex-end">
                 <Anchor size="sm" c="dimmed" onClick={afterSecure}>Do it later</Anchor>
@@ -202,7 +198,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "providers" && (
-            <Screen title="Add your company sign-in?" subtitle="So your team signs in with the accounts they have: Keycloak, Microsoft Entra ID, Google Workspace, Okta or any OpenID Connect provider. You can add more, or do it later, in Server settings → Authentication → Sign-in method.">
+            <Screen title="Add your company sign-in?" subtitle="You can also do it later in Server settings.">
               {!server.data ? <Loader size="sm" /> : (
                 <ProviderEditor value={provider} onChange={setProvider} secret={providerSecret} onSecret={setProviderSecret} page={server.data} />
               )}
@@ -213,7 +209,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "project" && (
-            <Screen title="Name your project" subtitle="Your apps see its name and id. Products are set up later, each from its own page.">
+            <Screen title="Name your project">
               <TextInput label="Project name" size="lg" value={name} autoFocus onChange={(e) => setName(e.currentTarget.value)} />
               <TextInput label="Project id" size="md" styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={id} error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
                 onChange={(e) => { setIdEdited(true); setId(e.currentTarget.value.toLowerCase()); }} />
@@ -223,17 +219,15 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
           )}
 
           {step === "app" && (
-            <Screen title="Add your first app" subtitle="Add it to get its winche_options.dart. You can add apps later under Integrity.">
-              {!apps.data ? <Loader size="sm" /> : (
-                <AddAppDialog opened={addingApp} baseUrl={apps.data.setup.baseUrl} snippet={apps.data.snippet}
-                  onClose={async () => {
-                    setAddingApp(false);
-                    // Added one: on to the end. Closed without: stay, to add or skip.
-                    const integrity = await qc.fetchQuery({ queryKey: ["integrity"], queryFn: api.integrity, staleTime: 0 });
-                    if (integrity.apps.length > 0) setStep("done");
-                  }} />
-              )}
-              <Nav onSkip={() => setStep("done")} skipLabel="Skip for now" onNext={() => setAddingApp(true)} nextLabel="Add an app" disabled={!apps.data} />
+            <Screen title="Add your first app" subtitle="You can add apps later under Integrity.">
+              <AddAppDialog opened={addingApp}
+                onClose={async () => {
+                  setAddingApp(false);
+                  // Added one: on to the end. Closed without: stay, to add or skip.
+                  const integrity = await qc.fetchQuery({ queryKey: ["integrity"], queryFn: api.integrity, staleTime: 0 });
+                  if (integrity.apps.length > 0) setStep("done");
+                }} />
+              <Nav onSkip={() => setStep("done")} skipLabel="Skip for now" onNext={() => setAddingApp(true)} nextLabel="Add an app" />
             </Screen>
           )}
 
@@ -245,7 +239,7 @@ export function Onboarding({ mode }: { mode: "first-run" | "create" }) {
               <div>
                 <Title order={1} fz={34} style={{ letterSpacing: "-0.02em" }}>{project.data?.created ? `${project.data.name} is ready` : "You're set up"}</Title>
                 <Text c={surface.muted} mt={10} fz={16} lh={1.55}>
-                  Every product starts off: open Database, Storage, Authentication or Functions and choose Get started when you need it.
+                  Every product starts off until you choose Get started on its page.
                 </Text>
               </div>
               <Button size="lg" onClick={finish}>Go to the console</Button>

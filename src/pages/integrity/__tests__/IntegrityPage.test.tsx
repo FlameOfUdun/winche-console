@@ -53,7 +53,7 @@ function renderPage() {
   );
 }
 
-test("no apps: an empty state; Add app is one step (name and the platforms' ids, no SDK), then a guide per SDK with its command and download", async () => {
+test("no apps: an empty state; Add app is one step (name and the platforms' ids, no SDK), then its id and options file", async () => {
   mock(api.addApp).mockResolvedValue({ id: "app-abc234def567" });
   renderPage();
   expect(await screen.findByText("No apps yet")).toBeInTheDocument();
@@ -81,12 +81,10 @@ test("no apps: an empty state; Add app is one step (name and the platforms' ids,
     appleBundleId: "com.example.myapp", appleTeamId: "ABCDE12345", appleDevelopment: false, androidCloudProjectNumber: 123456789012,
     androidSideloaded: false, androidDeviceIntegrity: "device", androidCertificates: [], webSiteKey: "0x4AAAAAAAsitekey123", webHostnames: ["app.example.com"], id: "myapp-ios" }));
   expect(api.setTurnstileSecret).toHaveBeenCalledWith("app-abc234def567", "0x4AAAAAAAsecret12345", null);
-  expect(await screen.findByText("winche configure --url https://api.example.com --app app-abc234def567")).toBeInTheDocument();
-  // The guide: Flutter, the others greyed out; its steps start Integrity too.
-  expect(screen.getByRole("tab", { name: "Flutter" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByRole("tab", { name: "Android" })).toBeDisabled();
-  expect(screen.getByText(/winche_functions winche_integrity$/)).toBeInTheDocument();
-  expect(screen.getByText(/app.useIntegrity\(WinchePlatformIntegrity/)).toBeInTheDocument();
+  // Then just its id and its options file: no steps, no code.
+  expect(await screen.findByText("app-abc234def567")).toBeInTheDocument();
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(screen.queryByText(/winche configure|pub add|useIntegrity/)).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   await waitFor(() => expect(api.apps).toHaveBeenLastCalledWith(["android", "ios", "macos", "web", "windows", "linux"], "app-abc234def567"));
 });
@@ -111,7 +109,6 @@ test("with apps: each with its identifiers and verified requests; enforcement pe
   expect(within(card).getByTestId("week-database")).toHaveTextContent("93% verified · 7 days");   // 70 of 75
   expect(within(database).getByRole("img", { name: "93% verified" })).toBeInTheDocument();
   expect(within(card).getByText("Tokens last 60 minutes")).toBeInTheDocument();
-  expect(within(card).getByText(/users' photos/)).toBeInTheDocument();
 
   // Changed in a dialog: every product, the lifetime and the reason, saved together.
   await userEvent.click(within(card).getByRole("button", { name: "Change…" }));
@@ -236,13 +233,13 @@ test("adding: the app is made but its secret key isn't saved; trying again sends
   expect(await within(dialog).findByText(/The app was added, but its Turnstile secret key wasn't saved: Secrets are unavailable/)).toBeInTheDocument();
   expect(within(dialog).getByLabelText("App id")).toBeDisabled();   // it exists now
   await userEvent.click(within(dialog).getByRole("button", { name: "Save secret key" }));
-  expect(await screen.findByText("winche configure --url https://api.example.com --app my-app")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Download winche_options.dart/ })).toBeInTheDocument();
   expect(api.addApp).toHaveBeenCalledTimes(1);
   expect(api.updateApp).not.toHaveBeenCalled();
   expect(api.setTurnstileSecret).toHaveBeenCalledTimes(2);
   expect(api.setTurnstileSecret).toHaveBeenLastCalledWith("my-app", "0x4AAAAAAAsecret12345", null);
 
-  // The guide's download says when it fails.
+  // The download says when it fails.
   mock(api.apps).mockRejectedValueOnce(new Error("Server unreachable"));
   await userEvent.click(screen.getByRole("button", { name: /Download winche_options.dart/ }));
   expect(await screen.findByText("Couldn't download it: Server unreachable")).toBeInTheDocument();
@@ -300,7 +297,7 @@ test("adding: fields changed after the app was made are saved once on retry (by 
   await within(dialog).findByText(/its Turnstile secret key wasn't saved/);
   await userEvent.type(within(dialog).getByLabelText("Apple bundle id"), "com.example.myapp");
   await userEvent.click(within(dialog).getByRole("button", { name: "Save secret key" }));
-  expect(await screen.findByText("winche configure --url https://api.example.com --app my-app")).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: /Download winche_options.dart/ })).toBeInTheDocument();
   expect(api.addApp).toHaveBeenCalledTimes(1);
   expect(api.updateApp).toHaveBeenCalledTimes(1);
   const [id, fields] = mock(api.updateApp).mock.calls[0];
