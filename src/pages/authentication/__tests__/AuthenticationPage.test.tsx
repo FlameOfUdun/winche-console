@@ -321,7 +321,7 @@ test("change history: restore and reset ask why", async () => {
 test("users from a Keycloak with sync on: marked, and their account managed in Keycloak (no disable, delete or emails here)", async () => {
   mock(api.appAuthConfig).mockResolvedValue({ ...config, identityProviders: [{ name: "keycloak", kind: "oidc", displayName: "Keycloak",
     authority: "https://auth.example.com/realms/staff", audiences: ["app"], useSubjectAsUid: false, copiedClaims: [], testingOnly: false, keycloakSync: true }] });
-  const ana = user({ uid: "u-ana", email: "dr.costa@example.com", displayName: "Ana Costa", providers: ["keycloak"], customClaims: { org: "st-marys" } });
+  const ana = user({ uid: "u-ana", email: "ana@example.com", displayName: "Ana Lopez", providers: ["keycloak"], customClaims: { org: "acme" } });
   mock(api.appUsers).mockResolvedValue({ users: [ana], total: 1 });
   mock(api.appUser).mockResolvedValue({ user: ana, sessions: [], mfa: { recoveryCodesLeft: null } });
   renderPage();
