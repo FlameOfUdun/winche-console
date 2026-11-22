@@ -56,6 +56,9 @@ const KIND: Record<FunctionInfo["kind"], string> = {
   http: "HTTP", consolePage: "console page",
 };
 
+/** What starts it, in words, with an HTTP function's own address (older servers send "{name}"). */
+const runs = (f: FunctionInfo) => f.description.replace("{name}", f.name);
+
 function Deployed({ functions, version }: { functions: FunctionInfo[]; version: number | null }) {
   const [open, setOpen] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -68,7 +71,7 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
   const many = functions.length > 8;
   const q = search.trim().toLowerCase();
   const visible = functions.filter((f) => (!kind || f.kind === kind)
-    && (!q || [f.name, f.about ?? "", f.description].some((t) => t.toLowerCase().includes(q))));
+    && (!q || [f.name, f.about ?? "", runs(f)].some((t) => t.toLowerCase().includes(q))));
   const kinds = [...new Set(functions.map((f) => f.kind))];
   return (
     <Stack gap="sm">
@@ -100,8 +103,8 @@ function Deployed({ functions, version }: { functions: FunctionInfo[]; version: 
                     {f.integrity && <Badge variant="light" color="teal" tt="none" style={{ flexShrink: 0 }} title="Only apps that prove they're the project's own (Integrity) may call it" data-testid="needs-integrity">own apps only</Badge>}
                   </Group>
                   <div style={{ flex: 1, minWidth: 200 }}>
-                    <Text size="sm" truncate c={f.about ? undefined : "dimmed"} data-testid={f.about ? "function-about" : undefined}>{f.about ?? f.description}</Text>
-                    {f.about && <Text size="xs" c="dimmed" truncate>{f.description}</Text>}
+                    <Text size="sm" truncate c={f.about ? undefined : "dimmed"} data-testid={f.about ? "function-about" : undefined}>{f.about ?? runs(f)}</Text>
+                    {f.about && <Text size="xs" c="dimmed" truncate>{runs(f)}</Text>}
                   </div>
                 </Group>
                 <IconChevronRight size={16} color="var(--w-muted)" style={{ flexShrink: 0 }} />
@@ -155,7 +158,7 @@ function Details({ f }: { f: FunctionInfo }) {
   return (
     <Stack gap="sm">
       {f.about && <Text size="sm">{f.about}</Text>}
-      {row("Runs", <Text size="sm">{f.description}</Text>)}
+      {row("Runs", <Text size="sm" ff={f.kind === "http" ? "monospace" : undefined}>{runs(f)}</Text>)}
       {row("Run time", <Text size="sm">up to {time(f.timeoutSeconds)}</Text>)}
       {row("Secrets", f.secrets?.length
         ? <Group gap={6}>{f.secrets.map((n) => <Badge key={n} size="sm" variant="light" color="gray" tt="none" ff="monospace" fw={500}>{n}</Badge>)}

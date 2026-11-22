@@ -235,3 +235,11 @@ test("a few functions: no search", async () => {
   expect(await screen.findAllByTestId("function")).toHaveLength(2);
   expect(screen.queryByRole("textbox", { name: "Search functions" })).toBeNull();
 });
+
+test("an HTTP function shows its own address", async () => {
+  mock(api.functions).mockResolvedValue(page({ current: { ...v1, functions: [
+    { name: "stripeWebhook", kind: "http", events: ["POST"], path: null, cron: null, timeZone: null, description: "HTTP POST at /functions/v1/http/{name}", timeoutSeconds: 60 },
+  ] } }));
+  renderPage();
+  expect(await screen.findByText("HTTP POST at /functions/v1/http/stripeWebhook")).toBeInTheDocument();
+});
