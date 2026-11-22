@@ -5,6 +5,8 @@ export interface AppUser {
   emailVerified: boolean;
   displayName: string | null;
   photoUrl: string | null;
+  /** Where photoUrl came from: upload (kept by Winche Auth), link, provider:<name> (refreshed at sign-in), or null. */
+  photoSource?: string | null;
   isAnonymous: boolean;
   disabled: boolean;
   /** Two-step sign-in (an authenticator app) is on. */
@@ -22,7 +24,7 @@ export interface DirectoryCapabilities {
   create: boolean; claims: boolean; claimsLabel: string; sessions: boolean; unlock: boolean; resetMfa: boolean; unlinkProviders: boolean;
   passwordReset: boolean; verify: boolean; delete: boolean; disable: boolean;
   /** Edit the name and photo, the email, the password (absent from older servers: no). */
-  profile?: boolean; email?: boolean; password?: boolean;
+  profile?: boolean; email?: boolean; password?: boolean; photo?: boolean;
 }
 
 

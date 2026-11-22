@@ -87,6 +87,9 @@ export function authApi(base: string) {
     /** At once (verified or not, a verify link if asked), or by a link to the new address (confirm: changes when opened). */
     setAppUserEmail: (uid: string, email: string, how: { confirm: boolean; verified?: boolean; sendVerification?: boolean }) =>
       http<AppUser | { pending: true }>("PUT", `${base}/users/${encodeURIComponent(uid)}/email`, { email, ...how }),
+    /** The user's photo, kept by Winche Auth (shrink it first: squareThumbnail). */
+    setAppUserPhoto: async (uid: string, image: Blob) => (await raw("POST", `${base}/users/${encodeURIComponent(uid)}/photo`, image)).json() as Promise<AppUser>,
+    removeAppUserPhoto: (uid: string) => http<AppUser>("DELETE", `${base}/users/${encodeURIComponent(uid)}/photo`),
     setAppUserPassword: (uid: string, password: string) => http<AppUser>("PUT", `${base}/users/${encodeURIComponent(uid)}/password`, { password }),
     appEmailTemplates: () => http<{ templates: EmailTemplateInfo[] }>("GET", `${base}/email-templates`),
     saveAppEmailTemplate: (kind: string, subject: string, body: string) => http<void>("PUT", `${base}/email-templates/${kind}`, { subject, body }),

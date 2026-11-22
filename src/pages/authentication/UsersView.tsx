@@ -2,12 +2,13 @@ import { useAuthApi, useAuthScope } from "./authScope";
 import { api } from "../../api/client";
 import { useEffect, useState } from "react";
 import {
-  Alert, Avatar, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Tabs, Text,
+  Alert, Avatar, Badge, Button, Code, CopyButton, FileButton, Group, Loader, Modal, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Tabs, Text,
   Textarea, TextInput, Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, providerLabel, statusOf, type AppUser, type DirectoryCapabilities, type UserStatus } from "../../api/appAuth";
 import { EmptyState } from "../../components/EmptyState";
+import { squareThumbnail } from "../../components/ProjectAvatar";
 import { IconSearch, IconUsers } from "@tabler/icons-react";
 import { IconDevices } from "@tabler/icons-react";
 
@@ -243,6 +244,15 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
 
 type TabProps = { user: AppUser; uid: string; busy: boolean; run: (f: () => Promise<unknown>, done?: string) => Promise<boolean> };
 
+/** Where the photo came from, in words. */
+export function photoSourceLabel(source: string | null | undefined, url: string | null, config?: Parameters<typeof providerLabel>[1]): string {
+  if (!url) return "No photo";
+  if (source === "upload") return "Uploaded";
+  if (source === "link") return "A link";
+  if (source?.startsWith("provider:")) return `From ${providerLabel(source.slice("provider:".length), config)}`;
+  return "A link";
+}
+
 /** Name and photo, email (at once, or by a link to the new address), password; for console accounts, the server admin role. */
 function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }: TabProps & {
   readOnly: boolean; caps: DirectoryCapabilities | undefined; consoleAccounts: boolean;
@@ -257,6 +267,9 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
   const [password, setPassword] = useState("");
   useEffect(() => { setDisplayName(u.displayName ?? ""); setPhotoUrl(u.photoUrl ?? ""); setEmail(u.email ?? ""); }, [u.displayName, u.photoUrl, u.email]);
   const canProfile = !readOnly && !!caps?.profile;
+  // Keycloak keeps no photos, so its users' photos are set here too.
+  const canPhoto = !consoleAccounts && !!caps?.photo && !u.isAnonymous;
+  const config = useQuery({ queryKey: ["app-auth-config"], queryFn: authApi.appAuthConfig });
   const canEmail = !readOnly && (consoleAccounts || !!caps?.email);
   const canPassword = !readOnly && (consoleAccounts || !!caps?.password);
   const profileChanged = displayName.trim() !== (u.displayName ?? "") || photoUrl.trim() !== (u.photoUrl ?? "");
@@ -274,10 +287,28 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
       <Stack gap="xs">
         <Title order={6}>Name and photo</Title>
         <Group align="flex-start" gap="md" wrap="nowrap">
-          <Avatar src={photoUrl.trim() || undefined} size={56} radius="xl" color="winche">{(displayName || u.email || "?").slice(0, 1).toUpperCase()}</Avatar>
+          <Stack gap={6} align="center" w={96}>
+            <Avatar src={photoUrl.trim() || undefined} size={64} radius="xl" color="winche">{(displayName || u.email || "?").slice(0, 1).toUpperCase()}</Avatar>
+            <Text size="xs" c="dimmed" ta="center" data-testid="photo-source">{photoSourceLabel(u.photoSource, u.photoUrl, config.data)}</Text>
+            {canPhoto && (
+              <>
+                <FileButton accept="image/png,image/jpeg,image/webp" onChange={(f) => f && run(async () => {
+                  // Shrunk here to 256 × 256 (the server keeps at most 100 KB); the server checks it's an image.
+                  await authApi.setAppUserPhoto(uid, await squareThumbnail(f));
+                }, "Photo uploaded.")}>
+                  {(props) => <Button {...props} size="compact-xs" variant="default" loading={busy}>{u.photoSource === "upload" ? "Replace" : "Upload"}</Button>}
+                </FileButton>
+                {u.photoSource === "upload" && (
+                  <Button size="compact-xs" variant="subtle" color="gray" disabled={busy}
+                    onClick={() => run(() => authApi.removeAppUserPhoto(uid), "Photo removed.")}>Remove</Button>
+                )}
+              </>
+            )}
+          </Stack>
           <Stack gap="xs" style={{ flex: 1 }}>
             <TextInput label="Display name" disabled={!canProfile} value={displayName} onChange={(e) => setDisplayName(e.currentTarget.value)} maxLength={100} />
-            <TextInput label="Photo URL" placeholder="https://…" disabled={!canProfile} value={photoUrl} onChange={(e) => setPhotoUrl(e.currentTarget.value)} />
+            <TextInput label="Photo URL" placeholder="https://…" disabled={!canProfile} value={photoUrl} onChange={(e) => setPhotoUrl(e.currentTarget.value)}
+              description="Or a link to a photo elsewhere (replaces an uploaded one)" />
           </Stack>
         </Group>
         {canProfile && (

@@ -20,9 +20,13 @@ vi.mock("../../../api/client", async (orig) => {
       settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(), keycloakSyncs: vi.fn(), syncKeycloakNow: vi.fn(),
       signInSettings: vi.fn(), saveSignInSettings: vi.fn(), testSignInEmail: vi.fn(), rulesSubsystems: vi.fn(),
-      updateAppUserProfile: vi.fn(), setAppUserEmail: vi.fn(), setAppUserPassword: vi.fn(),
+      updateAppUserProfile: vi.fn(), setAppUserEmail: vi.fn(), setAppUserPassword: vi.fn(), setAppUserPhoto: vi.fn(), removeAppUserPhoto: vi.fn(),
     },
   };
+});
+vi.mock("../../../components/ProjectAvatar", async (orig) => {
+  const actual = await orig<typeof import("../../../components/ProjectAvatar")>();
+  return { ...actual, squareThumbnail: vi.fn(async (f: Blob) => f) };   // jsdom can't draw: the photo is the file itself
 });
 vi.mock("../../../auth/session", async (orig) => {
   const actual = await orig<typeof import("../../../auth/session")>();
@@ -36,7 +40,7 @@ const user = (over: Partial<AppUser> = {}): AppUser => ({
   lastSignInAt: "2026-11-12T15:41:00Z", lockedOutUntil: null, ...over,
 });
 const wincheCaps = { create: true, claims: true, claimsLabel: "Custom claims", sessions: true, unlock: true, resetMfa: true, unlinkProviders: true,
-  passwordReset: true, verify: true, delete: true, disable: true, groups: false, profile: true, email: true, password: true };
+  passwordReset: true, verify: true, delete: true, disable: true, groups: false, profile: true, email: true, password: true, photo: true };
 const config: AppAuthConfig = {
   directory: { kind: "wincheAuth", label: "Winche Auth", capabilities: wincheCaps }, trustedProviders: true,
   emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
@@ -508,4 +512,30 @@ test("a sign-in provider can require a second step; saved with a reason", async 
   await waitFor(() => expect(mock(api.saveSignInSettings)).toHaveBeenCalledWith(expect.objectContaining({
     providers: [expect.objectContaining({ name: "google", requireSecondStep: true })],
   }), null, "Staff must use a code", undefined, expect.any(Number)));
+});
+
+test("a user's photo: where it came from; uploaded (shrunk first) or removed", async () => {
+  const google = user({ photoUrl: "https://lh3.example.com/anna.png", photoSource: "provider:google", providers: ["google"] });
+  mock(api.appUsers).mockResolvedValue({ users: [google], total: 1 });
+  mock(api.appUser).mockResolvedValue({ user: google, sessions: [], mfa: null });
+  mock(api.setAppUserPhoto).mockResolvedValue(user({ photoSource: "upload" }));
+  renderPage();
+  await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByTestId("photo-source")).toHaveTextContent("From Google");
+  const file = new File(["png"], "anna.png", { type: "image/png" });
+  await userEvent.upload(dialog.querySelector('input[type="file"]') as HTMLInputElement, file);
+  await waitFor(() => expect(api.setAppUserPhoto).toHaveBeenCalledWith(google.uid, file));
+  expect(await within(dialog).findByText("Photo uploaded.")).toBeInTheDocument();
+
+  const uploaded = user({ photoUrl: "https://api.example.com/auth/v1/photos/abc", photoSource: "upload" });
+  mock(api.appUser).mockResolvedValue({ user: uploaded, sessions: [], mfa: null });
+  mock(api.removeAppUserPhoto).mockResolvedValue(user());
+  cleanup();
+  renderPage();
+  await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
+  const again = await screen.findByRole("dialog");
+  expect(within(again).getByTestId("photo-source")).toHaveTextContent("Uploaded");
+  await userEvent.click(within(again).getByRole("button", { name: "Remove" }));
+  await waitFor(() => expect(api.removeAppUserPhoto).toHaveBeenCalledWith(uploaded.uid));
 });
