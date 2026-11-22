@@ -14,6 +14,7 @@ import type { AndroidDeviceLevel, AppFields, IntegrityApp, IntegrityData, Integr
 import { secretBody } from "../../api/secrets";
 import { EditCard } from "../../components/EditCard";
 import { EmptyState } from "../../components/EmptyState";
+import { ScrollDialog } from "../../components/ScrollDialog";
 import { isProjectId, projectIdFrom } from "../../api/project";
 import { surface } from "../../theme";
 import { Copy } from "../apps/AppsPage";
@@ -317,7 +318,8 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
     } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
   return (
-    <Modal opened={opened} onClose={onClose} size="lg" radius="lg" title={<Text fw={700} fz={18}>Enforcement</Text>}>
+    <ScrollDialog opened={opened} onClose={onClose} title="Enforcement"
+      footer={<><Button variant="default" onClick={onClose}>Cancel</Button><Button onClick={save} loading={busy} disabled={!changed || !reason.trim()}>Save</Button></>}>
       <Stack gap="md">
         {data.apps.length === 0 && <Alert color="gray" p="xs">Add an app before enforcing: with none, nothing could call.</Alert>}
         <Table withRowBorders={false} verticalSpacing={6}>
@@ -346,12 +348,8 @@ function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; ope
         <TextInput label="Reason for the change" placeholder="Our apps all send tokens" value={reason} onChange={(e) => setReason(e.currentTarget.value)}
           description="Kept in the history with the change" />
         {error && <Alert color="red" p="xs">{error}</Alert>}
-        <Group justify="flex-end" gap="xs">
-          <Button variant="default" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} loading={busy} disabled={!changed || !reason.trim()}>Save</Button>
-        </Group>
       </Stack>
-    </Modal>
+    </ScrollDialog>
   );
 }
 
@@ -522,6 +520,7 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
   const id = value.id ?? "";
   return (
     <Stack gap="sm">
+      <Group grow wrap="wrap" align="flex-start">
       <TextInput label="App name" placeholder="Clinic app" data-autofocus value={value.name}
         onChange={(e) => {
           const name = e.currentTarget.value;
@@ -536,7 +535,8 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
           error={id && !isProjectId(id) ? "3 to 40 lower-case letters, digits and dashes, starting with a letter." : undefined}
           onChange={(e) => { setIdEdited(true); onChange({ ...value, id: e.currentTarget.value.toLowerCase() }); }} />
       )}
-      <Text size="xs" c={surface.muted}>Every platform is optional: set the ones the app runs on.</Text>
+      </Group>
+      <Text size="xs" c={surface.muted}>Set the platforms the app runs on; the rest stay empty.</Text>
 
       <PlatformHeading icon={<IconBrandApple size={16} />} title="Apple (iOS, macOS)" proof="App Attest" />
       <Group grow wrap="wrap" align="flex-start">
@@ -553,14 +553,17 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
       )}
 
       <PlatformHeading icon={<IconBrandAndroid size={16} />} title="Android" proof="Play Integrity" />
-      <TextInput label="Android package" placeholder="com.example.clinic"
-        value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
+      <Group grow wrap="wrap" align="flex-start">
+        <TextInput label="Android package" placeholder="com.example.clinic"
+          value={value.androidPackage ?? ""} onChange={(e) => onChange({ ...value, androidPackage: e.currentTarget.value || null })} />
+        <NumberInput label="Google Cloud project number" description="Linked to the app in Play Console" placeholder="123456789012"
+          disabled={!value.androidPackage}
+          allowDecimal={false} allowNegative={false} hideControls value={value.androidCloudProjectNumber ?? ""}
+          onChange={(v) => onChange({ ...value, androidCloudProjectNumber: typeof v === "number" ? v : v ? Number(v) : null })} />
+      </Group>
       {value.androidPackage && (
         <>
           <Group grow wrap="wrap" align="flex-start">
-            <NumberInput label="Google Cloud project number" description="The project with the Play Integrity API, linked in Play Console" placeholder="123456789012"
-              allowDecimal={false} allowNegative={false} hideControls value={value.androidCloudProjectNumber ?? ""}
-              onChange={(v) => onChange({ ...value, androidCloudProjectNumber: typeof v === "number" ? v : v ? Number(v) : null })} />
             <Select label="The device must meet" allowDeselect={false} value={value.androidDeviceIntegrity}
               data={(Object.keys(DEVICE_LEVEL) as AndroidDeviceLevel[]).map((k) => ({ value: k, label: DEVICE_LEVEL[k] }))}
               onChange={(v) => onChange({ ...value, androidDeviceIntegrity: (v ?? "device") as AndroidDeviceLevel })} />
@@ -575,14 +578,17 @@ function AppFieldsForm({ value, onChange, fixedId, secret, onSecret, secretSet }
       )}
 
       <PlatformHeading icon={<IconWorld size={16} />} title="Web" proof="browser check (Cloudflare Turnstile)" />
-      <TextInput label="Turnstile site key (web)" placeholder="0x4AAAAAAA…"
-        description="A Turnstile widget (Cloudflare dashboard → Turnstile → Add widget, Invisible)"
-        styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
-        value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
+      <Group grow wrap="wrap" align="flex-start">
+        <TextInput label="Turnstile site key" placeholder="0x4AAAAAAA…"
+          description="Cloudflare → Turnstile → Add widget (Invisible)"
+          styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
+          value={value.webSiteKey ?? ""} onChange={(e) => onChange({ ...value, webSiteKey: e.currentTarget.value.trim() || null })} />
+        <PasswordInput label="Turnstile secret key" placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…, or aws-sm:…"}
+          description="Kept encrypted, never shown again" disabled={!value.webSiteKey}
+          value={secret} onChange={(e) => onSecret(e.currentTarget.value)} />
+      </Group>
       {value.webSiteKey && (
         <>
-          <PasswordInput label="Turnstile secret key" placeholder={secretSet ? "Kept: type to replace" : "0x4AAAAAAA…, or aws-sm:…"}
-            description="Kept encrypted, never shown again" value={secret} onChange={(e) => onSecret(e.currentTarget.value)} />
           <TagsInput label="Sites the app runs on" placeholder="app.example.com, then Enter (empty: any)"
             description="A browser check made on another site is refused. Add the same hostnames to the widget in Cloudflare."
             value={value.webHostnames} onChange={(v) => onChange({ ...value, webHostnames: v.map((h) => h.trim().toLowerCase()) })} />
@@ -624,16 +630,13 @@ function AppFormDialog({ app, onClose }: { app: IntegrityApp | null; onClose: ()
     catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
   };
   return (
-    <Modal opened={!!app} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>Edit {app?.name}</Text>}>
+    <ScrollDialog opened={!!app} onClose={close} title={`Edit ${app?.name ?? ""}`}
+      footer={<><Button variant="default" onClick={close}>Cancel</Button><Button onClick={save} loading={busy} disabled={!v.name.trim()}>Save</Button></>}>
       <Stack gap="md">
         <AppFieldsForm value={v} onChange={setValue} fixedId={app?.id} secret={secret} onSecret={setSecret} secretSet={!!app?.turnstileSecret} />
         {error && <Alert color="red" p="xs">{error}</Alert>}
-        <Group justify="flex-end" gap="xs">
-          <Button variant="default" onClick={close}>Cancel</Button>
-          <Button onClick={save} loading={busy} disabled={!v.name.trim()}>Save</Button>
-        </Group>
       </Stack>
-    </Modal>
+    </ScrollDialog>
   );
 }
 
@@ -747,22 +750,19 @@ export function AddAppDialog({ opened, baseUrl, snippet, onClose }: { opened: bo
     }
   };
   return (
-    <Modal opened={opened} onClose={close} size="lg" radius="lg" title={<Text fw={700} fz={18}>{appId ? `Connect ${fields.name.trim()}` : "Add an app"}</Text>}>
+    <ScrollDialog opened={opened} onClose={close} title={appId ? `Connect ${fields.name.trim()}` : "Add an app"}
+      footer={!appId ? (
+        <>
+          <Button variant="default" onClick={close}>Cancel</Button>
+          <Button onClick={add} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>Add app</Button>
+        </>
+      ) : <Button onClick={close}>Done</Button>}>
       {!appId ? (
         <Stack gap="md">
           <AppFieldsForm value={fields} onChange={setFields} secret={secret} onSecret={setSecret} />
           {error && <Alert color="red" p="xs">{error}</Alert>}
-          <Group justify="flex-end" gap="xs">
-            <Button variant="default" onClick={close}>Cancel</Button>
-            <Button onClick={add} loading={busy} disabled={!fields.name.trim() || (!!fields.id && !isProjectId(fields.id))}>Add app</Button>
-          </Group>
         </Stack>
-      ) : (
-        <Stack gap="lg" pt="xs">
-          <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={appId} />
-          <Group justify="flex-end"><Button onClick={close}>Done</Button></Group>
-        </Stack>
-      )}
-    </Modal>
+      ) : <ConnectGuide baseUrl={baseUrl} snippet={snippet} appId={appId} />}
+    </ScrollDialog>
   );
 }

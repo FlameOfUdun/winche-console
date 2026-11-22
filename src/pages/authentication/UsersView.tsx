@@ -8,6 +8,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, providerLabel, statusOf, type AppUser, type DirectoryCapabilities, type UserStatus } from "../../api/appAuth";
 import { EmptyState } from "../../components/EmptyState";
+import { ScrollDialog } from "../../components/ScrollDialog";
 import { squareThumbnail } from "../../components/ProjectAvatar";
 import { IconSearch, IconUsers } from "@tabler/icons-react";
 import { IconDevices } from "@tabler/icons-react";
@@ -162,7 +163,21 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
   const name = u ? u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid) : "";
 
   return (
-    <Modal opened={!!uid} onClose={onClose} size="xl" radius="lg" aria-label="Selected user"
+    <ScrollDialog opened={!!uid} onClose={onClose} size="xl" ariaLabel="Selected user"
+      footer={u && detail.data ? (
+        <Group justify="space-between" wrap="wrap" gap="xs" style={{ flex: 1 }}>
+          <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it. Created {when(u.createdAt)}.</Text>
+          {!fromKeycloak && can("delete") && (confirmDelete ? (
+            <Group gap="xs">
+              <Text size="xs">Delete {u.email ?? u.uid}? Their sign-in goes; their data stays.</Text>
+              <Button size="xs" variant="default" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              <Button size="xs" color="red" loading={busy} onClick={() => run(async () => { await authApi.deleteAppUser(uid!); onClose(); })}>Delete user</Button>
+            </Group>
+          ) : (
+            <Button size="xs" variant="outline" color="red" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete user</Button>
+          ))}
+        </Group>
+      ) : undefined}
       title={u ? (
         <Group gap="sm" wrap="nowrap">
           <Avatar src={u.photoUrl ?? undefined} color="winche" radius="xl">{u.isAnonymous ? "?" : name.slice(0, 1).toUpperCase()}</Avatar>
@@ -224,21 +239,9 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
 
           {error && <Alert color="red">{error}</Alert>}
           {notice && <Alert color="teal">{notice}</Alert>}
-          <Group justify="space-between" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
-            <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it. Created {when(u.createdAt)}.</Text>
-            {!fromKeycloak && can("delete") && (confirmDelete ? (
-              <Group gap="xs">
-                <Text size="xs">Delete {u.email ?? u.uid}? Their sign-in goes; their data stays.</Text>
-                <Button size="xs" variant="default" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-                <Button size="xs" color="red" loading={busy} onClick={() => run(async () => { await authApi.deleteAppUser(uid!); onClose(); })}>Delete user</Button>
-              </Group>
-            ) : (
-              <Button size="xs" variant="outline" color="red" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete user</Button>
-            ))}
-          </Group>
         </Stack>
       )}
-    </Modal>
+    </ScrollDialog>
   );
 }
 

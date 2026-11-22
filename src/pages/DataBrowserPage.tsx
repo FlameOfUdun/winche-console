@@ -33,8 +33,8 @@ const autoId = () => Array.from({ length: 20 }, () => ID_CHARS[Math.floor(Math.r
 function PanelHeader({ title, children }: { title: React.ReactNode; children?: React.ReactNode }) {
   return (
     <Group h={44} px="sm" justify="space-between" style={{ borderBottom: "1px solid var(--w-border)", background: "var(--w-hover)", flexShrink: 0 }}>
-      <Text size="sm" fw={500} c="var(--w-muted)" truncate>{title}</Text>
-      {children}
+      <Text size="sm" fw={500} c="var(--w-muted)" truncate style={{ flex: 1, minWidth: 0 }}>{title}</Text>
+      {children && <Group gap={4} wrap="nowrap" style={{ flexShrink: 0 }}>{children}</Group>}
     </Group>
   );
 }

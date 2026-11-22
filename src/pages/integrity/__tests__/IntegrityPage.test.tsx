@@ -67,7 +67,7 @@ test("no apps: an empty state; Add app is one step (name and the platforms' ids,
   await userEvent.type(within(dialog).getByLabelText("Android package"), "com.example.clinic");
   await userEvent.type(within(dialog).getByLabelText("Google Cloud project number"), "123456789012");
   await userEvent.type(within(dialog).getByLabelText("Apple bundle id"), "com.example.clinic");
-  await userEvent.type(within(dialog).getByLabelText("Turnstile site key (web)"), "0x4AAAAAAAsitekey123");
+  await userEvent.type(within(dialog).getByLabelText("Turnstile site key"), "0x4AAAAAAAsitekey123");
   await userEvent.type(within(dialog).getByLabelText("Turnstile secret key"), "0x4AAAAAAAsecret12345");
   await userEvent.type(within(dialog).getByRole("textbox", { name: "Sites the app runs on" }), "App.Example.com{enter}");
   await userEvent.type(within(dialog).getByLabelText("Apple team id"), "abcde12345");
