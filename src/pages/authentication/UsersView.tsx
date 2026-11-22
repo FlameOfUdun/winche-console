@@ -2,10 +2,11 @@ import { useAuthApi, useAuthScope } from "./authScope";
 import { api } from "../../api/client";
 import { useEffect, useState } from "react";
 import {
-  Alert, Avatar, Badge, Button, Code, Group, Loader, Modal, Paper, PasswordInput, Stack, Switch, Table, Text, Textarea, TextInput, Title,
+  Alert, Avatar, Badge, Button, Code, CopyButton, Group, Loader, Modal, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Tabs, Text,
+  Textarea, TextInput, Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { errorMessage, providerLabel, statusOf, type AppUser, type UserStatus } from "../../api/appAuth";
+import { errorMessage, providerLabel, statusOf, type AppUser, type DirectoryCapabilities, type UserStatus } from "../../api/appAuth";
 import { EmptyState } from "../../components/EmptyState";
 import { IconSearch, IconUsers } from "@tabler/icons-react";
 import { IconDevices } from "@tabler/icons-react";
@@ -106,29 +107,32 @@ export function UsersView() {
             </Group>
           )}
         </Paper>
-        {selected && <UserPanel uid={selected} onGone={() => setSelected(null)} />}
       </Group>
+      <UserDialog uid={selected} onClose={() => setSelected(null)} />
 
       <AddUserModal opened={adding} onClose={() => setAdding(false)} onAdded={(u) => { setAdding(false); setSelected(u.uid); }} />
     </Stack>
   );
 }
 
-function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
+type Tab = "profile" | "signin" | "access" | "sessions";
+
+/**
+ * A user, in a dialog with tabs: their profile (editable), how they sign in, what they may do, where they're signed in.
+ * Deleting them sits apart, at the foot.
+ */
+function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void }) {
   const authApi = useAuthApi();
   const consoleAccounts = useAuthScope().console;
-  const [newEmail, setNewEmail] = useState<string | null>(null);
-  const [newPassword, setNewPassword] = useState<string | null>(null);
   const qc = useQueryClient();
-  const detail = useQuery({ queryKey: ["app-user", uid], queryFn: () => authApi.appUser(uid) });
+  const detail = useQuery({ queryKey: ["app-user", uid], queryFn: () => authApi.appUser(uid!), enabled: !!uid });
   const config = useQuery({ queryKey: ["app-auth-config"], queryFn: authApi.appAuthConfig });
+  const [tab, setTab] = useState<Tab>("profile");
   const [notice, setNotice] = useState<string | null>(null);
-  const [claims, setClaims] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (detail.data) setClaims(Object.keys(detail.data.user.customClaims).length ? JSON.stringify(detail.data.user.customClaims, null, 2) : "");
-  }, [detail.data]);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  useEffect(() => { setTab("profile"); setNotice(null); setError(null); setConfirmDelete(false); }, [uid]);
 
   const run = async (f: () => Promise<unknown>, done?: string) => {
     setBusy(true);
@@ -139,174 +143,270 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
       await qc.invalidateQueries({ queryKey: ["app-user", uid] });
       await qc.invalidateQueries({ queryKey: ["app-users"] });
       if (done) setNotice(done);
+      return true;
     } catch (e) {
       setError(errorMessage(e));
+      return false;
     } finally {
       setBusy(false);
     }
   };
 
-  if (detail.isLoading) return <Paper withBorder p="md" style={{ flex: "1 1 340px" }}><Loader size="sm" /></Paper>;
-  if (!detail.data) return null;
-  const { user: u, sessions, mfa } = detail.data;
+  const u = detail.data?.user;
   const caps = config.data?.directory?.capabilities;
-  // Signed in through a provider with Keycloak sync on: the account is Keycloak's, and Winche follows it.
-  const fromKeycloak = u.providers.some((p) => config.data?.identityProviders.some((x) => x.name === p && x.keycloakSync));
   const can = (c: keyof NonNullable<typeof caps>) => !caps || !!caps[c];
-  const status = statusOf(u);
-  const name = u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid);
-
-  const saveClaims = () => run(async () => {
-    let parsed: Record<string, unknown> | null = null;
-    if (claims.trim()) {
-      try { parsed = JSON.parse(claims); } catch { throw new Error("The claims aren't valid JSON."); }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("Custom claims must be a JSON object.");
-    }
-    await authApi.setAppUserClaims(uid, parsed);
-  });
+  // Signed in through a provider with Keycloak sync on: the account is Keycloak's, and Winche follows it.
+  const fromKeycloak = !!u && u.providers.some((p) => config.data?.identityProviders.some((x) => x.name === p && x.keycloakSync));
+  const status = u ? statusOf(u) : null;
+  const name = u ? u.displayName ?? (u.isAnonymous ? "Anonymous user" : u.email ?? u.uid) : "";
 
   return (
-    <Paper withBorder p="md" style={{ flex: "1 1 340px", minWidth: 0 }} aria-label="Selected user">
-      <Stack gap="md">
+    <Modal opened={!!uid} onClose={onClose} size="xl" radius="lg" aria-label="Selected user"
+      title={u ? (
         <Group gap="sm" wrap="nowrap">
-          <Avatar color="winche" radius="xl">{u.isAnonymous ? "?" : name.slice(0, 1).toUpperCase()}</Avatar>
+          <Avatar src={u.photoUrl ?? undefined} color="winche" radius="xl">{u.isAnonymous ? "?" : name.slice(0, 1).toUpperCase()}</Avatar>
           <div style={{ minWidth: 0 }}>
-            <Text fw={600} truncate>{name}</Text>
-            <Text size="sm" c="dimmed" truncate>{u.email ?? "No email · signed in as a guest"}</Text>
+            <Group gap={6} wrap="nowrap">
+              <Text fw={700} truncate>{name}</Text>
+              {status && <Badge color={STATUS_COLOR[status]} variant="light" tt="none">{status}</Badge>}
+              {fromKeycloak && <Badge color="blue" variant="light" tt="none">From Keycloak</Badge>}
+              {consoleAccounts && u.customClaims.role === "Admin" && <Badge color="winche" variant="light" tt="none">Server admin</Badge>}
+            </Group>
+            <Group gap={4} wrap="nowrap">
+              <Text size="xs" c="dimmed" ff="monospace" truncate>{u.uid}</Text>
+              <CopyButton value={u.uid}>{({ copied, copy }) => <Button size="compact-xs" variant="subtle" color={copied ? "teal" : "gray"} onClick={copy}>{copied ? "Copied" : "Copy uid"}</Button>}</CopyButton>
+            </Group>
           </div>
         </Group>
-
-        {fromKeycloak && (
-          <Alert color="blue" p="xs" data-testid="from-keycloak" title="From Keycloak">
-            Their account is managed in Keycloak: disable, delete or change them there, and Winche follows within minutes.
-          </Alert>
-        )}
-        <Table fz="sm" withRowBorders={false} verticalSpacing={2}>
-          <Table.Tbody>
-            <Table.Tr><Table.Td c="dimmed" w={120}>uid</Table.Td><Table.Td><Text size="xs" ff="monospace" style={{ wordBreak: "break-all" }}>{u.uid}</Text></Table.Td></Table.Tr>
-            <Table.Tr><Table.Td c="dimmed">Email verified</Table.Td><Table.Td>{u.email ? (u.emailVerified ? "Yes" : "No") : "No email"}</Table.Td></Table.Tr>
-            <Table.Tr><Table.Td c="dimmed">Created</Table.Td><Table.Td>{when(u.createdAt)}</Table.Td></Table.Tr>
-            <Table.Tr><Table.Td c="dimmed">Last sign-in</Table.Td><Table.Td>{when(u.lastSignInAt)}</Table.Td></Table.Tr>
-            <Table.Tr><Table.Td c="dimmed">Status</Table.Td><Table.Td>
-              <Badge color={STATUS_COLOR[status]} variant="light" tt="none">{status}</Badge>
-              {u.lockedOutUntil && status === "Locked out" && <Text span size="xs" c="dimmed"> until {when(u.lockedOutUntil)}</Text>}
-            </Table.Td></Table.Tr>
-          </Table.Tbody>
-        </Table>
-
-        {consoleAccounts && (
-          <Stack gap={8} data-testid="console-account">
-            <Title order={6}>Console account</Title>
-            <Switch label="Server admin" checked={u.customClaims.role === "Admin"} disabled={busy}
-              description="Admin of every project and of Server settings. Others reach a project as its members."
-              onChange={(e) => {
-                const admin = e.currentTarget.checked;
-                void run(() => api.updateUser(uid, { role: admin ? "Admin" : "Member" }), admin ? "Now a server admin." : "No longer a server admin.");
-              }} />
-            {newPassword === null ? (
-              <Group justify="space-between" wrap="nowrap">
-                <Text size="sm" c="dimmed">{u.providers.includes("password") ? "Has a password" : "No password: signs in through a provider"}</Text>
-                <Button size="xs" variant="default" onClick={() => setNewPassword("")}>Set a new password</Button>
-              </Group>
-            ) : (
+      ) : "User"}>
+      {detail.isLoading && <Loader size="sm" />}
+      {u && detail.data && (
+        <Stack gap="md">
+          {fromKeycloak && (
+            <Alert color="blue" p="xs" data-testid="from-keycloak" title="From Keycloak">
+              Their account is managed in Keycloak: change, disable or delete them there, and Winche follows within minutes.
+            </Alert>
+          )}
+          <Tabs value={tab} onChange={(t) => { setTab((t as Tab) ?? "profile"); setNotice(null); setError(null); }} keepMounted={false}>
+            <Tabs.List>
+              <Tabs.Tab value="profile">Profile</Tabs.Tab>
+              <Tabs.Tab value="signin">Sign-in</Tabs.Tab>
+              <Tabs.Tab value="access">Access</Tabs.Tab>
+              <Tabs.Tab value="sessions">Sessions{detail.data.sessions.length ? ` (${detail.data.sessions.length})` : ""}</Tabs.Tab>
+            </Tabs.List>
+            <Tabs.Panel value="profile" pt="md">
+              <ProfileTab user={u} uid={uid!} busy={busy} run={run} readOnly={fromKeycloak} caps={caps} consoleAccounts={consoleAccounts} />
+            </Tabs.Panel>
+            <Tabs.Panel value="signin" pt="md">
+              <SignInTab user={u} uid={uid!} busy={busy} run={run} fromKeycloak={fromKeycloak} mfa={detail.data.mfa} />
+            </Tabs.Panel>
+            <Tabs.Panel value="access" pt="md">
+              <AccessTab user={u} uid={uid!} busy={busy} run={run} fromKeycloak={fromKeycloak} />
+            </Tabs.Panel>
+            <Tabs.Panel value="sessions" pt="md">
               <Stack gap={6}>
-                <PasswordInput label="New password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.currentTarget.value)}
-                  description="Tell them yourself; their sign-ins elsewhere end." />
-                <Group justify="flex-end" gap="xs">
-                  <Button size="xs" variant="default" onClick={() => setNewPassword(null)}>Cancel</Button>
-                  <Button size="xs" loading={busy} disabled={newPassword.length < 8}
-                    onClick={() => run(async () => { await api.resetUserPassword(uid, newPassword); setNewPassword(null); }, "Password set.")}>
-                    Save password
-                  </Button>
-                </Group>
+                {detail.data.sessions.length === 0 && <EmptyState compact bordered={false} icon={IconDevices} title="Not signed in anywhere" />}
+                {detail.data.sessions.map((s) => (
+                  <Group key={s.id} justify="space-between" wrap="nowrap" gap="xs" data-testid="app-session"
+                    style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <Text size="sm" truncate>{s.userAgent ?? "Unknown device"}</Text>
+                      <Text size="xs" c="dimmed">{s.provider} · {s.ipAddress ?? "no address"} · last used {when(s.lastUsedAt)}</Text>
+                    </div>
+                    <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.revokeAppSession(uid!, s.id))}>Sign out</Button>
+                  </Group>
+                ))}
+                <Button size="xs" variant="default" w="fit-content" disabled={busy || detail.data.sessions.length === 0} onClick={() => run(() => authApi.signOutAppUser(uid!))}>Sign out everywhere</Button>
               </Stack>
-            )}
-            {newEmail === null ? (
-              <Group justify="space-between" wrap="nowrap">
-                <Text size="sm">{u.email}</Text>
-                <Button size="xs" variant="default" onClick={() => setNewEmail(u.email ?? "")}>Change email</Button>
+            </Tabs.Panel>
+          </Tabs>
+
+          {error && <Alert color="red">{error}</Alert>}
+          {notice && <Alert color="teal">{notice}</Alert>}
+          <Group justify="space-between" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}>
+            <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it. Created {when(u.createdAt)}.</Text>
+            {!fromKeycloak && can("delete") && (confirmDelete ? (
+              <Group gap="xs">
+                <Text size="xs">Delete {u.email ?? u.uid}? Their sign-in goes; their data stays.</Text>
+                <Button size="xs" variant="default" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                <Button size="xs" color="red" loading={busy} onClick={() => run(async () => { await authApi.deleteAppUser(uid!); onClose(); })}>Delete user</Button>
               </Group>
             ) : (
-              <Stack gap={6}>
-                <TextInput label="New email" value={newEmail} onChange={(e) => setNewEmail(e.currentTarget.value)}
-                  description="Changed at once; they sign in again with it." />
-                <Group justify="flex-end" gap="xs">
-                  <Button size="xs" variant="default" onClick={() => setNewEmail(null)}>Cancel</Button>
-                  <Button size="xs" loading={busy} disabled={!newEmail.includes("@") || newEmail.trim() === u.email}
-                    onClick={() => run(async () => { await api.updateUser(uid, { email: newEmail.trim() }); setNewEmail(null); }, "Email changed; their sign-ins ended.")}>
-                    Save email
-                  </Button>
-                </Group>
-              </Stack>
-            )}
-          </Stack>
-        )}
-
-        <Stack gap={6}>
-          <Title order={6}>Sign-in methods</Title>
-          {u.providers.length === 0 && <Text size="sm" c="dimmed">None yet: send a reset link to set a password.</Text>}
-          {u.providers.map((p) => {
-            const linked = p !== "password" && p !== "anonymous";
-            return (
-              <Group key={p} justify="space-between" wrap="nowrap" data-testid="app-user-provider"
-                style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
-                <Text size="sm">{providerLabel(p, config.data)}</Text>
-                {linked && can("unlinkProviders") && u.providers.length > 1 && (
-                  <Button size="xs" variant="subtle" disabled={busy}
-                    onClick={() => window.confirm(`Unlink ${providerLabel(p, config.data)} from this user?`) && run(() => authApi.unlinkAppUserProvider(uid, p))}>
-                    Unlink
-                  </Button>
-                )}
-              </Group>
-            );
-          })}
+              <Button size="xs" variant="outline" color="red" disabled={busy} onClick={() => setConfirmDelete(true)}>Delete user</Button>
+            ))}
+          </Group>
         </Stack>
+      )}
+    </Modal>
+  );
+}
 
-        {(u.mfaEnabled || config.data?.mfa) && (
-          <Stack gap={6}>
-            <Title order={6}>Two-step sign-in</Title>
-            {u.mfaEnabled ? (
-              <Group justify="space-between" wrap="nowrap" gap="xs" data-testid="app-user-mfa">
-                <Text size="sm">On: authenticator app{mfa?.recoveryCodesLeft != null ? ` · ${mfa.recoveryCodesLeft} recovery code${mfa.recoveryCodesLeft === 1 ? "" : "s"} left` : ""}</Text>
-                <Button size="xs" variant="subtle" color="red" disabled={busy}
-                  onClick={() => window.confirm("Turn off two-step sign-in for this user? Do this only if you've confirmed who they are (a lost phone).") &&
-                    run(() => authApi.resetAppUserMfa(uid), "Two-step sign-in is off: they sign in with just their first step until they add an app again.")}>
-                  Turn off
-                </Button>
-              </Group>
-            ) : (
-              <Text size="sm" c="dimmed">Off. The user turns it on from the app.</Text>
-            )}
+type TabProps = { user: AppUser; uid: string; busy: boolean; run: (f: () => Promise<unknown>, done?: string) => Promise<boolean> };
+
+/** Name and photo, email (at once, or by a link to the new address), password; for console accounts, the server admin role. */
+function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }: TabProps & {
+  readOnly: boolean; caps: DirectoryCapabilities | undefined; consoleAccounts: boolean;
+}) {
+  const authApi = useAuthApi();
+  const [displayName, setDisplayName] = useState(u.displayName ?? "");
+  const [photoUrl, setPhotoUrl] = useState(u.photoUrl ?? "");
+  const [email, setEmail] = useState(u.email ?? "");
+  const [emailMode, setEmailMode] = useState<"now" | "confirm">("now");
+  const [verified, setVerified] = useState(false);
+  const [sendVerification, setSendVerification] = useState(true);
+  const [password, setPassword] = useState("");
+  useEffect(() => { setDisplayName(u.displayName ?? ""); setPhotoUrl(u.photoUrl ?? ""); setEmail(u.email ?? ""); }, [u.displayName, u.photoUrl, u.email]);
+  const canProfile = !readOnly && !!caps?.profile;
+  const canEmail = !readOnly && (consoleAccounts || !!caps?.email);
+  const canPassword = !readOnly && (consoleAccounts || !!caps?.password);
+  const profileChanged = displayName.trim() !== (u.displayName ?? "") || photoUrl.trim() !== (u.photoUrl ?? "");
+  const emailChanged = email.trim() !== (u.email ?? "") && email.includes("@");
+
+  const saveEmail = () => consoleAccounts
+    ? run(() => api.updateUser(uid, { email: email.trim() }), "Email changed; their sign-ins ended.")
+    : emailMode === "confirm"
+      ? run(() => authApi.setAppUserEmail(uid, email.trim(), { confirm: true }), `A link is on its way to ${email.trim()}: the email changes when they open it (their old address is told, with an undo link).`)
+      : run(() => authApi.setAppUserEmail(uid, email.trim(), { confirm: false, verified, sendVerification: !verified && sendVerification }),
+          `Email changed; their sign-ins ended${!verified && sendVerification ? `, and a verify link is on its way to ${email.trim()}` : ""}.`);
+
+  return (
+    <Stack gap="lg">
+      <Stack gap="xs">
+        <Title order={6}>Name and photo</Title>
+        <Group align="flex-start" gap="md" wrap="nowrap">
+          <Avatar src={photoUrl.trim() || undefined} size={56} radius="xl" color="winche">{(displayName || u.email || "?").slice(0, 1).toUpperCase()}</Avatar>
+          <Stack gap="xs" style={{ flex: 1 }}>
+            <TextInput label="Display name" disabled={!canProfile} value={displayName} onChange={(e) => setDisplayName(e.currentTarget.value)} maxLength={100} />
+            <TextInput label="Photo URL" placeholder="https://…" disabled={!canProfile} value={photoUrl} onChange={(e) => setPhotoUrl(e.currentTarget.value)} />
           </Stack>
+        </Group>
+        {canProfile && (
+          <Button size="xs" w="fit-content" loading={busy} disabled={!profileChanged}
+            onClick={() => run(() => authApi.updateAppUserProfile(uid, displayName.trim() || null, photoUrl.trim() || null), "Profile saved.")}>Save name and photo</Button>
         )}
+      </Stack>
 
-        <Stack gap={6}>
-          <Group justify="space-between"><Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
-            <Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
-          <Textarea autosize minRows={3} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "clinician" }'
-            value={claims} onChange={(e) => setClaims(e.currentTarget.value)} />
-          <Text size="xs" c="dimmed">In the user's next token: when they next refresh or sign in.</Text>
-          <Button size="xs" variant="default" w="fit-content" loading={busy} onClick={saveClaims}>Save claims</Button>
-        </Stack>
-
-        <Stack gap={6}>
-          <Title order={6}>Sessions</Title>
-          {sessions.length === 0 && <EmptyState compact bordered={false} icon={IconDevices} title="Not signed in anywhere" />}
-          {sessions.map((s) => (
-            <Group key={s.id} justify="space-between" wrap="nowrap" gap="xs" data-testid="app-session"
-              style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
-              <div style={{ minWidth: 0 }}>
-                <Text size="sm" truncate>{s.userAgent ?? "Unknown device"}</Text>
-                <Text size="xs" c="dimmed">{s.provider} · {s.ipAddress ?? "no address"} · last used {when(s.lastUsedAt)}</Text>
-              </div>
-              <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.revokeAppSession(uid, s.id))}>Sign out</Button>
+      {!u.isAnonymous && (
+        <Stack gap="xs" data-testid="profile-email">
+          <Title order={6}>Email</Title>
+          <TextInput label="Email" disabled={!canEmail} value={email} onChange={(e) => setEmail(e.currentTarget.value)}
+            description={u.email ? (u.emailVerified ? "Verified" : "Not verified") : "None yet"} />
+          {canEmail && emailChanged && !consoleAccounts && (
+            <Stack gap={6}>
+              <SegmentedControl size="xs" value={emailMode} onChange={(v) => setEmailMode(v as "now" | "confirm")} w="fit-content"
+                data={[{ value: "now", label: "Change it now" }, { value: "confirm", label: "Send a link to confirm" }]} />
+              {emailMode === "now" ? (
+                <>
+                  <Text size="xs" c="dimmed">Changed at once; their sign-ins end and they sign in with the new address.</Text>
+                  <Switch size="sm" label="It's verified (I know it's theirs)" checked={verified} onChange={(e) => setVerified(e.currentTarget.checked)} />
+                  {!verified && <Switch size="sm" label="Send a verify link to the new address" checked={sendVerification} onChange={(e) => setSendVerification(e.currentTarget.checked)} />}
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">The new address gets a link; the email changes only when they open it, and the old address is told (with an undo link).</Text>
+              )}
+            </Stack>
+          )}
+          {canEmail && emailChanged && (
+            <Group gap="xs">
+              <Button size="xs" loading={busy} onClick={saveEmail}>{emailMode === "confirm" && !consoleAccounts ? "Send the link" : "Save email"}</Button>
+              <Button size="xs" variant="subtle" onClick={() => setEmail(u.email ?? "")}>Cancel</Button>
             </Group>
-          ))}
+          )}
         </Stack>
+      )}
 
-        {error && <Alert color="red">{error}</Alert>}
-        {notice && <Alert color="teal">{notice}</Alert>}
-        {u.email && !fromKeycloak && (
+      {!u.isAnonymous && canPassword && (
+        <Stack gap="xs">
+          <Title order={6}>Password</Title>
+          <Text size="xs" c="dimmed">{u.providers.includes("password") ? "Has a password." : "No password yet: they sign in another way."} A new one ends their sign-ins everywhere; tell them yourself.</Text>
+          <Group align="flex-end" gap="xs">
+            <PasswordInput label="New password" autoComplete="new-password" w={280} value={password} onChange={(e) => setPassword(e.currentTarget.value)} />
+            <Button size="xs" mb={4} loading={busy} disabled={password.length < 8}
+              onClick={async () => {
+                if (await run(() => consoleAccounts ? api.resetUserPassword(uid, password) : authApi.setAppUserPassword(uid, password), "Password set; their sign-ins ended.")) setPassword("");
+              }}>Set password</Button>
+          </Group>
+        </Stack>
+      )}
+
+      {consoleAccounts && (
+        <Stack gap={8} data-testid="console-account">
+          <Title order={6}>Console account</Title>
+          <Switch label="Server admin" checked={u.customClaims.role === "Admin"} disabled={busy}
+            description="Admin of every project and of Server settings. Others reach a project as its members."
+            onChange={(e) => {
+              const admin = e.currentTarget.checked;
+              void run(() => api.updateUser(uid, { role: admin ? "Admin" : "Member" }), admin ? "Now a server admin." : "No longer a server admin.");
+            }} />
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+/** How they sign in: methods (unlink), two-step sign-in, a locked account, emails for reset and verification. */
+function SignInTab({ user: u, uid, busy, run, fromKeycloak, mfa }: TabProps & { fromKeycloak: boolean; mfa?: { recoveryCodesLeft: number } | null }) {
+  const authApi = useAuthApi();
+  const config = useQuery({ queryKey: ["app-auth-config"], queryFn: authApi.appAuthConfig });
+  const caps = config.data?.directory?.capabilities;
+  const can = (c: keyof NonNullable<typeof caps>) => !caps || !!caps[c];
+  const status = statusOf(u);
+  return (
+    <Stack gap="lg">
+      <Table fz="sm" withRowBorders={false} verticalSpacing={2}>
+        <Table.Tbody>
+          <Table.Tr><Table.Td c="dimmed" w={140}>Last sign-in</Table.Td><Table.Td>{when(u.lastSignInAt)}</Table.Td></Table.Tr>
+          <Table.Tr><Table.Td c="dimmed">Email verified</Table.Td><Table.Td>{u.email ? (u.emailVerified ? "Yes" : "No") : "No email"}</Table.Td></Table.Tr>
+          {status === "Locked out" && (
+            <Table.Tr><Table.Td c="dimmed">Locked out</Table.Td><Table.Td>
+              <Group gap="xs">{u.lockedOutUntil && <Text size="sm">until {when(u.lockedOutUntil)}</Text>}
+                {can("unlock") && <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.unlockAppUser(uid))}>Unlock</Button>}</Group>
+            </Table.Td></Table.Tr>
+          )}
+        </Table.Tbody>
+      </Table>
+
+      <Stack gap={6}>
+        <Title order={6}>Sign-in methods</Title>
+        {u.providers.length === 0 && <Text size="sm" c="dimmed">None yet: set a password, or send a reset link.</Text>}
+        {u.providers.map((p) => {
+          const linked = p !== "password" && p !== "anonymous";
+          return (
+            <Group key={p} justify="space-between" wrap="nowrap" data-testid="app-user-provider"
+              style={{ border: "1px solid var(--mantine-color-gray-3)", borderRadius: 8, padding: "6px 10px" }}>
+              <Text size="sm">{providerLabel(p, config.data)}</Text>
+              {linked && can("unlinkProviders") && u.providers.length > 1 && (
+                <Button size="xs" variant="subtle" disabled={busy}
+                  onClick={() => window.confirm(`Unlink ${providerLabel(p, config.data)} from this user?`) && run(() => authApi.unlinkAppUserProvider(uid, p))}>
+                  Unlink
+                </Button>
+              )}
+            </Group>
+          );
+        })}
+      </Stack>
+
+      {(u.mfaEnabled || config.data?.mfa) && (
+        <Stack gap={6}>
+          <Title order={6}>Two-step sign-in</Title>
+          {u.mfaEnabled ? (
+            <Group justify="space-between" wrap="nowrap" gap="xs" data-testid="app-user-mfa">
+              <Text size="sm">On: authenticator app{mfa?.recoveryCodesLeft != null ? ` · ${mfa.recoveryCodesLeft} recovery code${mfa.recoveryCodesLeft === 1 ? "" : "s"} left` : ""}</Text>
+              <Button size="xs" variant="subtle" color="red" disabled={busy}
+                onClick={() => window.confirm("Turn off two-step sign-in for this user? Do this only if you've confirmed who they are (a lost phone).") &&
+                  run(() => authApi.resetAppUserMfa(uid), "Two-step sign-in is off: they sign in with just their first step until they add an app again.")}>
+                Turn off
+              </Button>
+            </Group>
+          ) : (
+            <Text size="sm" c="dimmed">Off. The user turns it on from the app.</Text>
+          )}
+        </Stack>
+      )}
+
+      {u.email && !fromKeycloak && (
+        <Stack gap={6}>
+          <Title order={6}>Emails</Title>
           <Group gap="xs">
             {can("passwordReset") && config.data?.email && config.data.emailPassword && (
               <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.sendAppUserPasswordReset(uid), `A reset link is on its way to ${u.email}.`)}>Send password reset</Button>
@@ -318,26 +418,56 @@ function UserPanel({ uid, onGone }: { uid: string; onGone: () => void }) {
               {u.emailVerified ? "Mark not verified" : "Mark verified"}
             </Button>
           </Group>
-        )}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+/** What they may do: custom claims (in their next token), and turning the account off. */
+function AccessTab({ user: u, uid, busy, run, fromKeycloak }: TabProps & { fromKeycloak: boolean }) {
+  const authApi = useAuthApi();
+  const config = useQuery({ queryKey: ["app-auth-config"], queryFn: authApi.appAuthConfig });
+  const caps = config.data?.directory?.capabilities;
+  const [claims, setClaims] = useState(Object.keys(u.customClaims).length ? JSON.stringify(u.customClaims, null, 2) : "");
+  const [claimsError, setClaimsError] = useState<string | null>(null);
+  useEffect(() => setClaims(Object.keys(u.customClaims).length ? JSON.stringify(u.customClaims, null, 2) : ""), [u.customClaims]);
+  const parsed = (): Record<string, unknown> | null => {
+    if (!claims.trim()) return null;
+    let p: unknown;
+    try { p = JSON.parse(claims); } catch { throw new Error("The claims aren't valid JSON."); }
+    if (typeof p !== "object" || p === null || Array.isArray(p)) throw new Error("Custom claims must be a JSON object.");
+    return p as Record<string, unknown>;
+  };
+  return (
+    <Stack gap="lg">
+      <Stack gap={6}>
+        <Group justify="space-between"><Title order={6}>{caps?.claimsLabel ?? "Custom claims"}</Title>
+          <Text size="xs" c="dimmed">rules: request.auth.token.*</Text></Group>
+        <Textarea autosize minRows={4} ff="monospace" fz="xs" aria-label="Custom claims (JSON)" placeholder='{ "role": "clinician" }'
+          value={claims} onChange={(e) => { setClaims(e.currentTarget.value); setClaimsError(null); }} error={claimsError} />
+        <Text size="xs" c="dimmed">In the user's next token: when they next refresh or sign in.</Text>
         <Group gap="xs">
-          <Button size="xs" variant="default" disabled={busy || sessions.length === 0} onClick={() => run(() => authApi.signOutAppUser(uid))}>Sign out everywhere</Button>
-          {status === "Locked out" && can("unlock") && <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.unlockAppUser(uid))}>Unlock</Button>}
-          {!fromKeycloak && (
-            <>
-              <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.setAppUserDisabled(uid, !u.disabled))}>
-                {u.disabled ? "Enable user" : "Disable user"}
-              </Button>
-              <Button size="xs" variant="outline" color="red" disabled={busy}
-                onClick={() => window.confirm(`Delete ${u.email ?? u.uid}? Their sign-in goes; their data in the database stays.`) &&
-                  run(async () => { await authApi.deleteAppUser(uid); onGone(); })}>
-                Delete user
-              </Button>
-            </>
-          )}
+          <Button size="xs" variant="default" disabled={busy || !claims.trim()} onClick={() => {
+            try { setClaims(JSON.stringify(parsed(), null, 2)); setClaimsError(null); } catch (e) { setClaimsError((e as Error).message); }
+          }}>Format</Button>
+          <Button size="xs" loading={busy} onClick={() => {
+            try { const p = parsed(); void run(() => authApi.setAppUserClaims(uid, p), "Claims saved."); } catch (e) { setClaimsError((e as Error).message); }
+          }}>Save claims</Button>
         </Group>
-        <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it.</Text>
       </Stack>
-    </Paper>
+      {!fromKeycloak && (!caps || caps.disable) && (
+        <Stack gap={6}>
+          <Title order={6}>Account</Title>
+          <Group justify="space-between" wrap="nowrap">
+            <Text size="sm">{u.disabled ? "Disabled: they can't sign in, and their sign-ins have ended." : "Enabled: they can sign in."}</Text>
+            <Button size="xs" variant="default" disabled={busy} onClick={() => run(() => authApi.setAppUserDisabled(uid, !u.disabled))}>
+              {u.disabled ? "Enable user" : "Disable user"}
+            </Button>
+          </Group>
+        </Stack>
+      )}
+    </Stack>
   );
 }
 

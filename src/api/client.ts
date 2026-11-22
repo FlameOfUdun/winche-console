@@ -81,6 +81,13 @@ export function authApi(base: string) {
     sendAppUserPasswordReset: (uid: string) => http<void>("POST", `${base}/users/${encodeURIComponent(uid)}/sendPasswordReset`),
     sendAppUserVerification: (uid: string) => http<void>("POST", `${base}/users/${encodeURIComponent(uid)}/sendVerification`),
     setAppUserVerified: (uid: string, verified: boolean) => http<AppUser>("POST", `${base}/users/${encodeURIComponent(uid)}/verified`, { verified }),
+    /** The name and photo shown for the user (empty clears one). */
+    updateAppUserProfile: (uid: string, displayName: string | null, photoUrl: string | null) =>
+      http<AppUser>("PATCH", `${base}/users/${encodeURIComponent(uid)}/profile`, { displayName, photoUrl }),
+    /** At once (verified or not, a verify link if asked), or by a link to the new address (confirm: changes when opened). */
+    setAppUserEmail: (uid: string, email: string, how: { confirm: boolean; verified?: boolean; sendVerification?: boolean }) =>
+      http<AppUser | { pending: true }>("PUT", `${base}/users/${encodeURIComponent(uid)}/email`, { email, ...how }),
+    setAppUserPassword: (uid: string, password: string) => http<AppUser>("PUT", `${base}/users/${encodeURIComponent(uid)}/password`, { password }),
     appEmailTemplates: () => http<{ templates: EmailTemplateInfo[] }>("GET", `${base}/email-templates`),
     saveAppEmailTemplate: (kind: string, subject: string, body: string) => http<void>("PUT", `${base}/email-templates/${kind}`, { subject, body }),
     resetAppEmailTemplate: (kind: string) => http<void>("DELETE", `${base}/email-templates/${kind}`),

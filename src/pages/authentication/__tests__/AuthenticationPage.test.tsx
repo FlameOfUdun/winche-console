@@ -20,6 +20,7 @@ vi.mock("../../../api/client", async (orig) => {
       settingsHistory: vi.fn(), restoreSettings: vi.fn(), resetSettings: vi.fn(), resetAppUserMfa: vi.fn(), unlinkAppUserProvider: vi.fn(), sendAppUserPasswordReset: vi.fn(), sendAppUserVerification: vi.fn(), setAppUserVerified: vi.fn(),
       appEmailTemplates: vi.fn(), saveAppEmailTemplate: vi.fn(), resetAppEmailTemplate: vi.fn(), testAppEmailTemplate: vi.fn(), revokeAppSession: vi.fn(), unlockAppUser: vi.fn(), deleteAppUser: vi.fn(), appAuthConfig: vi.fn(), rotateAppAuthKeys: vi.fn(), keycloakSyncs: vi.fn(), syncKeycloakNow: vi.fn(),
       signInSettings: vi.fn(), saveSignInSettings: vi.fn(), testSignInEmail: vi.fn(), rulesSubsystems: vi.fn(),
+      updateAppUserProfile: vi.fn(), setAppUserEmail: vi.fn(), setAppUserPassword: vi.fn(),
     },
   };
 });
@@ -35,7 +36,7 @@ const user = (over: Partial<AppUser> = {}): AppUser => ({
   lastSignInAt: "2026-11-12T15:41:00Z", lockedOutUntil: null, ...over,
 });
 const wincheCaps = { create: true, claims: true, claimsLabel: "Custom claims", sessions: true, unlock: true, resetMfa: true, unlinkProviders: true,
-  passwordReset: true, verify: true, delete: true, disable: true, groups: false };
+  passwordReset: true, verify: true, delete: true, disable: true, groups: false, profile: true, email: true, password: true };
 const config: AppAuthConfig = {
   directory: { kind: "wincheAuth", label: "Winche Auth", capabilities: wincheCaps }, trustedProviders: true,
   emailPassword: { minLength: 10, requireVerifiedEmail: false }, anonymous: true,
@@ -105,36 +106,69 @@ test("lists users; opening one shows sessions and claims, and its actions call t
   expect(screen.getByText("Sign-ins and failures in Logs →")).toHaveAttribute("href", "/logs?resource=auth");
 
   await userEvent.click(rows[0]);
-  expect(await screen.findByText("Clinic/2.4.1 iOS")).toBeInTheDocument();
-  const claims = screen.getByLabelText("Custom claims (JSON)") as HTMLTextAreaElement;
-  expect(JSON.parse(claims.value)).toEqual({ role: "clinician" });
+  const dialog = await screen.findByRole("dialog");
+  const tab = (name: RegExp | string) => userEvent.click(within(dialog).getByRole("tab", { name }));
 
+  // Profile (the first tab): name and photo; email at once (not verified, a verify link) or by a link; a password.
+  await userEvent.clear(within(dialog).getByLabelText("Display name"));
+  await userEvent.type(within(dialog).getByLabelText("Display name"), "Anna Kowalska");
+  await userEvent.type(within(dialog).getByLabelText("Photo URL"), "https://example.com/anna.png");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save name and photo" }));
+  await waitFor(() => expect(mock(api.updateAppUserProfile)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "Anna Kowalska", "https://example.com/anna.png"));
+  const email = within(dialog).getByLabelText("Email");
+  await userEvent.clear(email);
+  await userEvent.type(email, "anna@clinic.example");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save email" }));
+  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@clinic.example", { confirm: false, verified: false, sendVerification: true }));
+  expect(await within(dialog).findByText(/a verify link is on its way to anna@clinic.example/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByText("Send a link to confirm"));
+  await userEvent.click(within(dialog).getByRole("button", { name: "Send the link" }));
+  await waitFor(() => expect(mock(api.setAppUserEmail)).toHaveBeenLastCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "anna@clinic.example", { confirm: true }));
+  expect(await within(dialog).findByText(/the email changes when they open it/)).toBeInTheDocument();
+  await userEvent.type(within(dialog).getByLabelText("New password"), "a brand new password");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Set password" }));
+  await waitFor(() => expect(mock(api.setAppUserPassword)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "a brand new password"));
+
+  // Access: claims, and turning the account off.
+  await tab("Access");
+  const claims = within(dialog).getByLabelText("Custom claims (JSON)") as HTMLTextAreaElement;
+  expect(JSON.parse(claims.value)).toEqual({ role: "clinician" });
   await userEvent.clear(claims);
   await userEvent.type(claims, "{{ \"role\": \"admin\" }");
-  await userEvent.click(screen.getByText("Save claims"));
+  await userEvent.click(within(dialog).getByText("Save claims"));
   await waitFor(() => expect(mock(api.setAppUserClaims)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", { role: "admin" }));
-
   await userEvent.clear(claims);
   await userEvent.type(claims, "[[1]");
-  await userEvent.click(screen.getByText("Save claims"));
-  expect(await screen.findByText("Custom claims must be a JSON object.")).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByText("Save claims"));
+  expect(await within(dialog).findByText("Custom claims must be a JSON object.")).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByText("Disable user"));
+  await waitFor(() => expect(mock(api.setAppUserDisabled)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", true));
 
-  expect(screen.getByTestId("app-user-mfa")).toHaveTextContent("7 recovery codes left");
+  // Sign-in: two-step sign-in, methods, emails.
+  await tab("Sign-in");
+  expect(within(dialog).getByTestId("app-user-mfa")).toHaveTextContent("7 recovery codes left");
   vi.spyOn(window, "confirm").mockReturnValue(true);
-  await userEvent.click(within(screen.getByTestId("app-user-mfa")).getByText("Turn off"));
+  await userEvent.click(within(within(dialog).getByTestId("app-user-mfa")).getByText("Turn off"));
   await waitFor(() => expect(mock(api.resetAppUserMfa)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w"));
-  const providers = screen.getAllByTestId("app-user-provider");
+  const providers = within(dialog).getAllByTestId("app-user-provider");
   expect(within(providers[0]).queryByText("Unlink")).toBeNull();   // a password isn't unlinked
-  vi.spyOn(window, "confirm").mockReturnValue(true);
   await userEvent.click(within(providers[1]).getByText("Unlink"));
   await waitFor(() => expect(mock(api.unlinkAppUserProvider)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "google"));
-  await userEvent.click(within(screen.getByTestId("app-session")).getByText("Sign out"));
-  await waitFor(() => expect(mock(api.revokeAppSession)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "s1"));
-  await userEvent.click(screen.getByText("Send password reset"));
+  await userEvent.click(within(dialog).getByText("Send password reset"));
   await waitFor(() => expect(mock(api.sendAppUserPasswordReset)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w"));
-  expect(await screen.findByText("A reset link is on its way to anna.k@example.com.")).toBeInTheDocument();
-  await userEvent.click(screen.getByText("Disable user"));
-  await waitFor(() => expect(mock(api.setAppUserDisabled)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", true));
+  expect(await within(dialog).findByText("A reset link is on its way to anna.k@example.com.")).toBeInTheDocument();
+
+  // Sessions.
+  await tab(/Sessions/);
+  expect(within(dialog).getByText("Clinic/2.4.1 iOS")).toBeInTheDocument();
+  await userEvent.click(within(within(dialog).getByTestId("app-session")).getByText("Sign out"));
+  await waitFor(() => expect(mock(api.revokeAppSession)).toHaveBeenCalledWith("Xq3v9LmT2aB7pQ8rS1dF4gH6jK0w", "s1"));
+
+  // Deleting asks first, at the foot.
+  await userEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
+  expect(within(dialog).getByText(/Their sign-in goes; their data stays/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(mock(api.deleteAppUser)).not.toHaveBeenCalled();
 });
 
 async function editCard(title: string) {
@@ -287,12 +321,20 @@ test("users from a Keycloak with sync on: marked, and their account managed in K
   mock(api.appUser).mockResolvedValue({ user: ana, sessions: [], mfa: { recoveryCodesLeft: null } });
   renderPage();
   await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
-  expect(await screen.findByTestId("from-keycloak")).toHaveTextContent("managed in Keycloak");
-  expect(screen.queryByText("Disable user")).toBeNull();
-  expect(screen.queryByText("Delete user")).toBeNull();
-  expect(screen.queryByText("Send password reset")).toBeNull();
-  expect(screen.getByText("Sign out everywhere")).toBeInTheDocument();   // their sessions here are Winche's
-  expect(screen.getByLabelText("Custom claims (JSON)")).toBeInTheDocument();
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByTestId("from-keycloak")).toHaveTextContent("managed in Keycloak");
+  // Their profile, email and password are Keycloak's: shown, not editable; no password field.
+  expect(within(dialog).getByLabelText("Display name")).toBeDisabled();
+  expect(within(dialog).getByLabelText("Email")).toBeDisabled();
+  expect(within(dialog).queryByLabelText("New password")).toBeNull();
+  expect(within(dialog).queryByText("Delete user")).toBeNull();
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Access" }));
+  expect(within(dialog).queryByText("Disable user")).toBeNull();
+  expect(within(dialog).getByLabelText("Custom claims (JSON)")).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole("tab", { name: "Sign-in" }));
+  expect(within(dialog).queryByText("Send password reset")).toBeNull();
+  await userEvent.click(within(dialog).getByRole("tab", { name: /Sessions/ }));
+  expect(within(dialog).getByText("Sign out everywhere")).toBeInTheDocument();   // their sessions here are Winche's
 });
 
 test("settings have no user directory: users are Winche Auth's", async () => {

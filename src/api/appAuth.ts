@@ -21,6 +21,8 @@ export interface AppUser {
 export interface DirectoryCapabilities {
   create: boolean; claims: boolean; claimsLabel: string; sessions: boolean; unlock: boolean; resetMfa: boolean; unlinkProviders: boolean;
   passwordReset: boolean; verify: boolean; delete: boolean; disable: boolean;
+  /** Edit the name and photo, the email, the password (absent from older servers: no). */
+  profile?: boolean; email?: boolean; password?: boolean;
 }
 
 

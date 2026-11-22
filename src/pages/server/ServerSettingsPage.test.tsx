@@ -103,14 +103,16 @@ test("users: Authentication's own list, of the console's accounts; one made a se
   expect(await screen.findByText("root@example.com")).toBeInTheDocument();
   expect(screen.getAllByText("Server admin")).toHaveLength(1);   // root's badge
   await userEvent.click(screen.getByText("ann@example.com"));
-  const panel = await screen.findByTestId("console-account");
+  const dialog = await screen.findByRole("dialog");
+  const panel = within(dialog).getByTestId("console-account");
   await userEvent.click(within(panel).getByLabelText(/^Server admin/));
   await waitFor(() => expect(api.updateUser).toHaveBeenCalledWith("u2", { role: "Admin" }));
-  await userEvent.click(within(panel).getByRole("button", { name: "Change email" }));
-  const field = within(panel).getByLabelText(/^New email/);
+  // A console account's email changes at once (its own API), without the confirm-by-link choice.
+  const field = within(dialog).getByLabelText("Email");
   await userEvent.clear(field);
   await userEvent.type(field, "ann.new@example.com");
-  await userEvent.click(within(panel).getByRole("button", { name: "Save email" }));
+  expect(within(dialog).queryByText("Send a link to confirm")).toBeNull();
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save email" }));
   await waitFor(() => expect(api.updateUser).toHaveBeenCalledWith("u2", { email: "ann.new@example.com" }));
 });
 
