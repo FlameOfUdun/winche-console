@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   ActionIcon, Alert, Badge, Button, Code, FileButton, Group, Loader, Menu, Modal, NumberInput, Paper, PasswordInput, SegmentedControl, Select, Stack, Switch, Table,
   Tabs, TagsInput, Text, Textarea, TextInput, Title, Tooltip,
@@ -225,73 +225,133 @@ function Apps({ data, baseUrl, snippet }: { data: IntegrityData; baseUrl: string
   );
 }
 
-/** Each product's mode, with today's requests with and without a valid token; and how long tokens last. */
-function Enforcement({ data }: { data: IntegrityData }) {
-  const qc = useQueryClient();
-  const [modes, setModes] = useState<Record<string, IntegrityMode> | null>(null);
-  const [minutes, setMinutes] = useState<number | string>("");
-  const [editing, setEditing] = useState(false);
-  const verified = (product: string) => data.apps.reduce((n, a) => n + (a.usage[product]?.today ?? 0), 0);
-  const unverified = (product: string) => data.unverified[product]?.today ?? 0;
-  const counts = (p: string) => data.enforcement[p] === "off" ? "Not counted" : `${verified(p).toLocaleString()} verified · ${unverified(p).toLocaleString()} without a token`;
-  const week = (p: string) => {
-    const ok = data.apps.reduce((n, a) => n + (a.usage[p]?.last7Days ?? 0), 0), no = data.unverified[p]?.last7Days ?? 0;
-    return { ok, no, share: ok + no === 0 ? null : Math.round((ok / (ok + no)) * 100) };
-  };
-  const m = modes ?? data.enforcement;
+/** A product's requests: today's with and without a valid token, the last 7 days' share verified. */
+function productCounts(data: IntegrityData, p: string) {
+  const today = { ok: data.apps.reduce((n, a) => n + (a.usage[p]?.today ?? 0), 0), no: data.unverified[p]?.today ?? 0 };
+  const ok = data.apps.reduce((n, a) => n + (a.usage[p]?.last7Days ?? 0), 0), no = data.unverified[p]?.last7Days ?? 0;
+  return { today, week: { ok, no, share: ok + no === 0 ? null : Math.floor((ok / (ok + no)) * 100) } };
+}
+
+/** Ready to enforce: 99% verified over a week, and every app able to prove itself. */
+function readyToEnforce(data: IntegrityData, p: string) {
+  const { week } = productCounts(data, p);
+  return week.share !== null && week.share >= 99 && data.apps.length > 0
+    && data.apps.every((a) => !readiness(a, data).some((r) => r.color === "red"));
+}
+
+/** The verified share as a bar: teal verified, the rest without a token. */
+function ShareBar({ share }: { share: number | null }) {
   return (
-    <EditCard title="Enforcement" testId="integrity-enforcement"
-      description="How each product treats requests without a valid Integrity token. Links opened from emails, identity providers' notices, HTTP functions (webhooks) and signed file links never need one."
-      editable={data.editable} editing={editing}
-      onEdit={() => { setModes(data.enforcement); setMinutes(data.tokenMinutes); setEditing(true); }}
-      onCancel={() => setEditing(false)}
-      onSave={async (reason) => {
-        await api.setIntegrityEnforcement(m, Number(minutes) || data.tokenMinutes, reason);
-        await qc.invalidateQueries({ queryKey: INTEGRITY });
-        setEditing(false);
-      }}
-      rows={[
-        ...data.products.map((p) => ({
-          label: PRODUCT_LABEL[p] ?? p,
-          value: (
-            <Group gap="sm" wrap="wrap">
-              <Badge variant="light" color={data.enforcement[p] === "enforce" ? "teal" : data.enforcement[p] === "off" ? "gray" : "blue"}>
-                {MODES.find((x) => x.value === data.enforcement[p])?.label}</Badge>
-              <Text span size="xs" c={surface.muted}>Today: {counts(p)}</Text>
-              {data.enforcement[p] !== "off" && week(p).share !== null && (
-                <Text span size="xs" c={week(p).share! < 95 ? "orange" : surface.muted} data-testid={`week-${p}`}>· last 7 days {week(p).share}% verified</Text>
+    <div role="img" aria-label={share === null ? "no requests yet" : `${share}% verified`}
+      style={{ height: 8, width: 160, borderRadius: 999, background: share === null ? surface.subtle : "var(--mantine-color-orange-2)", overflow: "hidden", flexShrink: 0 }}>
+      {share !== null && <div style={{ width: `${share}%`, height: "100%", background: "var(--mantine-color-teal-6)" }} />}
+    </div>
+  );
+}
+
+/** Each product's mode and how its requests stand; changed in a dialog. */
+function Enforcement({ data }: { data: IntegrityData }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <Paper withBorder p="lg" data-testid="integrity-enforcement">
+      <Group justify="space-between" align="flex-start" gap="sm" mb="md">
+        <div>
+          <Title order={2} fz={16}>Enforcement</Title>
+          <Text size="sm" c={surface.muted} mt={2}>How each product treats requests without a valid Integrity token.</Text>
+        </div>
+        {data.editable && <Button variant="default" onClick={() => setEditing(true)}>Change…</Button>}
+      </Group>
+      <Stack gap={0}>
+        {data.products.map((p) => {
+          const mode = data.enforcement[p];
+          const { today, week } = productCounts(data, p);
+          const refused = mode !== "enforce" && mode !== "off" && today.no > 0;
+          return (
+            <Group key={p} wrap="wrap" gap="md" py={10} style={{ borderTop: `1px solid ${surface.subtle}` }} data-testid={`enforcement-${p}`}>
+              <Text fw={500} size="sm" w={130}>{PRODUCT_LABEL[p] ?? p}</Text>
+              <Badge w={86} variant="light" color={mode === "enforce" ? "teal" : mode === "off" ? "gray" : "blue"}>{MODES.find((x) => x.value === mode)?.label}</Badge>
+              {mode === "off" ? <Text size="sm" c={surface.faint}>Not checked</Text> : (
+                <Stack gap={2} style={{ flex: 1, minWidth: 220 }}>
+                  <Group gap="sm" wrap="nowrap">
+                    <ShareBar share={week.share} />
+                    <Text size="xs" c={week.share !== null && week.share < 95 ? "orange" : surface.muted} data-testid={`week-${p}`}>
+                      {week.share === null ? "no requests yet" : `${week.share}% verified · 7 days`}
+                    </Text>
+                  </Group>
+                  <Text size="xs" c={surface.muted}>
+                    Today: {today.ok.toLocaleString()} verified · {today.no.toLocaleString()} without a token
+                    {refused && <Text span size="xs" c="orange">{`  ⚠ ${today.no.toLocaleString()} would be refused`}</Text>}
+                    {mode === "monitor" && readyToEnforce(data, p) && <Text span size="xs" c="teal">{"  ✓ ready to enforce"}</Text>}
+                  </Text>
+                </Stack>
               )}
             </Group>
-          ),
-        })),
-        { label: "Tokens last", value: `${data.tokenMinutes} minutes` },
-      ]}
-      form={
-        <Stack gap="md" style={{ padding: "0 24px 16px" }}>
-          {data.apps.length === 0 && <Alert color="gray" p="xs">Add an app before enforcing: nothing could call.</Alert>}
-          {data.products.filter((p) => m[p] === "enforce" && data.enforcement[p] !== "enforce" && week(p).no > 0).map((p) => (
-            <Alert key={p} color="yellow" p="xs" data-testid={`enforce-warning-${p}`}>
-              {PRODUCT_LABEL[p] ?? p}: {week(p).no.toLocaleString()} request{week(p).no === 1 ? "" : "s"} in the last 7 days had no valid token. Enforced, they'd have been refused.
-            </Alert>
-          ))}
-          <Table withRowBorders={false} verticalSpacing={6}>
-            <Table.Tbody>
-              {data.products.map((p) => (
-                <Table.Tr key={p}>
-                  <Table.Td w={160}><Text size="sm" fw={500}>{PRODUCT_LABEL[p] ?? p}</Text></Table.Td>
-                  <Table.Td>
-                    <SegmentedControl size="xs" aria-label={`${PRODUCT_LABEL[p] ?? p} mode`} data={MODES.map((x) => ({ ...x, disabled: x.value === "enforce" && data.apps.length === 0 }))}
-                      value={m[p]} onChange={(v) => setModes({ ...m, [p]: v as IntegrityMode })} />
-                  </Table.Td>
-                  <Table.Td><Text size="xs" c={surface.muted}>{MODE_TEXT[m[p]]}</Text></Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-          <NumberInput label="Tokens last (minutes)" description="30 minutes to 24 hours. Shorter: a stolen token is good for less time; apps prove themselves more often."
-            w={260} min={30} max={1440} value={minutes} onChange={setMinutes} />
-        </Stack>
-      } />
+          );
+        })}
+      </Stack>
+      <Stack gap={4} pt="sm" style={{ borderTop: `1px solid ${surface.subtle}` }}>
+        <Text size="sm">Tokens last {data.tokenMinutes} minutes</Text>
+        <Text size="xs" c={surface.muted}>Never need a token: links opened from emails, users' photos, identity providers' notices, HTTP functions (webhooks) and signed file links.</Text>
+      </Stack>
+      {data.editable && <EnforcementDialog data={data} opened={editing} onClose={() => setEditing(false)} />}
+    </Paper>
+  );
+}
+
+/** Every product's mode, how long tokens last, and why: saved together, as one change in the history. */
+function EnforcementDialog({ data, opened, onClose }: { data: IntegrityData; opened: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [modes, setModes] = useState<Record<string, IntegrityMode>>(data.enforcement);
+  const [minutes, setMinutes] = useState<number | string>(data.tokenMinutes);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => { if (opened) { setModes(data.enforcement); setMinutes(data.tokenMinutes); setReason(""); setError(null); } }, [opened, data.enforcement, data.tokenMinutes]);
+  const changed = data.products.some((p) => modes[p] !== data.enforcement[p]) || Number(minutes) !== data.tokenMinutes;
+  const save = async () => {
+    setBusy(true); setError(null);
+    try {
+      await api.setIntegrityEnforcement(modes, Number(minutes) || data.tokenMinutes, reason.trim());
+      await qc.invalidateQueries({ queryKey: INTEGRITY });
+      onClose();
+    } catch (e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <Modal opened={opened} onClose={onClose} size="lg" radius="lg" title={<Text fw={700} fz={18}>Enforcement</Text>}>
+      <Stack gap="md">
+        {data.apps.length === 0 && <Alert color="gray" p="xs">Add an app before enforcing: with none, nothing could call.</Alert>}
+        <Table withRowBorders={false} verticalSpacing={6}>
+          <Table.Tbody>
+            {data.products.map((p) => (
+              <Table.Tr key={p}>
+                <Table.Td w={140}><Text size="sm" fw={500}>{PRODUCT_LABEL[p] ?? p}</Text></Table.Td>
+                <Table.Td>
+                  <SegmentedControl size="xs" aria-label={`${PRODUCT_LABEL[p] ?? p} mode`} value={modes[p]} onChange={(v) => setModes({ ...modes, [p]: v as IntegrityMode })}
+                    data={MODES.map((x) => ({ ...x, disabled: x.value === "enforce" && data.apps.length === 0 }))} />
+                </Table.Td>
+                <Table.Td>
+                  {readyToEnforce(data, p) ? <Text size="xs" c="teal">✓ ready</Text> : <Text size="xs" c={surface.faint}>{MODE_TEXT[modes[p]]}</Text>}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+        {data.products.filter((p) => modes[p] === "enforce" && data.enforcement[p] !== "enforce" && productCounts(data, p).week.no > 0).map((p) => (
+          <Alert key={p} color="yellow" p="xs" data-testid={`enforce-warning-${p}`}>
+            {PRODUCT_LABEL[p] ?? p}: {productCounts(data, p).week.no.toLocaleString()} request{productCounts(data, p).week.no === 1 ? "" : "s"} in the last 7 days had no valid token. Enforced, they'd have been refused.
+          </Alert>
+        ))}
+        <NumberInput label="Tokens last (minutes)" description="30 minutes to 24 hours. Shorter: a stolen token is good for less time; apps prove themselves more often."
+          w={300} min={30} max={1440} value={minutes} onChange={setMinutes} />
+        <TextInput label="Reason for the change" placeholder="Our apps all send tokens" value={reason} onChange={(e) => setReason(e.currentTarget.value)}
+          description="Kept in the history with the change" />
+        {error && <Alert color="red" p="xs">{error}</Alert>}
+        <Group justify="flex-end" gap="xs">
+          <Button variant="default" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} loading={busy} disabled={!changed || !reason.trim()}>Save</Button>
+        </Group>
+      </Stack>
+    </Modal>
   );
 }
 

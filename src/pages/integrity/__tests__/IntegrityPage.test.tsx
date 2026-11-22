@@ -102,22 +102,43 @@ test("with apps: each with its identifiers and verified requests; enforcement pe
   expect(within(row).getByTestId("ready-android")).toHaveTextContent("Android: needs the service account");
   expect(within(row).getByTestId("ready-web")).toHaveTextContent("Web: needs its secret key");
 
+  // The card: each product's mode, the week's share as a bar, today's counts and what enforcing would refuse.
   const card = screen.getByTestId("integrity-enforcement");
-  expect(within(card).getByText("Today: 10 verified · 3 without a token")).toBeInTheDocument();
-  expect(within(card).getByTestId("week-database")).toHaveTextContent("last 7 days 93% verified");   // 70 of 75
-  expect(within(card).getByText("60 minutes")).toBeInTheDocument();
-  await userEvent.click(within(card).getByRole("button", { name: "Edit" }));
-  expect(within(card).queryByTestId("enforce-warning-database")).toBeNull();
-  await userEvent.click(within(within(card).getByRole("radiogroup", { name: "Database mode" })).getByLabelText("Enforce"));
-  expect(within(card).getByTestId("enforce-warning-database")).toHaveTextContent("Database: 5 requests in the last 7 days had no valid token. Enforced, they'd have been refused.");
-  await userEvent.click(within(within(card).getByRole("radiogroup", { name: "Assets mode" })).getByLabelText("Off"));
-  const minutes = within(card).getByLabelText("Tokens last (minutes)");
+  const database = within(card).getByTestId("enforcement-database");
+  expect(database).toHaveTextContent("Today: 10 verified · 3 without a token");
+  expect(database).toHaveTextContent("⚠ 3 would be refused");
+  expect(within(card).getByTestId("week-database")).toHaveTextContent("93% verified · 7 days");   // 70 of 75
+  expect(within(database).getByRole("img", { name: "93% verified" })).toBeInTheDocument();
+  expect(within(card).getByText("Tokens last 60 minutes")).toBeInTheDocument();
+  expect(within(card).getByText(/users' photos/)).toBeInTheDocument();
+
+  // Changed in a dialog: every product, the lifetime and the reason, saved together.
+  await userEvent.click(within(card).getByRole("button", { name: "Change…" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).queryByTestId("enforce-warning-database")).toBeNull();
+  await userEvent.click(within(within(dialog).getByRole("radiogroup", { name: "Database mode" })).getByLabelText("Enforce"));
+  expect(within(dialog).getByTestId("enforce-warning-database")).toHaveTextContent("Database: 5 requests in the last 7 days had no valid token. Enforced, they'd have been refused.");
+  await userEvent.click(within(within(dialog).getByRole("radiogroup", { name: "Assets mode" })).getByLabelText("Off"));
+  const minutes = within(dialog).getByLabelText("Tokens last (minutes)");
   await userEvent.clear(minutes);
   await userEvent.type(minutes, "120");
-  await userEvent.type(within(card).getByLabelText("Reason for the change"), "Our apps all send tokens");
-  await userEvent.click(within(card).getByRole("button", { name: "Save" }));
+  expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();   // a reason first
+  await userEvent.type(within(dialog).getByLabelText("Reason for the change"), "Our apps all send tokens");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
   await waitFor(() => expect(api.setIntegrityEnforcement).toHaveBeenCalledWith(
     { database: "enforce", storage: "monitor", authentication: "monitor", functions: "monitor", assets: "off" }, 120, "Our apps all send tokens"));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("a product verified 99% of the week, with every app set up, is ready to enforce", async () => {
+  const ready = { ...clinic, appleTeamId: null, appleBundleId: null, androidPackage: null, webSiteKey: null,
+    usage: { database: { today: 500, last7Days: 4000, lastSeen: null } } };
+  mock(api.integrity).mockResolvedValue(integrity({ apps: [ready], unverified: { database: { today: 0, last7Days: 10, lastSeen: null } } }));
+  renderPage();
+  const database = await screen.findByTestId("enforcement-database");
+  expect(database).toHaveTextContent("99% verified · 7 days");
+  expect(database).toHaveTextContent("✓ ready to enforce");
+  expect(screen.getByTestId("enforcement-storage")).toHaveTextContent("no requests yet");
 });
 
 test("a debug token is made for an app and shown once; removing one asks first", async () => {
