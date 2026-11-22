@@ -2,9 +2,9 @@ import { useState } from "react";
 import { FieldRow } from "../../components/FieldRow";
 import { Alert, Badge, Button, Group, Loader, Paper, Progress, SegmentedControl, Stack, Stepper, Switch, Text, TextInput } from "@mantine/core";
 import { SecretInput } from "../../components/SecretInput";
-import { secretTyped } from "../../api/secrets";
+import { secretProblem, secretTyped, trimSecret } from "../../api/secrets";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../api/client";
+import { api, type MoveStarted } from "../../api/client";
 import { errorMessage, errorWithList } from "../../api/appAuth";
 import type { ArchiveLocation, LocationTest, StorageLocationState } from "../../api/dataSettings";
 import { when } from "../authentication/UsersView";
@@ -29,6 +29,7 @@ export function LocationSection() {
     refetchInterval: (q) => (q.state.data?.move ? 2000 : false),
   });
   const [choosing, setChoosing] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
   const refresh = async () => {
     for (const key of [["storage-location"], ["data-settings-history", "storage"]]) await qc.invalidateQueries({ queryKey: key });
   };
@@ -47,11 +48,21 @@ export function LocationSection() {
       {(busy || (s.kinds.length === 0 && !s.active)) && (
         <div style={{ padding: "16px 24px", borderTop: "1px solid var(--w-subtle)" }}>
           {s.move ? <MoveSteps s={s} onChange={refresh} />
-            : choosing ? <ChooseLocation s={s} onDone={async () => { setChoosing(false); await refresh(); }} onCancel={() => setChoosing(false)} />
+            : choosing ? <ChooseLocation s={s} onDone={async (w) => { setChoosing(false); setWarning(w ?? null); await refresh(); }} onCancel={() => setChoosing(false)} />
             : <Text size="xs" c="dimmed">This server can't move files yet.</Text>}
         </div>
       )}
+      {warning && <MoveWarning warning={warning} onClose={() => setWarning(null)} />}
     </EditCard>
+  );
+}
+
+/** What the server said went wrong starting a move (the key kept on the server, not where chosen): stays until dismissed. */
+export function MoveWarning({ warning, onClose }: { warning: string; onClose: () => void }) {
+  return (
+    <div style={{ padding: "16px 24px", borderTop: "1px solid var(--w-subtle)" }}>
+      <Alert color="yellow" withCloseButton closeButtonLabel="Dismiss" onClose={onClose} data-testid="move-warning" style={{ whiteSpace: "pre-line" }}>{warning}</Alert>
+    </div>
   );
 }
 
@@ -64,9 +75,9 @@ export type LocationChoice = Pick<StorageLocationState, "active" | "activeLabel"
  */
 export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testStorageLocation, start: startFn = api.startStorageMove, noun = "files",
   afterCopy }: {
-  s: LocationChoice; onDone: () => void; onCancel: () => void;
+  s: LocationChoice; onDone: (warning?: string) => void; onCancel: () => void;
   test?: (location: ArchiveLocation, secretKey: string | null) => Promise<LocationTest>;
-  start?: (location: ArchiveLocation, secretKey: string | null, reason: string) => Promise<unknown>;
+  start?: (location: ArchiveLocation, secretKey: string | null, reason: string) => Promise<MoveStarted>;
   noun?: string;
   /** What happens once everything is copied (Storage: you switch). */
   afterCopy?: string;
@@ -94,15 +105,20 @@ export function ChooseLocation({ s, onDone, onCancel, test: testFn = api.testSto
   const filled = target === "code" || (!!location.s3!.bucket && !!location.s3!.region && (preset === "aws" || !!location.s3!.serviceUrl) && (serverRole || secretTyped(secret)));
   const set = (patch: Partial<typeof EMPTY>) => { setB({ ...b, ...patch }); setTest(null); };
 
+  const key = serverRole ? null : secret ? trimSecret(secret) : null;
+  const problem = target === "code" || serverRole ? null : secretProblem(secret);
+
   const runTest = async () => {
+    if (problem) { setTest({ ok: false, steps: [{ name: "Secret access key", ok: false, error: problem }] }); return; }
     setTest("testing");
-    try { setTest(await testFn(location, serverRole ? null : secret || null)); }
+    try { setTest(await testFn(location, key)); }
     catch (e) { setTest({ ok: false, steps: [{ name: "Test", ok: false, error: errorMessage(e) }] }); }
   };
   const start = async () => {
+    if (problem) { setError(`Secret access key: ${problem}`); return; }
     setBusy(true);
     setError(null);
-    try { await startFn(location, serverRole ? null : secret || null, reason.trim()); onDone(); }
+    try { const res = await startFn(location, key, reason.trim()); onDone(res?.warning || undefined); }
     catch (e) { setError(errorWithList(e)); }
     finally { setBusy(false); }
   };

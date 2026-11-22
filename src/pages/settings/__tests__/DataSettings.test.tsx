@@ -18,7 +18,7 @@ vi.mock("../../../api/client", async (orig) => {
     api: {
       ...actual.api, rulesSubsystems: vi.fn(), dataSettings: vi.fn(), saveDataSettings: vi.fn(), dataSettingsHistory: vi.fn(),
       restoreDataSettings: vi.fn(), indexSuggestions: vi.fn(), storageLocation: vi.fn(), testStorageLocation: vi.fn(), startStorageMove: vi.fn(),
-      storageMoveStep: vi.fn(), parseIndexText: vi.fn(), rulesFields: vi.fn(),
+      storageMoveStep: vi.fn(), parseIndexText: vi.fn(), rulesFields: vi.fn(), secretSources: vi.fn(),
     },
   };
 });
@@ -58,6 +58,7 @@ beforeEach(() => {
   mock(api.indexSuggestions).mockResolvedValue({ suggestions: [] });
   mock(api.saveDataSettings).mockResolvedValue({ number: 1 });
   mock(api.storageLocation).mockResolvedValue(location());
+  mock(api.secretSources).mockResolvedValue({ sources: [] });
 });
 
 /** The settings card with this title, opened for editing. */
@@ -180,6 +181,56 @@ test("moving files: an AWS bucket with no access key uses the server's own permi
   await userEvent.type(screen.getByLabelText("Access key id"), "AK");
   expect(screen.queryByTestId("server-role-note")).toBeNull();
   expect(screen.getByRole("button", { name: "Test" })).toBeDisabled();
+});
+
+/** Opens the move form on an R2 bucket with an access key id, ready for its secret. */
+async function chooseR2() {
+  renderIt(<StorageSettingsView />);
+  await userEvent.click(await screen.findByRole("button", { name: "Move files…" }));
+  await userEvent.click(screen.getByText("Cloudflare R2"));
+  await userEvent.type(screen.getByLabelText("Bucket"), "my-files");
+  await userEvent.type(screen.getByLabelText("Service address"), "https://acct.r2.cloudflarestorage.com");
+  await userEvent.type(screen.getByLabelText("Access key id"), "AK");
+}
+const r2 = { kind: "s3", s3: { bucket: "my-files", region: "auto", serviceUrl: "https://acct.r2.cloudflarestorage.com", accessKey: "AK", forcePathStyle: false } };
+
+test("moving files: the secret is sent without the spaces around it, and a warning from the server stays after the form closes", async () => {
+  mock(api.testStorageLocation).mockResolvedValue({ ok: true, steps: [{ name: "Write a file", ok: true, error: null }] });
+  mock(api.startStorageMove).mockResolvedValue({ warning: "The secret key couldn't be kept in AWS, so it's kept on this server." });
+  await chooseR2();
+  await userEvent.type(screen.getByLabelText(/Secret access key/), "  SK  ");
+  await userEvent.click(screen.getByRole("button", { name: "Test" }));
+  await screen.findByTestId("location-test");
+  expect(mock(api.testStorageLocation)).toHaveBeenCalledWith(r2, "SK");
+  await userEvent.type(screen.getByLabelText("Reason for the move"), "To R2");
+  await userEvent.click(screen.getByRole("button", { name: "Start copying" }));
+  expect(await screen.findByTestId("move-warning")).toHaveTextContent("couldn't be kept in AWS");
+  expect(mock(api.startStorageMove)).toHaveBeenCalledWith(r2, "SK", "To R2");
+  expect(screen.queryByLabelText("Reason for the move")).toBeNull();   // the form closed, the warning didn't
+  await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByTestId("move-warning")).toBeNull();
+});
+
+test("moving files: no warning, no notice", async () => {
+  mock(api.storageLocation).mockResolvedValue(location({ active: { kind: "s3" }, activeLabel: "bucket my-files" }));
+  mock(api.startStorageMove).mockResolvedValue(undefined);
+  renderIt(<StorageSettingsView />);
+  await userEvent.click(await screen.findByRole("button", { name: "Move files…" }));
+  await userEvent.type(screen.getByLabelText("Reason for the move"), "Back home");
+  await userEvent.click(screen.getByRole("button", { name: "Start copying" }));
+  await waitFor(() => expect(screen.queryByLabelText("Reason for the move")).toBeNull());
+  expect(mock(api.startStorageMove)).toHaveBeenCalledWith({ kind: "code" }, null, "Back home");
+  expect(screen.queryByTestId("move-warning")).toBeNull();
+});
+
+test("moving files: a secret reference that isn't one stops before the server is asked", async () => {
+  mock(api.secretSources).mockResolvedValue({ sources: [{ name: "aws-sm", title: "AWS Secrets Manager" }] });
+  await chooseR2();
+  await userEvent.click(await screen.findByText("Reference"));
+  await userEvent.type(screen.getByLabelText("Secret access key (reference)"), "not-a-reference");
+  await userEvent.click(screen.getAllByRole("button", { name: "Test" }).at(-1)!);   // the bucket's test, not the reference's
+  expect(await screen.findByTestId("location-test")).toHaveTextContent("✗ Secret access key: Not a reference");
+  expect(mock(api.testStorageLocation)).not.toHaveBeenCalled();
 });
 
 const move = (phase: string) => ({ id: "m1", phase, startedAt: "2026-11-12T20:00:00Z", fromLabel: "On this server's disk", toLabel: "bucket my-files" });

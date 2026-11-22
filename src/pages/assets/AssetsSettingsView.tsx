@@ -12,7 +12,7 @@ import { IconCloud } from "@tabler/icons-react";
 import { UnitInput } from "../../components/SettingRows";
 import { CardsPage, EditCard, EditRow, HistoryButton } from "../../components/EditCard";
 import { AreaHistory, num, useAreaCards, versionLine } from "../settings/AreaSettings";
-import { ChooseLocation } from "../settings/LocationSection";
+import { ChooseLocation, MoveWarning } from "../settings/LocationSection";
 import { ConfirmModal } from "../../components/ConfirmModal";
 
 const MB = 1024 * 1024;
@@ -60,11 +60,12 @@ export function AssetsSettingsView() {
 }
 
 /** Where contents are kept: the project's own location or a bucket; a move copies everything, then switches. */
-function AssetLocationCard() {
+export function AssetLocationCard() {
   const qc = useQueryClient();
   const state = useQuery({ queryKey: ["asset-location"], queryFn: api.assetLocation, refetchInterval: (q) => (q.state.data?.move && !q.state.data.move.error ? 2000 : false) });
   const [choosing, setChoosing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const refresh = async () => {
     for (const key of [["asset-location"], ["assets"], ["data-settings-history", "assets"]]) await qc.invalidateQueries({ queryKey: key });
   };
@@ -93,10 +94,11 @@ function AssetLocationCard() {
           ) : (
             <ChooseLocation s={s} noun="assets" afterCopy="until everything is there, then switches by itself"
               test={api.testAssetLocation} start={api.startAssetMove}
-              onDone={async () => { setChoosing(false); await refresh(); }} onCancel={() => setChoosing(false)} />
+              onDone={async (w) => { setChoosing(false); setWarning(w ?? null); await refresh(); }} onCancel={() => setChoosing(false)} />
           )}
         </div>
       )}
+      {warning && <MoveWarning warning={warning} onClose={() => setWarning(null)} />}
     </EditCard>
   );
 }

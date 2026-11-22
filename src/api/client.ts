@@ -6,6 +6,9 @@ import { secretBody, type KeptSecret, type SecretSources, type SecretTest } from
 import { apiPath, projectApi } from "./scope";
 
 /** A bucket's secret key as typed: { secretKey } or { secretKeyReference }. */
+/** What starting a location move answers (nothing, from older servers): a warning when the key couldn't be kept where chosen. */
+export type MoveStarted = { warning?: string } | undefined;
+
 const keyBody = (typed: string | null) => { const b = secretBody(typed); return { secretKey: b.value ?? null, secretKeyReference: b.reference ?? null }; };
 
 /** The typed secrets that are values (or references), by name; undefined when there are none. */
@@ -339,7 +342,7 @@ export const api = {
   assetLocation: () => http<import("./assets").AssetLocationState>("GET", "assets/location"),
   testAssetLocation: (location: ArchiveLocation, secretKey: string | null) => http<LocationTest>("POST", "assets/location/test", { location, ...keyBody(secretKey) }),
   startAssetMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
-    http<void>("POST", "assets/location/move", { location, ...keyBody(secretKey), reason }),
+    http<MoveStarted>("POST", "assets/location/move", { location, ...keyBody(secretKey), reason }),
   cancelAssetMove: () => http<void>("POST", "assets/location/move/cancel"),
   assetCdns: () => http<import("./assets").AssetCdnsState>("GET", "assets/cdns"),
   saveAssetCdn: (id: string, cdn: { kind: string; baseUrl: string; keyPairId: string; linkMinutes: number }, privateKey: string | null, reason: string) => {
@@ -352,7 +355,7 @@ export const api = {
   testStorageLocation: (location: ArchiveLocation, secretKey: string | null) =>
     http<LocationTest>("POST", "settings/location/files/test", { location, ...keyBody(secretKey) }),
   startStorageMove: (location: ArchiveLocation, secretKey: string | null, reason: string) =>
-    http<unknown>("POST", "settings/location/files/move", { location, ...keyBody(secretKey), reason }),
+    http<MoveStarted>("POST", "settings/location/files/move", { location, ...keyBody(secretKey), reason }),
   storageMoveStep: (step: "switch" | "finish" | "cancel", reason: string) =>
     http<void>("POST", `settings/location/files/move/${step}`, { reason }),
   parseIndexText: (text: string) => http<import("./indexText").IndexTextParse>("POST", "settings/database/indexes/parse", { text }),
