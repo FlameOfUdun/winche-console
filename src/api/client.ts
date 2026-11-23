@@ -194,6 +194,7 @@ export const api = {
   forgotPassword: (email: string) => http<void>("POST", "session/forgot-password", { email }),
   resetPassword: (code: string, newPassword: string) =>
     http<void>("POST", "session/reset-password", { code, newPassword }),
+  removeSignInMethod: (code: string) => http<void>("POST", "session/remove-sign-in-method", { code }),
   updateProfile: (body: { firstName?: string; lastName?: string }) => http<void>("PUT", "session/profile", body),
   changePassword: (currentPassword: string, newPassword: string) =>
     http<void>("POST", "session/password", { currentPassword, newPassword }),
