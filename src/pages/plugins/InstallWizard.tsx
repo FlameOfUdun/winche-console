@@ -43,8 +43,10 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ version: number } | null>(null);
+  // Installed, but not every secret saved yet: trying again sends only the unsaved secrets, never a second install.
+  const [installed, setInstalled] = useState<{ version: number; saved: string[] } | null>(null);
   const idProblem = !ID_RULE.test(id) ? "Lowercase letters, digits and -, starting with a letter (up to 30)."
-    : taken.includes(id) ? "A plugin is already installed with this id." : null;
+    : !installed && taken.includes(id) ? "A plugin is already installed with this id." : null;
   const missing = missingSettings(m.settings, values);
   const asked = shownSecrets(m.secrets, values);
   const unset = asked.filter((s) => s.required && !secretTyped(secrets[s.name]));
@@ -55,8 +57,17 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
     if (badSecret) return;
     setBusy(true); setError(null);
     try {
-      const r = await api.installPlugin({ id, package: info.package, version: info.version, settings: toSend(values) });
-      for (const s of asked) if (secretTyped(secrets[s.name])) await api.setFunctionSecret(secretFor(id, s.name), secrets[s.name]);
+      let r = installed;
+      if (!r) {
+        r = { version: (await api.installPlugin({ id, package: info.package, version: info.version, settings: toSend(values) })).version, saved: [] };
+        setInstalled(r);
+      }
+      for (const s of asked) {
+        if (!secretTyped(secrets[s.name]) || r.saved.includes(s.name)) continue;
+        await api.setFunctionSecret(secretFor(id, s.name), secrets[s.name]);
+        r = { ...r, saved: [...r.saved, s.name] };
+        setInstalled(r);
+      }
       await qc.invalidateQueries({ queryKey: ["plugins"] });
       await qc.invalidateQueries({ queryKey: ["functions"] });
       await qc.invalidateQueries({ queryKey: ["function-secrets"] });
@@ -90,7 +101,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
           </Stepper.Step>
           <Stepper.Step label="Configure" description="Its settings">
             <Stack gap="lg" mt="lg">
-              <TextInput label="Install as" withAsterisk value={id} onChange={(e) => setId(e.currentTarget.value.trim())} error={id && idProblem}
+              <TextInput label="Install as" withAsterisk value={id} disabled={!!installed} onChange={(e) => setId(e.currentTarget.value.trim())} error={id && idProblem}
                 styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }}
                 description="For a second copy, use another id." />
               <SettingsFields settings={m.settings} values={values} onChange={setValues} />
@@ -131,7 +142,7 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
             </Stack>
             <Group justify="space-between" mt="xl">
               <Button variant="subtle" color="gray" leftSection={<IconArrowLeft size={15} />} onClick={() => setStep(2)} disabled={busy}>Back</Button>
-              <Button leftSection={<IconDownload size={15} />} onClick={install} loading={busy} disabled={badSecret}>Install {m.title}</Button>
+              <Button leftSection={<IconDownload size={15} />} onClick={install} loading={busy} disabled={badSecret}>{installed ? "Save secrets" : `Install ${m.title}`}</Button>
             </Group>
           </Stepper.Step>
           <Stepper.Completed>
