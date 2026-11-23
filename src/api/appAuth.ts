@@ -132,7 +132,7 @@ export interface AppAuthConfig {
 }
 
 export interface EmailTemplateInfo {
-  kind: "verifyEmail" | "resetPassword" | "signIn" | "emailChanged";
+  kind: "verifyEmail" | "resetPassword" | "signIn" | "emailChanged" | "providerLinked";
   name: string;
   subject: string;
   body: string;
@@ -144,7 +144,7 @@ export interface EmailTemplateInfo {
   updatedBy: string | null;
 }
 
-export const PLACEHOLDERS = ["%LINK%", "%EMAIL%", "%APP_NAME%", "%DISPLAY_NAME%", "%NEW_EMAIL%"];
+export const PLACEHOLDERS = ["%LINK%", "%EMAIL%", "%APP_NAME%", "%DISPLAY_NAME%", "%NEW_EMAIL%", "%PROVIDER%"];
 
 /** The template with sample values, as the reader would see it (the link is shown as a button by the preview). */
 export function fillTemplate(text: string, appName: string, kind: string): string {
@@ -152,6 +152,7 @@ export function fillTemplate(text: string, appName: string, kind: string): strin
     .replace(/%APP_NAME%/g, appName)
     .replace(/%EMAIL%/g, "anna.k@example.com")
     .replace(/%NEW_EMAIL%/g, kind === "emailChanged" ? "anna.new@example.com" : "")
+    .replace(/%PROVIDER%/g, kind === "providerLinked" ? "Google" : "")
     .replace(/%DISPLAY_NAME%/g, "Anna")
     .replace(/ ,/g, ",");
 }

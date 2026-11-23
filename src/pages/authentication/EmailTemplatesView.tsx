@@ -6,7 +6,7 @@ import { errorMessage, fillTemplate, PLACEHOLDERS, type EmailTemplateInfo } from
 import { when } from "./UsersView";
 import { surface } from "../../theme";
 
-const BUTTON: Record<string, string> = { verifyEmail: "Verify email", resetPassword: "Choose a new password", signIn: "Sign in", emailChanged: "Undo this change" };
+const BUTTON: Record<string, string> = { verifyEmail: "Verify email", resetPassword: "Choose a new password", signIn: "Sign in", emailChanged: "Undo this change", providerLinked: "Remove it" };
 
 /** The messages Winche Auth sends: edit, preview, send yourself a test, or go back to the default. */
 export function EmailTemplatesView() {
