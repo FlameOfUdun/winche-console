@@ -92,7 +92,8 @@ test("secrets: listed without values, added and set in a dialog, and removed", a
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Remove OLD_TOKEN?" })).toBeNull());
 
   await userEvent.click(screen.getByRole("button", { name: "Add a secret" }));
-  dialog = await screen.findByRole("dialog");
+  // By its title: the remove confirmation may still be fading out.
+  dialog = await screen.findByRole("dialog", { name: "Add a secret" });
   await userEvent.type(within(dialog).getByLabelText("Name"), "bad-name");
   expect(within(dialog).getByText(/Capitals, digits and underscores/)).toBeInTheDocument();
   expect(within(dialog).getByRole("button", { name: "Save" })).toBeDisabled();
