@@ -69,7 +69,7 @@ export function ProjectsPage() {
 }
 
 const PRODUCTS: { id: ProductId; name: string }[] = [
-  { id: "authentication", name: "Authentication" }, { id: "database", name: "Database" }, { id: "storage", name: "Storage" }, { id: "functions", name: "Functions" }, { id: "assets", name: "Assets" },
+  { id: "authentication", name: "Authentication" }, { id: "database", name: "Database" }, { id: "storage", name: "Storage" }, { id: "functions", name: "Functions" }, { id: "assets", name: "Assets" }, { id: "realtime", name: "Realtime" },
 ];
 
 /** Which products a project has started: a dot each, green when on. */

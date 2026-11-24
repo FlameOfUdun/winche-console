@@ -95,7 +95,7 @@ function Section({ title, children, right }: { title: string; children: React.Re
 export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   subsystem: RuleSubsystem; rulesJson: string; opened: boolean; onClose: () => void;
 }) {
-  const storage = subsystem !== "database";   // files and assets: a path, not a document
+  const storage = subsystem !== "database";   // files, assets and realtime: a path, not a document
   const [operation, setOperation] = useState<RuleOperation>("Get");
   const [path, setPath] = useState("");
   const [signedIn, setSignedIn] = useState(true);
@@ -104,7 +104,9 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   const [verified, setVerified] = useState(true);
   const [claims, setClaims] = useState<FieldRow[]>([]);
   const [exists, setExists] = useState(true);
-  const fileRows = (): FieldRow[] => subsystem === "assets"
+  const fileRows = (): FieldRow[] => subsystem === "realtime"
+    ? [{ name: "count", kind: "number", value: "1" }, { name: "bytes", kind: "number", value: "200" }]
+    : subsystem === "assets"
     ? [{ name: "mimeType", kind: "text", value: "application/json" }, { name: "size", kind: "number", value: "2000" }, { name: "channel", kind: "text", value: "production" }]
     : [{ name: "mimeType", kind: "text", value: "image/png" }, { name: "sizeBytes", kind: "number", value: "20000" }];
   const [existing, setExisting] = useState<FieldRow[]>(storage ? fileRows() : []);
@@ -113,7 +115,7 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
 
   const showExisting = operation !== "Create";
   const showIncoming = operation === "Create" || operation === "Update";
-  const thing = storage ? "file" : "document";
+  const thing = subsystem === "realtime" ? "list" : storage ? "file" : "document";
 
   const simulate = useMutation({
     mutationFn: () => api.rulesSimulate(subsystem, {
@@ -143,7 +145,8 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
             <Text size="sm" fw={500}>Operation</Text>
             <SegmentedControl value={operation} onChange={(v) => setOperation(v as RuleOperation)} data={OPERATIONS} aria-label="Operation" />
           </Stack>
-          <TextInput label={storage ? "File path" : "Document path"} placeholder={storage ? "users/abc123/avatar.png" : "users/abc123"} data-autofocus
+          <TextInput label={subsystem === "realtime" ? "Path" : storage ? "File path" : "Document path"}
+            placeholder={subsystem === "realtime" ? "sessions/abc123" : storage ? "users/abc123/avatar.png" : "users/abc123"} data-autofocus
             styles={{ input: { fontFamily: "var(--mantine-font-family-monospace)" } }} value={path} onChange={(e) => setPath(e.currentTarget.value)} />
         </Group>
 

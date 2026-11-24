@@ -23,7 +23,7 @@ export interface ServerProjects {
   archived?: { id: string; name: string; archivedAt: string }[];
 }
 
-export type ProductId = "database" | "storage" | "authentication" | "functions" | "assets";
+export type ProductId = "database" | "storage" | "authentication" | "functions" | "assets" | "realtime";
 
 /** A product's setup on the server, step by step (POST …/start begins it, GET …/setup follows it). */
 export interface ProductSetupRun {
@@ -49,7 +49,7 @@ export function isProjectId(id: string): boolean {
 }
 
 /** Test mode: everything allowed until a date 30 days away, then locked. */
-export function testModeRules(subsystem: "database" | "storage" | "assets", until: Date): string {
+export function testModeRules(subsystem: "database" | "storage" | "assets" | "realtime", until: Date): string {
   const pattern = subsystem === "database" ? "{document=**}" : "{path=**}";
   const what = subsystem === "assets" ? "read" : "read, write";   // apps only read assets
   return `match ${pattern} {\n  allow ${what}: if request.time < timestamp('${until.toISOString()}');\n}\n`;

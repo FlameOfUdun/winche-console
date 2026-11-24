@@ -96,3 +96,15 @@ test("Integrity is in the sidebar for anyone with a role where it's set up", asy
   expect(labels(true, "Viewer")).toContain("Integrity");
   expect(labels(false, "Admin")).not.toContain("Integrity");
 });
+
+test("Realtime is in the sidebar only with its capability: Lists, Presence, its Rules and Settings (no webhooks or logs)", async () => {
+  const { projectNav } = await import("../nav");
+  const nav = (realtime: boolean, role: string) =>
+    projectNav({ capabilities: { realtime, hooks: true, settings: { realtime: role === "Admin" } } } as never, { role } as never,
+      { rules: role === "Admin" ? ["realtime"] : [] });
+  expect(nav(false, "Admin").map((n) => n.label)).not.toContain("Realtime");
+  const admin = nav(true, "Admin").find((n) => n.label === "Realtime")!;
+  expect(admin.pages.map((p) => p.label)).toEqual(["Lists", "Presence", "Rules", "Settings"]);
+  const viewer = nav(true, "Viewer").find((n) => n.label === "Realtime")!;
+  expect(viewer.pages.map((p) => p.label)).toEqual(["Lists", "Presence"]);
+});

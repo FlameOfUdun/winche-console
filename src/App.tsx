@@ -25,6 +25,7 @@ import type { ReactNode } from "react";
 import { ProductGate } from "./pages/onboarding/ProductGate";
 import type { ProductId } from "./api/project";
 import { AssetsPage } from "./pages/assets/AssetsPage";
+import { RealtimePage } from "./pages/realtime/RealtimePage";
 import { RequireProject } from "./pages/onboarding/RequireProject";
 import { currentProject } from "./api/scope";
 
@@ -94,6 +95,7 @@ function ProjectConsole() {
           <Route path="plugins/*" element={gated("functions", caps?.functions, <PluginsPage />)} />
           <Route path="secrets" element={user?.role === "Admin" ? <SecretsPage /> : <Navigate to={home} replace />} />
           <Route path="assets/*" element={gated("assets", caps?.assets, <AssetsPage />)} />
+          <Route path="realtime/*" element={gated("realtime", caps?.realtime, <RealtimePage />)} />
           <Route path="pages/:name" element={caps?.consolePages ? <ConsolePageView /> : <Navigate to={home} replace />} />
           <Route path="overview" element={<OverviewPage />} />
           <Route path="settings" element={<Navigate to="/settings/general" replace />} />

@@ -1,6 +1,6 @@
 import type { SettingsVersionInfo } from "./appAuth";
 
-export type DataArea = "database" | "database.live" | "storage" | "functions" | "assets";
+export type DataArea = "database" | "database.live" | "storage" | "functions" | "assets" | "realtime";
 
 /** Assets → Settings: limits on releases and how many are kept. */
 export interface AssetLimits { maxFilesPerRelease: number; maxFileBytes: number; keepReleases: number }

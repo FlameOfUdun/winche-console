@@ -28,7 +28,7 @@ const INTEGRITY = ["integrity"];
 const ALL_PLATFORMS = ["android", "ios", "macos", "web", "windows", "linux"];
 
 const PRODUCT_LABEL: Record<string, string> = {
-  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets",
+  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets", realtime: "Realtime",
 };
 const MODES: { value: IntegrityMode; label: string }[] = [
   { value: "off", label: "Off" }, { value: "monitor", label: "Monitor" }, { value: "enforce", label: "Enforce" },

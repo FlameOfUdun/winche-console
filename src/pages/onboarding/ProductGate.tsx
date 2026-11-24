@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import {
-  IconArrowRight, IconBolt, IconBrandGoogle, IconBucket, IconClock, IconCloudOff, IconDatabase, IconFolder, IconHistory, IconLambda, IconMail, IconPackage, IconRoute, IconPlugConnected,
+  IconArrowRight, IconBolt, IconBroadcast, IconList, IconUsersGroup, IconBrandGoogle, IconBucket, IconClock, IconCloudOff, IconDatabase, IconFolder, IconHistory, IconLambda, IconMail, IconPackage, IconRoute, IconPlugConnected,
   IconShieldCheck, IconShieldLock, IconUpload, IconUsers,
 } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -59,6 +59,15 @@ const INFO: Record<ProductId, { name: string; title: string; about: ReactNode; i
       { icon: IconHistory, title: "Releases", about: "Numbered and kept, so going back is one click." },
       { icon: IconRoute, title: "Channels", about: "Production, beta or one per app version." },
       { icon: IconShieldCheck, title: "Rules", about: "Who may read which paths." },
+    ],
+  },
+  realtime: {
+    name: "Realtime", title: "Start realtime", icon: IconBroadcast,
+    about: "Live lists, channels and presence for sessions.",
+    features: [
+      { icon: IconList, title: "Lists", about: "Ordered items devices add to and follow live." },
+      { icon: IconBroadcast, title: "Channels", about: "Messages for whoever is listening, not kept." },
+      { icon: IconUsersGroup, title: "Presence", about: "Who's here now, and what they share." },
     ],
   },
 };

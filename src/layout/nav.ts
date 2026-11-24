@@ -1,7 +1,7 @@
 import type { AuthState, SessionUser } from "../api/types";
 import { CONSOLE } from "../api/scope";
 
-export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "plugins" | "assets" | "settings" | "page" | "key" | "integrity";
+export type NavIcon = "home" | "database" | "folder" | "shield" | "logs" | "users" | "hooks" | "functions" | "plugins" | "assets" | "realtime" | "settings" | "page" | "key" | "integrity";
 
 /** One of a product's pages (Database → Rules), under it in the sidebar. */
 export interface NavPage { to: string; label: string }
@@ -36,14 +36,16 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   const c = state?.capabilities;
   const admin = user?.role === "Admin";
   const out: NavItem[] = [{ to: "/overview", label: "Overview", icon: "home", group: "top", pages: [] }];
-  const productPages = (base: string, product: "database" | "storage" | "assets", primary: string): NavPage[] => [
+  const productPages = (base: string, product: "database" | "storage" | "assets" | "realtime", primary: string): NavPage[] => [
     { to: base, label: primary },
     ...(product === "assets" ? [{ to: `${base}/releases`, label: "Releases" }] : []),
+    ...(product === "realtime" ? [{ to: `${base}/presence`, label: "Presence" }] : []),
     ...(facts.rules?.includes(product) ? [{ to: `${base}/rules`, label: "Rules" }] : []),
     ...(product === "database" && c?.settings?.database ? [{ to: `${base}/indexes`, label: "Indexes" }] : []),
     ...(product === "database" && c?.history ? [{ to: `${base}/history`, label: "History" }] : []),
-    ...(c?.hooks ? [{ to: `${base}/webhooks`, label: "Webhooks" }] : []),
-    ...(product !== "assets" && c?.logs?.[product] ? [{ to: `${base}/logs`, label: "Logs" }] : []),
+    // Realtime has no webhooks or logs of its own.
+    ...(product !== "realtime" && c?.hooks ? [{ to: `${base}/webhooks`, label: "Webhooks" }] : []),
+    ...((product === "database" || product === "storage") && c?.logs?.[product] ? [{ to: `${base}/logs`, label: "Logs" }] : []),
     ...(c?.settings?.[product] ? [{ to: `${base}/settings`, label: "Settings" }] : []),
   ];
   // Webhooks are each product's own page (Authentication, Database, Storage → Webhooks); triggered functions are Functions'.
@@ -62,6 +64,7 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   if (c?.database) out.push({ to: "/database", label: "Database", icon: "database", group: "build", pages: productPages("/database", "database", "Data") });
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
   if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Files") });
+  if (c?.realtime) out.push({ to: "/realtime", label: "Realtime", icon: "realtime", group: "build", pages: productPages("/realtime", "realtime", "Lists") });
   if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
   // Plugins: ready-made functions (installed copies, browsing, a page each); they need functions.
   if (c?.functions) out.push({ to: "/plugins", label: "Plugins", icon: "plugins", group: "build", pages: [] });

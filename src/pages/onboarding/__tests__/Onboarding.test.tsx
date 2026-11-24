@@ -297,3 +297,19 @@ test("the authentication wizard: an SMTP password reference that isn't one keeps
   expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
   expect(api.startProduct).not.toHaveBeenCalled();
 });
+
+test("Realtime is offered like the other products: Get started, starting rules, then started (test mode publishes its rules)", async () => {
+  mock(api.project).mockResolvedValue({ setup: true, created: true, id: "c", name: "C", products: [...products([]), { id: "realtime", started: false }] });
+  mock(api.startProduct).mockResolvedValue({ product: "realtime", state: "running", steps: [{ title: "Create the tables", state: "running" }], startedAt: "", finishedAt: null });
+  mock(api.productSetup).mockResolvedValue({ product: "realtime", state: "done", steps: [{ title: "Create the tables", state: "done" }], startedAt: "", finishedAt: "" });
+  mock(api.rulesParseText).mockResolvedValue({ ok: true, rulesJson: "{}", error: null, warnings: [] });
+  mock(api.rulesSave).mockResolvedValue({});
+  renderIt(<ProductGate product="realtime"><div>REALTIME PAGE</div></ProductGate>);
+  expect(await screen.findByText("Live lists, channels and presence for sessions.")).toBeInTheDocument();
+  expect(screen.queryByText("REALTIME PAGE")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Get started" }));
+  await userEvent.click(await screen.findByText("Test mode"));
+  await userEvent.click(screen.getByRole("button", { name: "Start realtime" }));
+  await waitFor(() => expect(api.startProduct).toHaveBeenCalledWith("realtime"));
+  await waitFor(() => expect(api.rulesSave).toHaveBeenCalledWith("realtime", expect.objectContaining({ note: "Test mode: open for 30 days" })));
+});

@@ -417,3 +417,12 @@ test("Turnstile: a secret kept in AWS is sent as { value, reference }; a referen
   await waitFor(() => expect(api.setTurnstileSecret).toHaveBeenCalledWith(myApp.id, "0x4secret", "keep:aws-sm"));
   expect(api.updateApp).toHaveBeenCalledTimes(1);
 });
+
+test("Realtime is one of the enforced products, by its name", async () => {
+  const products = [...PRODUCTS, "realtime"];
+  mock(api.integrity).mockResolvedValue(integrity({ products, enforcement: Object.fromEntries(products.map((p) => [p, "monitor"])) as IntegrityData["enforcement"] }));
+  renderPage();
+  expect(await screen.findByTestId("enforcement-realtime")).toHaveTextContent("Realtime");
+  await userEvent.click(within(screen.getByTestId("integrity-enforcement")).getByRole("button", { name: "Change…" }));
+  expect(within(await screen.findByRole("dialog")).getByRole("radiogroup", { name: "Realtime mode" })).toBeInTheDocument();
+});

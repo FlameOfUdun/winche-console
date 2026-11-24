@@ -8,6 +8,8 @@ import { DatabaseIndexesView, DatabaseSettingsView } from "../settings/DatabaseS
 import { StorageSettingsView } from "../settings/StorageSettingsView";
 import { AssetsSettingsView } from "../assets/AssetsSettingsView";
 import { ReleasesView } from "../assets/AssetsPage";
+import { PresenceView } from "../realtime/PresenceView";
+import { RealtimeSettingsView } from "../realtime/RealtimeSettingsView";
 import { NavPageHeader } from "../../components/NavPageHeader";
 import { ProductHooks } from "../hooks/ProductHooks";
 import { useProjectNav } from "../../layout/useProjectNav";
@@ -38,12 +40,14 @@ export function SubsystemTabs({ subsystem, basePath, children }: {
       {page !== "primary" && (
         <div style={{ paddingBottom: 28 }}>
           {page === "releases" && subsystem === "assets" && <ReleasesView />}
+          {page === "presence" && subsystem === "realtime" && <PresenceView />}
           {page === "rules" && <RulesEditor subsystem={subsystem} />}
           {page === "indexes" && <DatabaseIndexesView />}
           {page === "history" && <HistoryView />}
-          {page === "logs" && subsystem !== "assets" && <ScopedLogs scope={subsystem} />}
-          {page === "webhooks" && <ProductHooks source={subsystem} />}
-          {page === "settings" && (subsystem === "database" ? <DatabaseSettingsView /> : subsystem === "assets" ? <AssetsSettingsView /> : <StorageSettingsView />)}
+          {page === "logs" && (subsystem === "database" || subsystem === "storage") && <ScopedLogs scope={subsystem} />}
+          {page === "webhooks" && subsystem !== "realtime" && <ProductHooks source={subsystem} />}
+          {page === "settings" && (subsystem === "database" ? <DatabaseSettingsView /> : subsystem === "assets" ? <AssetsSettingsView />
+            : subsystem === "realtime" ? <RealtimeSettingsView /> : <StorageSettingsView />)}
         </div>
       )}
     </>

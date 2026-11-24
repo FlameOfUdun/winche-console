@@ -384,6 +384,16 @@ export const api = {
   saveLogLevels: (defaultLevel: LogLevel, overrides: LogLevelOverride[]) =>
     http<{ updatedAt: string; updatedBy: string | null }>("PUT", "logs/levels", { defaultLevel, overrides }),
   resetLogLevels: () => http<void>("DELETE", "logs/levels"),
+  realtimeLists: (q: { prefix?: string; state?: "open" | "closed" | null; after?: string | null; limit?: number }) =>
+    http<import("./realtime").RealtimeListsPage>("GET", `realtime/lists?${new URLSearchParams({
+      ...(q.prefix ? { prefix: q.prefix } : {}), ...(q.state ? { state: q.state } : {}), ...(q.after ? { after: q.after } : {}), limit: String(q.limit ?? 50),
+    })}`),
+  realtimeItems: (path: string, after = 0, limit = 100) =>
+    http<import("./realtime").RealtimeItemsPage>("GET", `realtime/lists/items?${new URLSearchParams({ path, after: String(after), limit: String(limit) })}`),
+  realtimePresence: (path: string) =>
+    http<{ members: import("./realtime").RealtimePresenceMember[] }>("GET", `realtime/presence?${new URLSearchParams({ path })}`),
+  closeRealtimeList: (path: string) => http<{ list: import("./realtime").RealtimeList }>("POST", "realtime/lists/close", { path }),
+  deleteRealtimeList: (path: string) => http<void>("DELETE", `realtime/lists?${new URLSearchParams({ path })}`),
   rulesSubsystems: () => http<RuleSubsystemStatus[]>("GET", "rules/subsystems"),
   rulesLive: (sys: RuleSubsystem) => http<{ rulesJson: string }>("GET", `rules/${sys}/live`),
   rulesVersions: (sys: RuleSubsystem) => http<RuleVersionSummary[]>("GET", `rules/${sys}/versions`),

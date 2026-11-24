@@ -15,7 +15,7 @@ import { SecretInput } from "../../components/SecretInput";
 import { secretProblem, secretTyped } from "../../api/secrets";
 
 const NAMES: Record<ProductId, string> = {
-  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets",
+  database: "Database", storage: "Storage", authentication: "Authentication", functions: "Functions", assets: "Assets", realtime: "Realtime",
 };
 
 /** A choice drawn as a card (rules mode, where files live). */
@@ -42,7 +42,7 @@ function RulesStep({ mode, setMode }: { mode: RulesMode; setMode: (m: RulesMode)
   );
 }
 
-async function publishTestRules(sys: "database" | "storage" | "assets") {
+async function publishTestRules(sys: "database" | "storage" | "assets" | "realtime") {
   const parsed = await api.rulesParseText(testModeRules(sys, new Date(Date.now() + 30 * 24 * 3600 * 1000)));
   if (parsed.ok && parsed.rulesJson) await api.rulesSave(sys, { rulesJson: parsed.rulesJson, note: "Test mode: open for 30 days" });
 }
@@ -201,6 +201,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
           ) },
         ];
       case "assets":
+      case "realtime":
         return [{ label: "Starting rules", content: <RulesStep mode={rules} setMode={setRules} /> }];
       case "functions":
         return [{ label: "Runtime", content: (
@@ -229,7 +230,7 @@ export function ProductWizard({ product, opened, onClose }: { product: ProductId
   const afterSetup = async () => {
     try {
       const moved = product === "storage" && where === "bucket" ? await moveToBucket(location(), bucket.secret) : undefined;
-      if ((product === "database" || product === "storage" || product === "assets") && rules === "test") await publishTestRules(product);
+      if ((product === "database" || product === "storage" || product === "assets" || product === "realtime") && rules === "test") await publishTestRules(product);
       if (product === "storage" && storage.data && typeof maxMb === "number")
         await api.saveDataSettings<StorageSettings>("storage", { ...storage.data.settings, maxFileSizeMb: maxMb }, "Setup: largest file");
       if (product === "authentication" && auth) await api.saveSignInSettings(auth, auth.email.sender === "smtp" && secretTyped(smtpPassword) ? smtpPassword : null, "Setup: sign-in methods");

@@ -1,5 +1,5 @@
 import { Alert, Anchor, Button, Group, Loader, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
-import { IconApps, IconArrowRight, IconShieldCheck, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
+import { IconApps, IconArrowRight, IconBroadcast, IconShieldCheck, IconDatabase, IconFolder, IconHistory, IconLambda, IconLock, IconPackage, IconPlus, IconUsers, IconWebhook } from "@tabler/icons-react";
 import { EmptyState } from "../../components/EmptyState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
@@ -15,7 +15,7 @@ import type { IntegrityData } from "../../api/apps";
 import { readiness } from "../integrity/IntegrityPage";
 
 const ICONS: Record<string, typeof IconDatabase> = {
-  database: IconDatabase, storage: IconFolder, authentication: IconUsers, functions: IconLambda, assets: IconPackage, hooks: IconWebhook,
+  database: IconDatabase, storage: IconFolder, authentication: IconUsers, functions: IconLambda, assets: IconPackage, realtime: IconBroadcast, hooks: IconWebhook,
 };
 
 /** Project overview, the console's home: each product with its status and a few numbers, apps, and recent changes. */
