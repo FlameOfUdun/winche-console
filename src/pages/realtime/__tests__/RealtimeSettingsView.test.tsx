@@ -36,7 +36,8 @@ test("lifecycle is edited in a dialog: never closing idle lists and archiving is
   renderIt();
   const card = await screen.findByTestId("realtime-lifecycle");
   expect(card).toHaveTextContent("After 24 hours without a new item");
-  expect(card).toHaveTextContent("archive.ndjson.gz");
+  expect(card).toHaveTextContent("one file in the project's Storage");
+  expect(card).not.toHaveTextContent("ndjson");
   fireEvent.click(within(card).getByRole("button", { name: "Edit" }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.click(within(dialog).getByLabelText("Close idle lists"));

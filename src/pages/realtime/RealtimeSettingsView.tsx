@@ -7,7 +7,7 @@ import { CardsPage, EditCard, EditRow, HistoryButton, OnOff } from "../../compon
 import { UnitInput } from "../../components/SettingRows";
 import { AreaHistory, num, useAreaCards, versionLine } from "../settings/AreaSettings";
 
-const ARCHIVE_NOTE = "Archives go to Storage (realtime/{path}/archive.ndjson.gz) and need Storage started.";
+const ARCHIVE_NOTE = "Each closed list is kept as one file in the project's Storage before it's deleted. Needs Storage started.";
 
 /** Realtime → Settings: when lists close and how long closed ones are kept, and the limits on items and lists. Edited in a dialog. */
 export function RealtimeSettingsView() {
