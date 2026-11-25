@@ -179,7 +179,7 @@ export const RuleSetEditor = forwardRef<RuleSetEditorHandle, {
         subsystem={subsystem}
         fieldsFor={fieldsFor}
         placeholder={subsystem === "realtime"
-          ? "match sessions/{id} {\n  allow read, create: if request.auth != null;\n}\nmatch presence/{path=**} {\n  allow read, create: if request.auth != null;\n}"
+          ? "match sessions/{id} {\n  allow read, create: if request.auth != null;\n  match presence {\n    allow read, create: if request.auth != null;\n  }\n}"
           : "match users/{uid} {\n  allow read: if request.auth.uid == uid;\n}"} />
       </Suspense>
       {error !== null && (
