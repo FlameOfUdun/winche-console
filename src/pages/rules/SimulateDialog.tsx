@@ -104,13 +104,14 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   const [verified, setVerified] = useState(true);
   const [claims, setClaims] = useState<FieldRow[]>([]);
   const [exists, setExists] = useState(true);
-  const fileRows = (): FieldRow[] => subsystem === "realtime"
-    ? [{ name: "count", kind: "number", value: "1" }, { name: "bytes", kind: "number", value: "200" }]
-    : subsystem === "assets"
+  // Realtime: the list as its rules see it (resource), and an append (request.resource: how many, their size, whose device).
+  const listRows = (): FieldRow[] => [{ name: "state", kind: "text", value: "open" }, { name: "count", kind: "number", value: "10" }, { name: "bytes", kind: "number", value: "2000" }];
+  const appendRows = (): FieldRow[] => [{ name: "count", kind: "number", value: "1" }, { name: "bytes", kind: "number", value: "200" }, { name: "device", kind: "text", value: "" }];
+  const fileRows = (): FieldRow[] => subsystem === "assets"
     ? [{ name: "mimeType", kind: "text", value: "application/json" }, { name: "size", kind: "number", value: "2000" }, { name: "channel", kind: "text", value: "production" }]
     : [{ name: "mimeType", kind: "text", value: "image/png" }, { name: "sizeBytes", kind: "number", value: "20000" }];
-  const [existing, setExisting] = useState<FieldRow[]>(storage ? fileRows() : []);
-  const [incoming, setIncoming] = useState<FieldRow[]>(storage ? fileRows() : []);
+  const [existing, setExisting] = useState<FieldRow[]>(subsystem === "realtime" ? listRows() : storage ? fileRows() : []);
+  const [incoming, setIncoming] = useState<FieldRow[]>(subsystem === "realtime" ? appendRows() : storage ? fileRows() : []);
   const [inputError, setInputError] = useState<string | null>(null);
 
   const showExisting = operation !== "Create";

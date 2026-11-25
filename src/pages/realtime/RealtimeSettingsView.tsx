@@ -51,7 +51,7 @@ export function RealtimeSettingsView() {
               </Group>
             </EditRow>
             <EditRow label="Keep closed lists" hint="Closed lists still read, then are deleted.">
-              <UnitInput label="Keep closed lists" unit="days" min={0} max={3650} value={d.retainClosedDays} onChange={(v) => st.setDraft({ ...d, retainClosedDays: num(v) })} />
+              <UnitInput label="Keep closed lists" unit="days" min={1} max={3650} value={d.retainClosedDays} onChange={(v) => st.setDraft({ ...d, retainClosedDays: num(v) })} />
             </EditRow>
             <EditRow label="Archive closed lists" hint={ARCHIVE_NOTE}>
               <Switch aria-label="Archive closed lists" checked={d.archiveClosedLists} onChange={(e) => st.setDraft({ ...d, archiveClosedLists: e.currentTarget.checked })} />
@@ -64,7 +64,7 @@ export function RealtimeSettingsView() {
         {d && (
           <>
             <EditRow label="Largest item">
-              <UnitInput label="Largest item" unit="KB" min={1} max={10240} value={d.maxItemKb} onChange={(v) => st.setDraft({ ...d, maxItemKb: num(v) })} />
+              <UnitInput label="Largest item" unit="KB" min={1} max={1024} value={d.maxItemKb} onChange={(v) => st.setDraft({ ...d, maxItemKb: num(v) })} />
             </EditRow>
             <EditRow label="Items in a list">
               <UnitInput label="Items in a list" unit="items" min={1} max={100_000_000} value={d.maxListItems} onChange={(v) => st.setDraft({ ...d, maxListItems: num(v) })} />

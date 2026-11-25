@@ -67,3 +67,22 @@ test("signed out with nothing there: auth and resource are null", async () => {
   await waitFor(() => expect(api.rulesSimulate).toHaveBeenCalledWith("database", expect.objectContaining({ operation: "Get", auth: null, existing: null, incoming: null })));
   expect(await within(dialog).findByText("Allowed")).toBeInTheDocument();
 });
+
+test("Realtime starts from what its rules see: the list's state, count and size, and an append's device", async () => {
+  (api.rulesSimulate as ReturnType<typeof vi.fn>).mockResolvedValue({ allowed: true, error: null });
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <SimulateDialog subsystem="realtime" rulesJson='{"draft":true}' opened onClose={() => {}} />
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByText("Create"));
+  await userEvent.type(within(dialog).getByLabelText("Path"), "sessions/s1");
+  await userEvent.type(within(dialog).getByLabelText("User id (request.auth.uid)"), "ann");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Simulate" }));
+  await waitFor(() => expect(api.rulesSimulate).toHaveBeenCalled());
+  const body = (api.rulesSimulate as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
+  expect(Object.keys(body.incoming).sort()).toEqual(["bytes", "count", "device"]);
+});

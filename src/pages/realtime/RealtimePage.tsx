@@ -17,6 +17,8 @@ import { surface } from "../../theme";
 
 const LISTS_PAGE = 50;
 const ITEMS_PAGE = 100;
+/** The server shows this much of an item's text (then "…"). */
+const TEXT_SHOWN = 4000;
 
 /**
  * Realtime: ordered lists devices write to and follow live, channels and presence. Here: the lists (open and closed)
@@ -137,9 +139,16 @@ function ListDialog({ path, onClose }: { path: string | null; onClose: () => voi
     queryKey: ["realtime-items", path],
     queryFn: ({ pageParam }) => api.realtimeItems(path!, pageParam, ITEMS_PAGE),
     initialPageParam: 0,
-    getNextPageParam: (last) => (last.items.length === ITEMS_PAGE ? last.items[last.items.length - 1].position : undefined),
+    // More only while the last item isn't the list's last: a list of exactly a page has nothing more to load.
+    getNextPageParam: (last) => {
+      const end = last.items.length > 0 ? last.items[last.items.length - 1].position : 0;
+      return last.items.length === ITEMS_PAGE && end < last.list.count ? end : undefined;
+    },
     enabled: !!path,
+    // An open list grows while it's looked at.
+    refetchInterval: (q) => (q.state.data?.pages[0]?.list?.state === "open" ? 5000 : false),
   });
+  const [expanded, setExpanded] = useState<number | null>(null);
   const list = items.data?.pages[0]?.list;
   const rows = items.data?.pages.flatMap((p) => p.items) ?? [];
   return (
@@ -165,15 +174,20 @@ function ListDialog({ path, onClose }: { path: string | null; onClose: () => voi
           </Table.Thead>
           <Table.Tbody>
             {rows.map((i) => (
-              <Table.Tr key={i.position} data-testid="realtime-item">
+              <Table.Tr key={i.position} data-testid="realtime-item" style={{ cursor: i.text != null ? "pointer" : undefined }}
+                onClick={() => i.text != null && setExpanded(expanded === i.position ? null : i.position)}>
                 <Table.Td><Text size="xs" c={surface.muted}>{i.position}</Text></Table.Td>
                 <Table.Td><Text size="xs" ff="monospace" truncate>{i.key ?? "—"}</Text></Table.Td>
                 <Table.Td><Text size="xs" truncate>{i.by ?? "—"}</Text></Table.Td>
                 <Table.Td><Text size="xs" c={surface.muted}>{when(i.at)}</Text></Table.Td>
                 <Table.Td>
-                  {i.text != null
-                    ? <Text size="xs" ff="monospace" lineClamp={2} title={i.text} style={{ wordBreak: "break-all" }}>{i.text}</Text>
-                    : <Text size="xs" c={surface.faint}>Binary · {bytes(i.size)}</Text>}
+                  {i.text == null ? <Text size="xs" c={surface.faint}>Binary · {bytes(i.size)}</Text>
+                    : expanded === i.position ? (
+                      <Stack gap={4}>
+                        <Text size="xs" ff="monospace" style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{i.text}</Text>
+                        {i.text.length > TEXT_SHOWN && <Text size="xs" c={surface.muted}>The first 4,000 characters of {bytes(i.size)}.</Text>}
+                      </Stack>
+                    ) : <Text size="xs" ff="monospace" lineClamp={2} title="Click to see it all" style={{ wordBreak: "break-all" }}>{i.text}</Text>}
                 </Table.Td>
               </Table.Tr>
             ))}

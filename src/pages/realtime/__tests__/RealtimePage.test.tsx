@@ -78,6 +78,43 @@ test("a list opens with its items as text; Load more reads after the last positi
   expect(within(dialog).queryByRole("button", { name: "Load more" })).toBeNull();
 });
 
+test("a list of exactly a page of items offers no Load more that would load nothing", async () => {
+  mock(api.realtimeLists).mockResolvedValue({ lists: [{ ...open, count: 100 }], next: null });
+  mock(api.realtimeItems).mockResolvedValue({ list: { ...open, count: 100 }, items: Array.from({ length: 100 }, (_, i) => item(i + 1)) });
+  renderIt(<ListsView />);
+  fireEvent.click(await screen.findByTestId("realtime-list"));
+  const dialog = await screen.findByTestId("realtime-list-dialog");
+  await waitFor(() => expect(within(dialog).getAllByTestId("realtime-item")).toHaveLength(100));
+  expect(within(dialog).queryByRole("button", { name: "Load more" })).toBeNull();
+});
+
+test("a long item opens in full when clicked, saying where it was cut", async () => {
+  const long = "x".repeat(4000) + "…";
+  mock(api.realtimeLists).mockResolvedValue({ lists: [closed], next: null });
+  mock(api.realtimeItems).mockResolvedValue({ list: closed, items: [{ ...item(1), text: long }] });
+  renderIt(<ListsView />);
+  fireEvent.click(await screen.findByTestId("realtime-list"));
+  const dialog = await screen.findByTestId("realtime-list-dialog");
+  fireEvent.click(await within(dialog).findByTestId("realtime-item"));
+  expect(await within(dialog).findByText(/first 4,000 characters/)).toBeInTheDocument();
+});
+
+test("an open list's items refresh while its dialog is open", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  try {
+    mock(api.realtimeLists).mockResolvedValue({ lists: [open], next: null });
+    mock(api.realtimeItems).mockResolvedValue({ list: open, items: [item(1)] });
+    renderIt(<ListsView />);
+    fireEvent.click(await screen.findByTestId("realtime-list"));
+    await screen.findByTestId("realtime-list-dialog");
+    await waitFor(() => expect(api.realtimeItems).toHaveBeenCalledTimes(1));
+    await vi.advanceTimersByTimeAsync(6000);
+    await waitFor(() => expect(mock(api.realtimeItems).mock.calls.length).toBeGreaterThan(1));
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 test("a list with no items: an empty state", async () => {
   mock(api.realtimeLists).mockResolvedValue({ lists: [open], next: null });
   mock(api.realtimeItems).mockResolvedValue({ list: { ...open, count: 0 }, items: [] });
