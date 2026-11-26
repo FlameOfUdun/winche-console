@@ -172,6 +172,7 @@ function ListDialog({ path, onClose }: { path: string | null; onClose: () => voi
     return () => clearInterval(timer);
   }, [polling, path, lastLoaded, qc]);
   const [expanded, setExpanded] = useState<number | null>(null);
+  useEffect(() => setExpanded(null), [path]);   // another list: nothing expanded in it
   const list = items.data?.pages[items.data.pages.length - 1]?.list ?? items.data?.pages[0]?.list;
   const rows = items.data?.pages.flatMap((p) => p.items) ?? [];
   return (

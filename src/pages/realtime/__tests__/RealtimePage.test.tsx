@@ -99,6 +99,24 @@ test("a long item opens in full when clicked, saying where it was cut", async ()
   expect(await within(dialog).findByText(/first 4,000 characters/)).toBeInTheDocument();
 });
 
+test("a row expanded in one list isn't expanded in the next list opened", async () => {
+  const long = "x".repeat(4000) + "…";
+  mock(api.realtimeLists).mockResolvedValue({ lists: [closed, { ...closed, path: "sessions/s9" }], next: null });
+  mock(api.realtimeItems).mockImplementation(async (path: string) => ({ list: { ...closed, path }, items: [{ ...item(1), text: long }] }));
+  renderIt(<ListsView />);
+  const [first, second] = await screen.findAllByTestId("realtime-list");
+  fireEvent.click(first);
+  let dialog = await screen.findByTestId("realtime-list-dialog");
+  fireEvent.click(await within(dialog).findByTestId("realtime-item"));
+  expect(await within(dialog).findByText(/first 4,000 characters/)).toBeInTheDocument();
+  fireEvent.keyDown(dialog, { key: "Escape" });
+  fireEvent.click(second);
+  dialog = await screen.findByTestId("realtime-list-dialog");
+  await within(dialog).findByTestId("realtime-item");
+  await waitFor(() => expect(api.realtimeItems).toHaveBeenCalledWith("sessions/s9", 0, 100));
+  expect(within(dialog).queryByText(/first 4,000 characters/)).toBeNull();
+});
+
 test("an open list's items refresh while its dialog is open", async () => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
   try {
