@@ -108,8 +108,13 @@ test("an open list's items refresh while its dialog is open", async () => {
     fireEvent.click(await screen.findByTestId("realtime-list"));
     await screen.findByTestId("realtime-list-dialog");
     await waitFor(() => expect(api.realtimeItems).toHaveBeenCalledTimes(1));
+    mock(api.realtimeItems).mockResolvedValue({ list: { ...open, count: 2 }, items: [item(2)] });
     await vi.advanceTimersByTimeAsync(6000);
-    await waitFor(() => expect(mock(api.realtimeItems).mock.calls.length).toBeGreaterThan(1));
+    // Only what came after the last item shown is asked for, and added: the loaded pages aren't read again.
+    await waitFor(() => expect(api.realtimeItems).toHaveBeenLastCalledWith("sessions/s1", 1, 100));
+    expect(mock(api.realtimeItems).mock.calls.filter((c) => c[1] === 0)).toHaveLength(1);
+    const dialog = await screen.findByTestId("realtime-list-dialog");
+    await waitFor(() => expect(within(dialog).getAllByTestId("realtime-item")).toHaveLength(2));
   } finally {
     vi.useRealTimers();
   }

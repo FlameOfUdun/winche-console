@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Group, Loader, Paper, ScrollArea, SegmentedControl, Stack, Table, Text, TextInput, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
 import { IconBroadcast, IconList, IconSearch } from "@tabler/icons-react";
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { api } from "../../api/client";
 import { errorMessage } from "../../api/appAuth";
 import { bytes } from "../../api/assets";
-import type { RealtimeList } from "../../api/realtime";
+import type { RealtimeItemsPage, RealtimeList } from "../../api/realtime";
 import { useSession } from "../../auth/session";
 import { ConfirmModal } from "../../components/ConfirmModal";
 import { EmptyState } from "../../components/EmptyState";
@@ -145,11 +145,33 @@ function ListDialog({ path, onClose }: { path: string | null; onClose: () => voi
       return last.items.length === ITEMS_PAGE && end < last.list.count ? end : undefined;
     },
     enabled: !!path,
-    // An open list grows while it's looked at.
-    refetchInterval: (q) => (q.state.data?.pages[0]?.list?.state === "open" ? 5000 : false),
   });
+  // An open list grows while it's looked at: every 5 s, only what came after the last item loaded is read and added as
+  // a page (the pages already loaded aren't read again). Only once every page is loaded: until then, Load more brings it.
+  const qc = useQueryClient();
+  const loaded = items.data?.pages.flatMap((p) => p.items) ?? [];
+  const lastLoaded = loaded.length > 0 ? loaded[loaded.length - 1].position : 0;
+  const open = items.data?.pages[items.data.pages.length - 1]?.list?.state === "open";
+  const polling = !!path && open && items.isSuccess && !items.hasNextPage;
+  useEffect(() => {
+    if (!polling || !path) return;
+    const timer = setInterval(async () => {
+      let page: RealtimeItemsPage;
+      try { page = await api.realtimeItems(path, lastLoaded, ITEMS_PAGE); } catch { return; }   // tried again in 5 s
+      qc.setQueryData<InfiniteData<RealtimeItemsPage, number>>(["realtime-items", path], (old) => {
+        if (!old) return old;
+        const known = old.pages[old.pages.length - 1].items;
+        const after = known.length > 0 ? known[known.length - 1].position : 0;
+        const added = page.items.filter((i) => i.position > after);
+        // New items as a page of their own; the list's state and count from the latest answer either way.
+        const pages = added.length > 0 ? [...old.pages, { ...page, items: added }] : [...old.pages.slice(0, -1), { ...old.pages[old.pages.length - 1], list: page.list }];
+        return { pages, pageParams: added.length > 0 ? [...old.pageParams, after] : old.pageParams };
+      });
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [polling, path, lastLoaded, qc]);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const list = items.data?.pages[0]?.list;
+  const list = items.data?.pages[items.data.pages.length - 1]?.list ?? items.data?.pages[0]?.list;
   const rows = items.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <ScrollDialog opened={!!path} onClose={onClose} size="xl" height={620} testId="realtime-list-dialog" ariaLabel={path ?? undefined}
