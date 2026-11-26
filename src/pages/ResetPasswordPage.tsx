@@ -14,21 +14,31 @@ export function ResetPasswordPage() {
   return <ChooseNewPassword code={code} />;
 }
 
+/** What to do when the removed method was the account's last way in. */
+const NEXT: Record<string, string> = {
+  resetPassword: "It was the only way to sign in left: we've emailed you a link to choose a new password.",
+  emailLink: "It was the only way to sign in left: sign in with a link sent to your email.",
+  admin: "It was the only way to sign in left: ask a server admin to set a new password for you.",
+  none: "It was the only way to sign in left: ask a server admin to help you back in.",
+};
+
 /** A "sign-in method added" email's link: removes it, and every device is signed out. */
 function RemoveSignInMethod({ code }: { code: string }) {
   const [done, setDone] = useState(false);
+  const [next, setNext] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const remove = async () => {
     setBusy(true); setError(null);
-    try { await api.removeSignInMethod(code); setDone(true); }
+    try { setNext((await api.removeSignInMethod(code))?.next ?? null); setDone(true); }
     catch { setError("This link isn't valid any more."); }
     finally { setBusy(false); }
   };
   if (done) {
     return (
       <AuthCard title="It's removed" icon={<Circle><IconCheck size={24} /></Circle>}>
-        <Text size="sm" ta="center">That sign-in method no longer signs in to your account, and every device has been signed out. If you didn't add it, change your password too.</Text>
+        <Text size="sm" ta="center">That sign-in method no longer signs in to your account, and every device has been signed out.</Text>
+        <Text size="sm" ta="center" data-testid="remove-next">{NEXT[next ?? ""] ?? "If you didn't add it, change your password too."}</Text>
         <Button size="md" component={Link} to="/">Continue to sign in</Button>
       </AuthCard>
     );

@@ -25,6 +25,13 @@ test("a 'sign-in method added' link asks, then removes it: never a password form
   expect(api.resetPassword).not.toHaveBeenCalled();
 });
 
+test("removing the last way in says how to get back: by email, or a server admin", async () => {
+  mock(api.removeSignInMethod).mockResolvedValue({ next: "admin" });
+  at("/reset-password?mode=unlinkProvider&code=abc");
+  await userEvent.click(screen.getByRole("button", { name: "Remove it" }));
+  expect(await screen.findByText(/ask a server admin to set a new password/)).toBeTruthy();
+});
+
 test("a reset link still asks for a new password", () => {
   at("/reset-password?mode=resetPassword&code=abc");
   expect(screen.getByLabelText("New password")).toBeTruthy();

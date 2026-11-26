@@ -194,7 +194,8 @@ export const api = {
   forgotPassword: (email: string) => http<void>("POST", "session/forgot-password", { email }),
   resetPassword: (code: string, newPassword: string) =>
     http<void>("POST", "session/reset-password", { code, newPassword }),
-  removeSignInMethod: (code: string) => http<void>("POST", "session/remove-sign-in-method", { code }),
+  /** Removes the sign-in method a "sign-in method added" email announced; `next` when it was the last way in. */
+  removeSignInMethod: (code: string) => http<{ next?: "resetPassword" | "emailLink" | "admin" | "none" | null }>("POST", "session/remove-sign-in-method", { code }),
   /** The signed-in account's sign-in methods: its password, and each identity provider on, linked or not. */
   signInMethods: () => http<{ password: boolean; providers: { id: string; label: string; linked: boolean }[] }>("GET", "session/sign-in-methods"),
   unlinkSignInMethod: (provider: string) => http<void>("DELETE", `session/sign-in-methods/${encodeURIComponent(provider)}`),
