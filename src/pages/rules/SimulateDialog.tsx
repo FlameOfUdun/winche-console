@@ -36,6 +36,26 @@ export function ruleLiteral(row: FieldRow): unknown {
 const plain = (row: FieldRow): unknown =>
   row.kind === "number" ? Number(row.value) : row.kind === "boolean" ? row.value === "true" : row.kind === "json" ? JSON.parse(row.value || "null") : row.value;
 
+/**
+ * A Realtime append as the server makes it: keys as a list ("ann:1, ann:2"), each key's device (before its ':') in
+ * devices, device when there's one, and no device at all (null) rather than an empty one.
+ */
+export function realtimeAppend(map: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...map };
+  if (typeof out.keys === "string") {
+    const keys = out.keys.split(",").map((k) => k.trim()).filter(Boolean);
+    if (keys.length === 0) delete out.keys;
+    else {
+      out.keys = keys;
+      const devices = [...new Set(keys.map((k) => (k.indexOf(":") > 0 ? k.slice(0, k.indexOf(":")) : k)))];
+      out.devices ??= devices;
+      if (out.device === undefined || out.device === "") out.device = devices.length === 1 ? devices[0] : undefined;
+    }
+  }
+  if (out.device === "" || out.device === undefined) delete out.device;
+  return out;
+}
+
 function rowsToMap(rows: FieldRow[], convert: (r: FieldRow) => unknown): Record<string, unknown> {
   return Object.fromEntries(rows.filter((r) => r.name.trim()).map((r) => [r.name.trim(), convert(r)]));
 }
@@ -106,7 +126,10 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
   const [exists, setExists] = useState(true);
   // Realtime: the list as its rules see it (resource), and an append (request.resource: how many, their size, whose device).
   const listRows = (): FieldRow[] => [{ name: "state", kind: "text", value: "open" }, { name: "count", kind: "number", value: "10" }, { name: "bytes", kind: "number", value: "2000" }];
-  const appendRows = (): FieldRow[] => [{ name: "count", kind: "number", value: "1" }, { name: "bytes", kind: "number", value: "200" }, { name: "device", kind: "text", value: "" }];
+  const appendRows = (): FieldRow[] => [
+    { name: "count", kind: "number", value: "1" }, { name: "bytes", kind: "number", value: "200" },
+    { name: "keys", kind: "text", value: "" }, { name: "device", kind: "text", value: "" },
+  ];
   const fileRows = (): FieldRow[] => subsystem === "assets"
     ? [{ name: "mimeType", kind: "text", value: "application/json" }, { name: "size", kind: "number", value: "2000" }, { name: "channel", kind: "text", value: "production" }]
     : [{ name: "mimeType", kind: "text", value: "image/png" }, { name: "sizeBytes", kind: "number", value: "20000" }];
@@ -126,7 +149,7 @@ export function SimulateDialog({ subsystem, rulesJson, opened, onClose }: {
         claims: { ...(email.trim() ? { email: email.trim(), email_verified: verified } : {}), ...rowsToMap(claims, plain) },
       } : null,
       existing: showExisting && exists ? rowsToMap(existing, ruleLiteral) : null,
-      incoming: showIncoming ? rowsToMap(incoming, ruleLiteral) : null,
+      incoming: showIncoming ? (subsystem === "realtime" ? realtimeAppend(rowsToMap(incoming, ruleLiteral)) : rowsToMap(incoming, ruleLiteral)) : null,
     }),
   });
   const run = () => {

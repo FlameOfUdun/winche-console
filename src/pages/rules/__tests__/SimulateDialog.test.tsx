@@ -84,5 +84,31 @@ test("Realtime starts from what its rules see: the list's state, count and size,
   await userEvent.click(within(dialog).getByRole("button", { name: "Simulate" }));
   await waitFor(() => expect(api.rulesSimulate).toHaveBeenCalled());
   const body = (api.rulesSimulate as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-  expect(Object.keys(body.incoming).sort()).toEqual(["bytes", "count", "device"]);
+  // No device given: none sent (as a real batch with no single device), not "".
+  expect(Object.keys(body.incoming).sort()).toEqual(["bytes", "count"]);
+});
+
+test("Realtime keys give the append's devices and device, as the server works them out", async () => {
+  (api.rulesSimulate as ReturnType<typeof vi.fn>).mockResolvedValue({ allowed: true, error: null });
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={new QueryClient()}>
+        <SimulateDialog subsystem="realtime" rulesJson='{"draft":true}' opened onClose={() => {}} />
+      </QueryClientProvider>
+    </MantineProvider>,
+  );
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.click(within(dialog).getByText("Create"));
+  await userEvent.type(within(dialog).getByLabelText("Path"), "sessions/s1");
+  await userEvent.type(within(dialog).getByLabelText("User id (request.auth.uid)"), "ann");
+  const incoming = within(dialog).getByTestId("incoming");
+  const names = within(incoming).getAllByLabelText("Field name") as HTMLInputElement[];
+  const keysRow = names.findIndex((n) => n.value === "keys");
+  await userEvent.type(within(incoming).getAllByLabelText("Value")[keysRow], "ann:1, ann:2");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Simulate" }));
+  await waitFor(() => expect(api.rulesSimulate).toHaveBeenCalled());
+  const body = (api.rulesSimulate as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
+  expect(body.incoming.keys).toEqual(["ann:1", "ann:2"]);
+  expect(body.incoming.devices).toEqual(["ann"]);
+  expect(body.incoming.device).toBe("ann");
 });
