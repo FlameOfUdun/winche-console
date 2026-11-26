@@ -6,9 +6,10 @@ import {
 } from "@mantine/core";
 import { IconPuzzle, IconBroadcast,
   IconDatabase, IconDeviceDesktop, IconFolder, IconHome, IconLambda, IconPackage, IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftExpand, IconListDetails, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconShieldCheck, IconSun,
+  IconLayoutSidebarLeftExpand, IconListDetails, IconLogin, IconLogout, IconMoon, IconServer, IconSettings, IconShield, IconShieldCheck, IconSun,
   IconUsers, IconWebhook, IconKey, IconUserCircle, IconFile,
 } from "@tabler/icons-react";
+import { SignInMethodsModal } from "./SignInMethods";
 import { TablerIcon } from "../components/TablerIcon";
 import { useQuery } from "@tanstack/react-query";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
@@ -134,6 +135,16 @@ function AccountMenu() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [twoFactorOpen, setTwoFactorOpen] = useState(false);
+  // Back from adding a provider (?signInMethods=1, and ?signInError= if it was refused): the dialog opens again.
+  const [methodsOpen, setMethodsOpen] = useState(() => new URLSearchParams(window.location.search).has("signInMethods"));
+  const [methodsError] = useState(() => new URLSearchParams(window.location.search).get("signInError"));
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    if (!q.has("signInMethods")) return;
+    q.delete("signInMethods"); q.delete("signInError");
+    window.history.replaceState(null, "", window.location.pathname + (q.size ? `?${q}` : ""));
+  }, []);
+  const providers = state?.oidc?.providers ?? [];
   const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
   const initials = (user?.firstName && user?.lastName ? user.firstName[0] + user.lastName[0] : (user?.email ?? "?").slice(0, 2)).toUpperCase();
   const onLogout = async () => {
@@ -155,6 +166,7 @@ function AccountMenu() {
           <Menu.Divider />
           {caps?.editProfile && <Menu.Item leftSection={<IconUserCircle size={15} />} onClick={() => setProfileOpen(true)}>Edit profile</Menu.Item>}
           {caps?.changePassword && <Menu.Item leftSection={<IconKey size={15} />} onClick={() => setPasswordOpen(true)}>Change password</Menu.Item>}
+          {providers.length > 0 && <Menu.Item leftSection={<IconLogin size={15} />} onClick={() => setMethodsOpen(true)}>Sign-in methods</Menu.Item>}
           {caps?.twoFactor && (
             <Menu.Item leftSection={<IconShield size={15} />} onClick={() => setTwoFactorOpen(true)}>
               {user?.twoFactorEnabled ? "Two-step sign-in: on" : "Set up two-step sign-in"}
@@ -167,6 +179,7 @@ function AccountMenu() {
       <ProfileModal opened={profileOpen} onClose={() => setProfileOpen(false)} />
       <PasswordModal opened={passwordOpen} onClose={() => setPasswordOpen(false)} />
       <TwoFactorModal opened={twoFactorOpen} onClose={() => setTwoFactorOpen(false)} />
+      <SignInMethodsModal opened={methodsOpen} onClose={() => setMethodsOpen(false)} error={methodsError} />
     </>
   );
 }

@@ -195,6 +195,9 @@ export const api = {
   resetPassword: (code: string, newPassword: string) =>
     http<void>("POST", "session/reset-password", { code, newPassword }),
   removeSignInMethod: (code: string) => http<void>("POST", "session/remove-sign-in-method", { code }),
+  /** The signed-in account's sign-in methods: its password, and each identity provider on, linked or not. */
+  signInMethods: () => http<{ password: boolean; providers: { id: string; label: string; linked: boolean }[] }>("GET", "session/sign-in-methods"),
+  unlinkSignInMethod: (provider: string) => http<void>("DELETE", `session/sign-in-methods/${encodeURIComponent(provider)}`),
   updateProfile: (body: { firstName?: string; lastName?: string }) => http<void>("PUT", "session/profile", body),
   changePassword: (currentPassword: string, newPassword: string) =>
     http<void>("POST", "session/password", { currentPassword, newPassword }),
