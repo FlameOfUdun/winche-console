@@ -18,6 +18,7 @@ export function ResetPasswordPage() {
 const NEXT: Record<string, string> = {
   resetPassword: "It was the only way to sign in left: we've emailed you a link to choose a new password.",
   emailLink: "It was the only way to sign in left: sign in with a link sent to your email.",
+  resetNotSent: "It was the only way to sign in left, and the email to choose a new password couldn't be sent just now: ask for a password reset from the sign-in page.",
   admin: "It was the only way to sign in left: ask a server admin to set a new password for you.",
   none: "It was the only way to sign in left: ask a server admin to help you back in.",
 };

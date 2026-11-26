@@ -156,6 +156,7 @@ function ListDialog({ path, onClose }: { path: string | null; onClose: () => voi
   useEffect(() => {
     if (!polling || !path) return;
     const timer = setInterval(async () => {
+      if (document.hidden) return;   // a tab out of sight waits: it reads on when it's seen again
       let page: RealtimeItemsPage;
       try { page = await api.realtimeItems(path, lastLoaded, ITEMS_PAGE); } catch { return; }   // tried again in 5 s
       qc.setQueryData<InfiniteData<RealtimeItemsPage, number>>(["realtime-items", path], (old) => {
