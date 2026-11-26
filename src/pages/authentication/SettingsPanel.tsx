@@ -364,14 +364,15 @@ export function HistorySection() {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [left, setLeft] = useState<string[]>([]);
 
   const confirm = async () => {
     if (!acting) return;
     setBusy(true);
     setError(null);
     try {
-      if (acting.kind === "restore") await authApi.restoreSettings(acting.id, reason.trim());
-      else await authApi.resetSettings(acting.area, reason.trim());
+      const done = acting.kind === "restore" ? await authApi.restoreSettings(acting.id, reason.trim()) : await authApi.resetSettings(acting.area, reason.trim());
+      setLeft(done?.secretsLeft ?? []);
       setActing(null);
       setReason("");
       for (const key of ["settings-history", "auth-providers", "app-auth-config", "user-directory", "app-users"]) await qc.invalidateQueries({ queryKey: [key] });
@@ -386,6 +387,11 @@ export function HistorySection() {
   const versions = history.data?.versions ?? [];
   return (
     <Stack gap="md">
+      {left.length > 0 && (
+        <Alert color="yellow" withCloseButton onClose={() => setLeft([])} data-testid="secrets-left">
+          Done. The web check secret of {left.join(", ")} couldn't be deleted where it's kept (AWS): delete it there. Nothing uses it any more.
+        </Alert>
+      )}
       {versions.length === 0 ? (
         <EmptyState icon={IconHistory} title="No changes yet" description="Saved changes show up here." />
       ) : (

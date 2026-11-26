@@ -235,6 +235,8 @@ export interface ProvidersSettings { trustWincheAuth: boolean; providers: Truste
 export interface SettingsVersionInfo {
   id: number; area: string; areaTitle: string; number: number; at: string; by: string | null; reason: string | null;
   restoredFrom: number | null; reset: boolean; current?: boolean;
+  /** Integrity apps the restore or reset took away whose web check secret couldn't be deleted where it's kept. */
+  secretsLeft?: string[];
 }
 
 export interface ProvidersResponse {
