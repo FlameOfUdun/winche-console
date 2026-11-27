@@ -116,7 +116,9 @@ export function authApi(base: string) {
         syncSecrets: pick(syncSecrets, "value"), syncSecretReferences: pick(syncSecrets, "reference"),
       }),
     testSignInEmail: async (settings: WincheAuthSettings, smtpPassword: string | null, to: string | null) =>
-      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, { settings, smtpPassword: secretToSend(smtpPassword).value ?? null, to }),
+      http<{ sentTo: string }>("POST", `${base}/settings/signin/testEmail`, {
+        settings, smtpPassword: secretToSend(smtpPassword).value ?? null, smtpPasswordReference: secretToSend(smtpPassword).reference ?? null, to,
+      }),
     appAuthConfig: () => http<AppAuthConfig>("GET", `${base}/config`),
     rotateAppAuthKeys: () => http<void>("POST", `${base}/keys/rotate`),
     keycloakSyncs: () => http<{ syncs: import("./appAuth").KeycloakSync[] }>("GET", `${base}/providers/sync`),
@@ -163,7 +165,9 @@ export const api = {
   serverSettingsHistory: () => http<{ versions: import("./server").ServerSettingsVersion[] }>("GET", "server/settings/history"),
   sendServerTestEmail: (to: string) => http<{ sentTo: string }>("POST", "server/console-email/test", { to }),
   testConsoleSignIn: async (settings: import("./server").ConsoleSignIn, clientSecret: string | null) =>
-    http<{ url: string; callbackUrl: string }>("POST", "server/console-sign-in/test", { settings, clientSecret: secretToSend(clientSecret).value ?? null }),
+    http<{ url: string; callbackUrl: string }>("POST", "server/console-sign-in/test", {
+      settings, clientSecret: secretToSend(clientSecret).value ?? null, clientSecretReference: secretToSend(clientSecret).reference ?? null,
+    }),
   dataLocation: () => http<import("./dataLocation").DataLocationInfo>("GET", "settings/location/database"),
   checkDataTarget: (t: import("./dataLocation").DataMoveTarget) => http<import("./dataLocation").DataMoveCheck>("POST", "settings/location/database/check", t),
   moveData: (t: import("./dataLocation").DataMoveTarget) => http<void>("POST", "settings/location/database/move", t),
