@@ -8,6 +8,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { errorMessage, providerLabel, statusOf, type AppUser, type DirectoryCapabilities, type UserStatus } from "../../api/appAuth";
 import { EmptyState } from "../../components/EmptyState";
+import { ConfirmModal } from "../../components/ConfirmModal";
 import { ScrollDialog } from "../../components/ScrollDialog";
 import { squareThumbnail } from "../../components/ProjectAvatar";
 import { IconSearch, IconUsers } from "@tabler/icons-react";
@@ -268,6 +269,7 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
   const [verified, setVerified] = useState(false);
   const [sendVerification, setSendVerification] = useState(true);
   const [password, setPassword] = useState("");
+  const [removingPhoto, setRemovingPhoto] = useState(false);
   useEffect(() => { setDisplayName(u.displayName ?? ""); setPhotoUrl(u.photoUrl ?? ""); setEmail(u.email ?? ""); }, [u.displayName, u.photoUrl, u.email]);
   const canProfile = !readOnly && !!caps?.profile;
   // Keycloak keeps no photos, so its users' photos are set here too.
@@ -291,6 +293,10 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
 
   return (
     <Stack gap="lg">
+      <ConfirmModal opened={removingPhoto} title="Remove the photo?" confirmLabel="Remove photo"
+        message="The photo they uploaded is deleted for good; they can upload another."
+        onConfirm={() => { setRemovingPhoto(false); void run(() => authApi.removeAppUserPhoto(uid), "Photo removed."); }}
+        onCancel={() => setRemovingPhoto(false)} />
       <Stack gap="xs">
         <Title order={6}>Name and photo</Title>
         <Group align="flex-start" gap="md" wrap="nowrap">
@@ -306,8 +312,7 @@ function ProfileTab({ user: u, uid, busy, run, readOnly, caps, consoleAccounts }
                   {(props) => <Button {...props} size="compact-xs" variant="default" loading={busy}>{u.photoSource === "upload" ? "Replace" : "Upload"}</Button>}
                 </FileButton>
                 {u.photoSource === "upload" && (
-                  <Button size="compact-xs" variant="subtle" color="gray" disabled={busy}
-                    onClick={() => run(() => authApi.removeAppUserPhoto(uid), "Photo removed.")}>Remove</Button>
+                  <Button size="compact-xs" variant="subtle" color="gray" disabled={busy} onClick={() => setRemovingPhoto(true)}>Remove</Button>
                 )}
               </>
             )}

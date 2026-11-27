@@ -537,6 +537,10 @@ test("a user's photo: where it came from; uploaded (shrunk first) or removed", a
   await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
   const again = await screen.findByRole("dialog");
   expect(within(again).getByTestId("photo-source")).toHaveTextContent("Uploaded");
+  // Removing asks first (an uploaded photo is deleted for good).
   await userEvent.click(within(again).getByRole("button", { name: "Remove" }));
+  expect(api.removeAppUserPhoto).not.toHaveBeenCalled();
+  const ask = await screen.findByRole("dialog", { name: "Remove the photo?" });
+  await userEvent.click(within(ask).getByRole("button", { name: "Remove photo" }));
   await waitFor(() => expect(api.removeAppUserPhoto).toHaveBeenCalledWith(uploaded.uid));
 });
