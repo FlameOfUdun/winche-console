@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Group, NumberInput, Paper, Text } from "@mantine/core";
+import { NumberInput, Paper, Text } from "@mantine/core";
 import { surface } from "../theme";
 
 /** Settings as rows in one card, divided by hairlines. */
@@ -9,25 +9,6 @@ export function SettingsCard({ children, title }: { children: ReactNode; title?:
       {title && <Text fw={600} size="sm" px="md" pt="sm" pb={4} c={surface.muted} tt="uppercase" fz={11} style={{ letterSpacing: "0.04em" }}>{title}</Text>}
       <div className="winche-setting-rows">{children}</div>
     </Paper>
-  );
-}
-
-/** One setting: an icon, its name, and its control on the right. */
-export function SettingRow({ icon: Icon, label, children, dimmed = false, testId }: {
-  icon: React.ElementType; label: ReactNode; children: ReactNode; dimmed?: boolean; testId?: string;
-}) {
-  return (
-    <Group justify="space-between" wrap="nowrap" gap="md" px="md" py={12} className="winche-setting-row" data-testid={testId}
-      style={{ opacity: dimmed ? 0.5 : 1, transition: "opacity 120ms" }}>
-      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-        <div style={{ width: 32, height: 32, borderRadius: 8, display: "grid", placeItems: "center", flexShrink: 0,
-          background: "var(--w-accent-soft)", color: "var(--w-accent)" }}>
-          <Icon size={17} stroke={1.8} />
-        </div>
-        <Text size="sm" fw={500}>{label}</Text>
-      </Group>
-      <div style={{ flexShrink: 0 }}>{children}</div>
-    </Group>
   );
 }
 

@@ -190,14 +190,3 @@ export function versionLine(d: { source: string; version: { number: number; at: 
   return "";
 }
 
-/** A group of fields; with no title, just the box. */
-export function Section({ title, children }: { title?: string; children: ReactNode }) {
-  return (
-    <Paper withBorder p="md">
-      <Stack gap="sm">
-        {title && <Text fw={600}>{title}</Text>}
-        {children}
-      </Stack>
-    </Paper>
-  );
-}
