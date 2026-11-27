@@ -231,6 +231,11 @@ test("email templates: edit with a live preview, save, test and reset", async ()
   expect(screen.getByTestId("preview-subject")).toHaveTextContent("Reset your MyApp password");
   expect(screen.getByText("Choose a new password")).toBeInTheDocument();   // the link as a button
   expect(screen.getByText(/Sent with SesEmailSender/)).toBeInTheDocument();
+  // Only the placeholders this email has (a reset has no new address, no provider).
+  const placeholders = screen.getByText(/^Placeholders:/);
+  expect(placeholders).toHaveTextContent("%EMAIL%");
+  expect(placeholders).not.toHaveTextContent("%NEW_EMAIL%");
+  expect(placeholders).not.toHaveTextContent("%PROVIDER%");
 
   await userEvent.click(screen.getByText("Send me a test"));
   expect(await screen.findByText("Sent to admin@winche.local.")).toBeInTheDocument();

@@ -146,6 +146,10 @@ export interface EmailTemplateInfo {
 
 export const PLACEHOLDERS = ["%LINK%", "%EMAIL%", "%APP_NAME%", "%DISPLAY_NAME%", "%NEW_EMAIL%", "%PROVIDER%"];
 
+/** The placeholders an email of <kind> fills: the new address only when it changed, the provider only when one was added. */
+export const placeholdersFor = (kind: string) =>
+  PLACEHOLDERS.filter((p) => (p !== "%NEW_EMAIL%" || kind === "emailChanged") && (p !== "%PROVIDER%" || kind === "providerLinked"));
+
 /** The template with sample values, as the reader would see it (the link is shown as a button by the preview). */
 export function fillTemplate(text: string, appName: string, kind: string): string {
   return text

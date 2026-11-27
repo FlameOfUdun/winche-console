@@ -2,7 +2,7 @@ import { useAuthApi } from "./authScope";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Anchor, Badge, Button, Group, Loader, Paper, Stack, Text, TextInput, Textarea, Title, UnstyledButton } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { errorMessage, fillTemplate, PLACEHOLDERS, type EmailTemplateInfo } from "../../api/appAuth";
+import { errorMessage, fillTemplate, placeholdersFor, type EmailTemplateInfo } from "../../api/appAuth";
 import { when } from "./UsersView";
 import { surface } from "../../theme";
 
@@ -90,7 +90,7 @@ export function EmailTemplatesView() {
                 <TextInput label="Subject" value={subject} onChange={(e) => setSubject(e.currentTarget.value)} />
                 <Textarea label="Message" autosize minRows={8} value={body} onChange={(e) => setBody(e.currentTarget.value)} />
                 <Text size="xs" c="dimmed">
-                  Placeholders: {PLACEHOLDERS.join(" · ")}. A line with only %LINK% becomes a button. The link works for {current.linkLifetime}.
+                  Placeholders: {placeholdersFor(current.kind).join(" · ")}. A line with only %LINK% becomes a button. The link works for {current.linkLifetime}.
                 </Text>
                 {current.isCustom && current.updatedAt && (
                   <Text size="xs" c="dimmed">Edited {when(current.updatedAt)}{current.updatedBy ? ` by ${current.updatedBy}` : ""}.</Text>
