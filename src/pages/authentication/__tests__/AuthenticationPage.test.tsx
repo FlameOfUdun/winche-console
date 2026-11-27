@@ -542,6 +542,9 @@ test("a user's photo: where it came from; uploaded (shrunk first) or removed", a
   await userEvent.click((await screen.findAllByTestId("app-user"))[0]);
   const again = await screen.findByRole("dialog");
   expect(within(again).getByTestId("photo-source")).toHaveTextContent("Uploaded");
+  // The dialog says when the user was made, and never guesses where the app keeps their data.
+  expect(within(again).queryByText(/users\//)).toBeNull();
+  expect(within(again).getByText(/^Created /)).toBeInTheDocument();
   // Removing asks first (an uploaded photo is deleted for good).
   await userEvent.click(within(again).getByRole("button", { name: "Remove" }));
   expect(api.removeAppUserPhoto).not.toHaveBeenCalled();

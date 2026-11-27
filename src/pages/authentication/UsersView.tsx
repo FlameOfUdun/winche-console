@@ -2,7 +2,7 @@ import { useAuthApi, useAuthScope } from "./authScope";
 import { api } from "../../api/client";
 import { useEffect, useState } from "react";
 import {
-  Alert, Avatar, Badge, Button, Code, CopyButton, FileButton, Group, Loader, Modal, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Tabs, Text,
+  Alert, Avatar, Badge, Button, CopyButton, FileButton, Group, Loader, Modal, Paper, PasswordInput, SegmentedControl, Stack, Switch, Table, Tabs, Text,
   Textarea, TextInput, Title,
 } from "@mantine/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -167,7 +167,7 @@ function UserDialog({ uid, onClose }: { uid: string | null; onClose: () => void 
     <ScrollDialog opened={!!uid} onClose={onClose} size="xl" ariaLabel={u ? `User: ${name}` : "User"}
       footer={u && detail.data ? (
         <Group justify="space-between" wrap="wrap" gap="xs" style={{ flex: 1 }}>
-          <Text size="xs" c="dimmed">Their data: <Code fz="xs">users/{u.uid}</Code> and wherever your rules keep it. Created {when(u.createdAt)}.</Text>
+          <Text size="xs" c="dimmed">Created {when(u.createdAt)}.</Text>
           {!fromKeycloak && can("delete") && (confirmDelete ? (
             <Group gap="xs">
               <Text size="xs">Delete {u.email ?? u.uid}? Their sign-in goes; their data stays.</Text>
