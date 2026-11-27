@@ -24,6 +24,8 @@ export function PackagePage() {
     <><PageBand title={name}>{back}</PageBand><Alert color="red" style={{ whiteSpace: "pre-line" }} title="This package can't be shown">{errorWithList(pkg.error)}</Alert></>
   );
   const p = pkg.data, m = p.manifest, about = p.about;
+  // A package says where its homepage and source are: links only to web addresses (never javascript: or the like).
+  const homepage = webAddress(about?.homepage), repository = webAddress(about?.repository);
   const curated = p.curated === true;
   const copies = (installed.data?.plugins ?? []).filter((x) => x.package === p.package);
   return (
@@ -38,8 +40,8 @@ export function PackagePage() {
           {about?.author && <Text size="sm" c="dimmed">by {about.author}</Text>}
           {about?.license && <Badge variant="light" color="gray" tt="none">{about.license}</Badge>}
           <CatalogBadge curated={curated} />
-          {about?.homepage && <Anchor href={about.homepage} target="_blank" rel="noreferrer noopener" size="sm"><Group gap={3}>Homepage<IconExternalLink size={13} /></Group></Anchor>}
-          {about?.repository && about.repository !== about.homepage && <Anchor href={about.repository} target="_blank" rel="noreferrer noopener" size="sm"><Group gap={3}>Source<IconExternalLink size={13} /></Group></Anchor>}
+          {homepage && <Anchor href={homepage} target="_blank" rel="noreferrer noopener" size="sm"><Group gap={3}>Homepage<IconExternalLink size={13} /></Group></Anchor>}
+          {repository && repository !== homepage && <Anchor href={repository} target="_blank" rel="noreferrer noopener" size="sm"><Group gap={3}>Source<IconExternalLink size={13} /></Group></Anchor>}
         </Group>
       </PageBand>
       <div style={{ paddingBottom: 28 }}>
@@ -91,4 +93,10 @@ export function PackagePage() {
       </div>
     </>
   );
+}
+
+/** The address when it's http(s), else null. */
+export function webAddress(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try { return ["http:", "https:"].includes(new URL(url).protocol) ? url : null; } catch { return null; }
 }

@@ -120,6 +120,14 @@ test("a package's page: its README as markdown (no raw HTML), what it does and c
   expect(screen.getByRole("link", { name: /Install/ })).toHaveAttribute("href", `/plugins/install?name=${encodeURIComponent(PKG)}&version=1.0.0`);
 });
 
+test("a package's homepage and source are links only when they're web addresses", async () => {
+  mock(api.pluginPackage).mockResolvedValue({ package: PKG, version: "1.0.0", manifest, curated: true,
+    about: { description: null, author: "Acme", homepage: "javascript:alert(1)", repository: "https://github.com/acme/calls", license: "MIT", readme: null } });
+  renderAt(`/plugins/browse/package?name=${encodeURIComponent(PKG)}`);
+  expect(await screen.findByRole("link", { name: /Source/ })).toHaveAttribute("href", "https://github.com/acme/calls");
+  expect(screen.queryByRole("link", { name: /Homepage/ })).toBeNull();
+});
+
 test("installing step by step: a setting shown and needed only when another says so, then its secret", async () => {
   renderAt(`/plugins/install?name=${encodeURIComponent(PKG)}`);
   await userEvent.click(await screen.findByRole("button", { name: "Next" }));
