@@ -49,10 +49,10 @@ export function realtimeAppend(map: Record<string, unknown>): Record<string, unk
       out.keys = keys;
       const devices = [...new Set(keys.map((k) => (k.indexOf(":") > 0 ? k.slice(0, k.indexOf(":")) : k)))];
       out.devices ??= devices;
-      if (out.device === undefined || out.device === "") out.device = devices.length === 1 ? devices[0] : undefined;
+      if (out.device === undefined || out.device === "") out.device = devices.length === 1 ? devices[0] : null;
     }
   }
-  if (out.device === "" || out.device === undefined) delete out.device;
+  if (out.device === "" || out.device === undefined) out.device = null;   // no single device: null, as the server sends
   return out;
 }
 

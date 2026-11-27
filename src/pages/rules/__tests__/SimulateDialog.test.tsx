@@ -84,8 +84,9 @@ test("Realtime starts from what its rules see: the list's state, count and size,
   await userEvent.click(within(dialog).getByRole("button", { name: "Simulate" }));
   await waitFor(() => expect(api.rulesSimulate).toHaveBeenCalled());
   const body = (api.rulesSimulate as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-  // No device given: none sent (as a real batch with no single device), not "".
-  expect(Object.keys(body.incoming).sort()).toEqual(["bytes", "count"]);
+  // No device given: null (as a real batch with no single device), not "".
+  expect(Object.keys(body.incoming).sort()).toEqual(["bytes", "count", "device"]);
+  expect(body.incoming.device).toBeNull();
 });
 
 test("Realtime keys give the append's devices and device, as the server works them out", async () => {
