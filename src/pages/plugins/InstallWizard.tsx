@@ -43,8 +43,9 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{ version: number } | null>(null);
-  // Installed, but not every secret saved yet: trying again sends only the unsaved secrets, never a second install.
-  const [installed, setInstalled] = useState<{ version: number; saved: string[] } | null>(null);
+  // Installed, but not every secret saved yet: trying again never installs twice; it sends what changed since (settings
+  // changed going back, secrets not saved yet or typed again), as last sent.
+  const [installed, setInstalled] = useState<{ version: number; settings: string; saved: Record<string, string> } | null>(null);
   const idProblem = !ID_RULE.test(id) ? "Lowercase letters, digits and -, starting with a letter (up to 30)."
     : !installed && taken.includes(id) ? "A plugin is already installed with this id." : null;
   const missing = missingSettings(m.settings, values);
@@ -58,14 +59,19 @@ function Wizard({ info, taken, back }: { info: PluginPackageInfo; taken: string[
     setBusy(true); setError(null);
     try {
       let r = installed;
+      const settings = toSend(values), sent = JSON.stringify(settings);
       if (!r) {
-        r = { version: (await api.installPlugin({ id, package: info.package, version: info.version, settings: toSend(values) })).version, saved: [] };
+        r = { version: (await api.installPlugin({ id, package: info.package, version: info.version, settings })).version, settings: sent, saved: {} };
+        setInstalled(r);
+      } else if (r.settings !== sent) {
+        r = { ...r, version: (await api.configurePlugin(id, settings)).version, settings: sent };
         setInstalled(r);
       }
       for (const s of asked) {
-        if (!secretTyped(secrets[s.name]) || r.saved.includes(s.name)) continue;
-        await api.setFunctionSecret(secretFor(id, s.name), secrets[s.name]);
-        r = { ...r, saved: [...r.saved, s.name] };
+        const typed = secrets[s.name];
+        if (!secretTyped(typed) || r.saved[s.name] === typed) continue;
+        await api.setFunctionSecret(secretFor(id, s.name), typed);
+        r = { ...r, saved: { ...r.saved, [s.name]: typed } };
         setInstalled(r);
       }
       await qc.invalidateQueries({ queryKey: ["plugins"] });

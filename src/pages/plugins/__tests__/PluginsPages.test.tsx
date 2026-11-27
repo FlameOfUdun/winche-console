@@ -195,6 +195,40 @@ test("installing: a secret that fails to save after the install; trying again se
   expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("CALLS__SIGNING", "sig-1");
 });
 
+test("installing: after a failed secret, a setting changed going back and a saved secret edited are both sent on the retry", async () => {
+  mock(api.pluginPackage).mockResolvedValue({ package: PKG, version: "1.0.0", curated: true, about: null,
+    manifest: { ...manifest, secrets: [...manifest.secrets, { name: "SIGNING", label: "Signing key", description: null, required: false }] } });
+  mock(api.setFunctionSecret).mockImplementation(async (name: string) => { if (name === "CALLS__SIGNING") throw new Error("Can't write to AWS"); });
+  mock(api.configurePlugin).mockResolvedValue({ version: 2, note: "" });
+  renderAt(`/plugins/install?name=${encodeURIComponent(PKG)}`);
+  await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+  await userEvent.type(screen.getByLabelText(/^Account/), "AC1");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.type(screen.getByLabelText(/Auth token/), "tok-1");
+  await userEvent.type(screen.getByLabelText(/Signing key/), "sig-1");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.click(screen.getByRole("button", { name: "Install Calls" }));
+  expect(await screen.findByText(/Can't write to AWS/)).toBeInTheDocument();
+
+  // Back: the account changed, and the token (already saved) typed again.
+  await userEvent.click(screen.getByRole("button", { name: "Back" }));
+  await userEvent.click(screen.getByRole("button", { name: "Back" }));
+  await userEvent.clear(screen.getByLabelText(/^Account/));
+  await userEvent.type(screen.getByLabelText(/^Account/), "AC2");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  await userEvent.clear(screen.getByLabelText(/Auth token/));
+  await userEvent.type(screen.getByLabelText(/Auth token/), "tok-2");
+  await userEvent.click(screen.getByRole("button", { name: "Next" }));
+  mock(api.setFunctionSecret).mockClear();
+  mock(api.setFunctionSecret).mockResolvedValue(undefined);
+  await userEvent.click(screen.getByRole("button", { name: /Install Calls|Save secrets/ }));
+  expect(await screen.findByText("Calls is installed as calls")).toBeInTheDocument();
+  expect(mock(api.installPlugin)).toHaveBeenCalledTimes(1);
+  expect(mock(api.configurePlugin)).toHaveBeenCalledWith("calls", expect.objectContaining({ ACCOUNT: "AC2" }));
+  expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("CALLS__TOKEN", "tok-2");
+  expect(mock(api.setFunctionSecret)).toHaveBeenCalledWith("CALLS__SIGNING", "sig-1");
+});
+
 test("an installed copy: its setup steps with its own addresses and settings, what it needs, its history", async () => {
   mock(api.plugins).mockResolvedValue({ plugins: [installed], functionsUrl: "https://api.example.com/projects/demo/functions/v1/http" });
   mock(api.pluginHistory).mockResolvedValue({ history: [
