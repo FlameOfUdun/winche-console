@@ -89,6 +89,16 @@ test("the project's own pages are listed under Project pages", async () => {
   expect(screen.getByRole("link", { name: /Weekly reports/ })).toHaveAttribute("href", "/pages/reports");
 });
 
+test("Functions and Plugins are in the sidebar for admins only (the server lets only admins use them)", async () => {
+  const { projectNav } = await import("../nav");
+  const labels = (role: string) => projectNav({ capabilities: { functions: true } } as never, { role } as never).map((n) => n.label);
+  expect(labels("Admin")).toEqual(expect.arrayContaining(["Functions", "Plugins"]));
+  for (const role of ["Member", "Viewer"]) {
+    expect(labels(role)).not.toContain("Functions");
+    expect(labels(role)).not.toContain("Plugins");
+  }
+});
+
 test("Integrity is in the sidebar for anyone with a role where it's set up", async () => {
   const { projectNav } = await import("../nav");
   const labels = (integrity: boolean, role: string) =>

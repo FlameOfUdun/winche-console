@@ -65,9 +65,9 @@ export function projectNav(state: AuthState | null, user: SessionUser | null, fa
   if (c?.storage) out.push({ to: "/storage", label: "Storage", icon: "folder", group: "build", pages: productPages("/storage", "storage", "Files") });
   if (c?.assets) out.push({ to: "/assets", label: "Assets", icon: "assets", group: "build", pages: productPages("/assets", "assets", "Files") });
   if (c?.realtime) out.push({ to: "/realtime", label: "Realtime", icon: "realtime", group: "build", pages: productPages("/realtime", "realtime", "Lists") });
-  if (c?.functions) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
-  // Plugins: ready-made functions (installed copies, browsing, a page each); they need functions.
-  if (c?.functions) out.push({ to: "/plugins", label: "Plugins", icon: "plugins", group: "build", pages: [] });
+  // Functions and plugins (ready-made functions, with their secrets): admins only, as the server allows.
+  if (c?.functions && admin) out.push({ to: "/functions", label: "Functions", icon: "functions", group: "build", pages: [] });
+  if (c?.functions && admin) out.push({ to: "/plugins", label: "Plugins", icon: "plugins", group: "build", pages: [] });
   // The project's API keys and passwords: its own, the products', and where they can be read from (admins).
   if (admin) out.push({ to: "/secrets", label: "Secrets", icon: "key", group: "build", pages: [] });
   // The project's apps, and proof that requests come from them (with project setup).
