@@ -1,3 +1,4 @@
+import { placeholdersFor } from "../../../api/appAuth";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MantineProvider } from "@mantine/core";
@@ -236,6 +237,8 @@ test("email templates: edit with a live preview, save, test and reset", async ()
   expect(placeholders).toHaveTextContent("%EMAIL%");
   expect(placeholders).not.toHaveTextContent("%NEW_EMAIL%");
   expect(placeholders).not.toHaveTextContent("%PROVIDER%");
+  expect(placeholdersFor("verifyEmail")).not.toContain("%DISPLAY_NAME%");
+  expect(placeholdersFor("resetPassword")).toContain("%DISPLAY_NAME%");
 
   await userEvent.click(screen.getByText("Send me a test"));
   expect(await screen.findByText("Sent to admin@winche.local.")).toBeInTheDocument();
